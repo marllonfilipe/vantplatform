@@ -28,7 +28,7 @@ test('indicadores e navegação em Chromium com PostgreSQL',async()=>{
   await page.getByRole('heading',{name:'Funil comercial'}).waitFor();
   const overview=await page.evaluate(async()=>{const r=await fetch('/api/v1/dashboard?days=7');return r.json();});
   assert.equal(overview.totals.leads,1);assert.equal(overview.totals.pending,1);assert.equal(overview.totals.overdue,1);assert.equal(overview.trend.length,7);
-  await page.getByLabel('Período').selectOption('7');await page.getByRole('heading',{name:'Evolução de oportunidades'}).waitFor();
+  await page.getByLabel('Período',{exact:true}).selectOption('7');await page.getByRole('heading',{name:'Evolução de oportunidades'}).waitFor();
   await page.getByLabel('Busca global').fill('Conta Alfa');await page.getByRole('button',{name:'Buscar',exact:true}).click();await page.getByText('Conta Alfa',{exact:true}).waitFor();await page.getByRole('button',{name:'Fechar'}).click();
   await page.getByRole('button',{name:'Equipe',exact:true}).click();await page.getByRole('button',{name:'Criar equipe'}).click();await page.getByLabel('Nome da equipe').fill('Sul');await page.getByRole('button',{name:'Salvar'}).click();await page.getByText('Sul',{exact:true}).last().waitFor();
   await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Alternar navegação'}).click();await page.getByRole('button',{name:'Próximas tarefas'}).click();await page.getByText('Ligar para a conta').waitFor();
