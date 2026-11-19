@@ -2,13 +2,13 @@ export class ApiError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
 export function reject(status, code, message) { throw new ApiError(status,code,message); }
-export async function readJson(req) {
+export async function readJson(req,maximum=65536) {
   if (req.headers['content-type']?.split(';')[0].trim() !== 'application/json') reject(415,'media_type','Use application/json.');
   let length=0;
   const parts=[];
   for await (const part of req) {
     length+=part.length;
-    if (length>65536) reject(413,'too_large','Corpo excede o limite.');
+    if (length>maximum) reject(413,'too_large','Corpo excede o limite.');
     parts.push(part);
   }
   let value;

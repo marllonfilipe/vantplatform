@@ -27,8 +27,8 @@ export async function dashboardRoutes({db,member,url,method}) {
  const base=`WITH owners AS (SELECT id FROM vant.members m WHERE active AND ($3::uuid IS NULL OR m.id=$3)
      AND ($2::uuid IS NULL OR EXISTS (SELECT FROM vant.team_members tm WHERE tm.member_id=m.id AND tm.team_id=$2))),
    bounds AS (SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date-($1::int-1))::timestamp AT TIME ZONE 'America/Sao_Paulo' AS since),
-   l AS (SELECT * FROM vant.leads WHERE owner_id IN (SELECT id FROM owners)),
-   d AS (SELECT * FROM vant.deals WHERE owner_id IN (SELECT id FROM owners)),
+   l AS (SELECT * FROM vant.leads WHERE owner_id IN (SELECT id FROM owners) OR (team_id=$2 AND ($3::uuid IS NULL OR owner_id=$3))),
+   d AS (SELECT * FROM vant.deals WHERE owner_id IN (SELECT id FROM owners) OR (team_id=$2 AND ($3::uuid IS NULL OR owner_id=$3))),
    a AS (SELECT * FROM vant.activities WHERE owner_id IN (SELECT id FROM owners)) `;
  const q=async sql=>(await db.query(base+sql,parameters)).rows;
  const [totals]=await q(`SELECT (SELECT count(*)::int FROM l) AS leads,

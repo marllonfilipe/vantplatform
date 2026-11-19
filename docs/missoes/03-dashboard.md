@@ -7,3 +7,5 @@ O período filtra novos leads, receita fechada, conversão e séries temporais. 
 ## Validação
 
 Executar bash scripts/ci.sh no runner descrito em .github/workflows/fundacao.yml. A suíte do dashboard valida agregados com registros persistidos de duas empresas, acesso ao dashboard pelo navegador, alteração de período, resultado de busca, layout móvel e encerramento de sessão. A página inicial é /. Para reproduzir com tenant próprio, seguir docs/infraestrutura.md. Uma conta recém-criada exibe totais zerados. Recomendações dependem das análises que serão produzidas pelo Core.
+
+Validação concluída em [GitHub Actions](https://github.com/marllonfilipe/vantplatform/actions/runs/44596783017).

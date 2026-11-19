@@ -71,7 +71,7 @@ export function createApp({pool,origin,environment='development',featureRoutes,s
       }
       const session=cookieValue(req);
       if (!session) reject(401,'session','Entre para continuar.');
-      const body=['POST','PUT','PATCH'].includes(req.method) && path!=='/api/v1/auth/logout' ? await readJson(req) : {};
+      const body=['POST','PUT','PATCH'].includes(req.method) && path!=='/api/v1/auth/logout' ? await readJson(req,path.endsWith('/files')?2900000:path.endsWith('/import')?650000:65536) : {};
       const result=await withTenant(pool,session.tenant,async db=>{
         const {rows}=await db.query(`SELECT m.id,m.email,m.name,m.role,t.name AS tenant_name
           FROM vant.sessions s JOIN vant.members m ON (m.tenant_id,m.id)=(s.tenant_id,s.member_id)
