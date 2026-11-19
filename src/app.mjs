@@ -1,3 +1,4 @@
+import {evolutionWebhook} from './wa-events.mjs';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { audit, withTenant } from './db.mjs';
@@ -32,11 +33,12 @@ export function createApp({pool,origin,environment='development',featureRoutes,s
     res.setHeader('X-Request-Id',requestId);
     res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; img-src 'self' data: blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     res.setHeader('Cache-Control','no-store');
     const url=new URL(req.url,'http://localhost');
     const path=url.pathname;
     try {
+      if (await evolutionWebhook(req,res,path,pool)) return;
       if (req.method==='GET' && path==='/health/live') return respond(res,200,{status:'live'});
       if (req.method==='GET' && path==='/health/ready') {
         await pool.query('SELECT id FROM vant.tenants LIMIT 0');
@@ -71,7 +73,7 @@ export function createApp({pool,origin,environment='development',featureRoutes,s
       }
       const session=cookieValue(req);
       if (!session) reject(401,'session','Entre para continuar.');
-      const body=['POST','PUT','PATCH'].includes(req.method) && path!=='/api/v1/auth/logout' ? await readJson(req,path.endsWith('/files')?2900000:path.endsWith('/import')?650000:65536) : {};
+      const body=['POST','PUT','PATCH'].includes(req.method) && path!=='/api/v1/auth/logout' ? await readJson(req,path.startsWith('/api/v1/inbox/')&&path.endsWith('/messages')?5700000:path.endsWith('/files')?2900000:path.endsWith('/import')?650000:65536) : {};
       const result=await withTenant(pool,session.tenant,async db=>{
         const {rows}=await db.query(`SELECT m.id,m.email,m.name,m.role,t.name AS tenant_name
           FROM vant.sessions s JOIN vant.members m ON (m.tenant_id,m.id)=(s.tenant_id,s.member_id)
@@ -101,13 +103,13 @@ export function createApp({pool,origin,environment='development',featureRoutes,s
           return [201,rows[0]];
         }
         if (featureRoutes) {
-          const response=await featureRoutes({db,tenant,member,requestId,url,method:req.method,body});
+          const response=await featureRoutes({db,pool,tenant,member,requestId,url,method:req.method,body});
           if (response) return response;
         }
         reject(404,'missing','Recurso não encontrado.');
       });
       if (path==='/api/v1/auth/logout' && req.method==='POST') res.setHeader('Set-Cookie',sessionCookie('',secure,0));
-      respond(res,...result);
+      respond(res,...(typeof result==='function'?await result():result));
     } catch (err) {
       const mapped=err instanceof ApiError ? [err.status,err.code,err.message] :
         err.code==='23505' ? [409,'conflict','Registro já existe.'] :

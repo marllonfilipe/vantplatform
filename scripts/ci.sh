@@ -21,3 +21,5 @@ before="$(docker exec "$db" psql -U postgres -d vant_test -Atc "$sql")"
 after="$(docker exec "$db" psql -U postgres -d vant_restore -Atc "$sql")"
 test "$before" -gt 0 && test "$after" = "$before"
 echo "Restauração validada: $after registro(s) de criação de equipe."
+
+bash scripts/evolution-ci.sh

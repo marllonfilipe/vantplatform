@@ -1,3 +1,4 @@
+import {inboxRoutes} from './inbox.mjs';
 import {dashboardRoutes} from './dashboard.mjs';
 import {crmRoutes} from './crm.mjs';
-export async function featureRoutes(ctx){return (await crmRoutes(ctx))??(await dashboardRoutes(ctx));}
+export async function featureRoutes(ctx){return (await inboxRoutes(ctx))??(await crmRoutes(ctx))??(await dashboardRoutes(ctx));}

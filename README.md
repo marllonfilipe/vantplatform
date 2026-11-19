@@ -12,3 +12,5 @@ Plataforma de inteligência e operação comercial para empresas B2B. Interface 
 - [CRM e funil de vendas](docs/missoes/04-crm.md)
 
 Cada missão tem um relatório com o que foi implementado, testes, evidências e pendências. O cronograma indica a ordem das entregas. As funcionalidades previstas passam a estar disponíveis conforme os respectivos relatórios de validação.
+
+- [Configuração e homologação do WhatsApp](docs/missoes/05-whatsapp.md)
