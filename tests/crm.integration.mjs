@@ -38,7 +38,7 @@ test('CRM, persistência e navegação',async t=>{
   const conversation=await call('conversations','POST',{name:'Conversa da feira'},201),linked=await call('conversations/'+conversation.id+'/lead','POST',{},201);
   assert.equal((await call('conversations/'+conversation.id+'/lead','POST',{})).id,linked.id);
   await call('pipelines','POST',{name:'B2B',stages:['Contato','Proposta']},201);const pipe=(await call('pipelines')).items[0];
-  const deal=await call('deals','POST',{name:'Contrato anual',pipeline_id:pipe.id,stage_id:pipe.stages[0].id,amount_cents:125000,probability:40,lead_id:lead.id},201);
+  const deal=await call('deals','POST',{name:'Contrato anual',pipeline_id:pipe.id,stage_id:pipe.stages[0].id,amount_cents:125000,probability:40,lead_id:lead.id,close_on:'2028-02-29'},201);
   await call('deals/'+deal.id,'PATCH',{stage_id:pipe.stages[1].id});assert.equal((await call('deals/'+deal.id+'/history')).items[0].changes.stage_id.to,pipe.stages[1].id);
   await call('pipelines/'+pipe.id,'PATCH',{name:'Vendas',stages:[...pipe.stages].reverse()});
   const activity=await call('activities','POST',{title:'Reunião',kind:'meeting',lead_id:lead.id},201);await call('activities/'+activity.id,'PATCH',{done_at:new Date().toISOString()});
@@ -49,5 +49,13 @@ test('CRM, persistência e navegação',async t=>{
   await page.getByRole('button',{name:'Lead pelo navegador'}).waitFor();await page.getByRole('button',{name:'Funil de vendas',exact:true}).click();
   const updated=page.waitForResponse(r=>r.url().endsWith('/deals/'+deal.id)&&r.request().method()==='PATCH');await page.getByLabel('Mover Contrato anual').selectOption(pipe.stages[0].id);assert.equal((await updated).status(),200);await page.locator('.lane').filter({has:page.getByRole('heading',{name:'Contato',exact:true})}).getByRole('button',{name:'Contrato anual'}).waitFor();
   await page.getByRole('button',{name:'Oportunidades',exact:true}).click();try {await page.getByRole('columnheader',{name:'Probabilidade'}).waitFor({timeout:12000});} catch(error) {throw Error('Tabela do CRM: '+(await page.locator('#pageTitle').innerText())+' / '+(await page.locator('#status').innerText())+' / '+(await page.locator('#content').innerText()).slice(0,400),{cause:error});}
+  await page.getByRole('button',{name:'Contrato anual',exact:true}).click();
+  await page.getByRole('button',{name:'Editar',exact:true}).click();
+  const closeDate=page.getByLabel('Previsão de fechamento',{exact:true});
+  assert.equal(await closeDate.inputValue(),'2028-02-29','Preservar a data civil ao abrir a edição');
+  await page.getByLabel('Nome',{exact:true}).fill('Contrato anual renovado');
+  await page.getByRole('button',{name:'Salvar',exact:true}).click();
+  await page.getByRole('button',{name:'Contrato anual renovado',exact:true}).waitFor();
+  assert.equal((await call('deals/'+deal.id)).close_on,'2028-02-29');
  }finally{await browser?.close();if(server.listening)await new Promise(ok=>server.close(ok));await pool.end();await admin.end();}
 });

@@ -7,9 +7,7 @@ npm run migrate
 npm run migrate
 node scripts/create-runtime.mjs
 npm run test:integration
-for test_file in tests/*.integration.mjs; do
-  if [ -f "$test_file" ]; then node --test "$test_file"; fi
-done
+node --test --test-concurrency=1 tests/*.integration.mjs
 # Os clientes administrativos do contêiner compartilham a versão do servidor.
 db="$(docker ps --filter ancestor=pgvector/pgvector:pg17 --format '{{.ID}}' | head -n1)"
 test -n "$db"
