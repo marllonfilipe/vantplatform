@@ -1,0 +1,34 @@
+name: Homologar WhatsApp pareado
+on:
+  workflow_dispatch:
+    inputs:
+      autorizar:
+        description: Reiniciar a instância exclusiva de teste e enviar ao aparelho autorizado
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: whatsapp-homologacao
+  cancel-in-progress: false
+jobs:
+  canal:
+    if: ${{ inputs.autorizar && github.ref == 'refs/heads/main' }}
+    environment: whatsapp-homologacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validar canal real de homologação
+        env:
+          VANT_TEST_ORIGIN: ${{ secrets.VANT_TEST_ORIGIN }}
+          VANT_TEST_TENANT: ${{ secrets.VANT_TEST_TENANT }}
+          VANT_TEST_EMAIL: ${{ secrets.VANT_TEST_EMAIL }}
+          VANT_TEST_PASSWORD: ${{ secrets.VANT_TEST_PASSWORD }}
+          VANT_TEST_INSTANCE: ${{ secrets.VANT_TEST_INSTANCE }}
+          VANT_TEST_PHONE: ${{ secrets.VANT_TEST_PHONE }}
+        run: node scripts/verify-whatsapp.mjs
