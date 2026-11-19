@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: vant
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:${PGPORT:-5432}:5432"
+    volumes:
+      - vant_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vant"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+volumes:
+  vant_db: {}
