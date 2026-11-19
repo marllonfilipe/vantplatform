@@ -29,9 +29,13 @@ export function webhookSettings(tenant,id){
  headers:{Authorization:'Bearer '+webhookToken(tenant,id)},base64:false,byEvents:false,
  events:['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE','SEND_MESSAGE']};
 }
+export async function remoteInstances(name){
+ try{return await evolution('/instance/fetchInstances?instanceName='+name);}
+ catch(error){if(error.status===404)return [];throw error;}
+}
 export async function configureInstance(tenant,id){
  const name=instanceName(id),webhook=webhookSettings(tenant,id);
- const list=await evolution('/instance/fetchInstances?instanceName='+name);
+ const list=await remoteInstances(name);
  if(!Array.isArray(list))reject(502,'provider_response','Lista de instâncias inválida.');
  if(list.some(i=>(i.name??i.instance?.instanceName)===name)){
   await evolution('/webhook/set/'+name,'POST',{webhook});return;

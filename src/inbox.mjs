@@ -1,7 +1,7 @@
 import {isUuid,mayManageTeams} from './security.mjs';
 import {withTenant,audit} from './db.mjs';
 import {pagination,reject,textField} from './http.mjs';
-import {configureInstance,evolution,instanceName,send} from './evolution.mjs';
+import {configureInstance,evolution,instanceName,remoteInstances,send} from './evolution.mjs';
 import {ingest} from './wa-events.mjs';
 function missing(){reject(404,'missing','Registro não encontrado.');}
 function manage(member){if(!mayManageTeams(member.role))reject(403,'permission','Apenas gestores podem configurar instâncias.');}
@@ -22,7 +22,7 @@ async function instances(ctx,id,action){
  }
  const inst=await instance(db,id),name=instanceName(id);
  if(method==='GET'&&action==='status'){
-  const list=await evolution('/instance/fetchInstances?instanceName='+name);
+  const list=await remoteInstances(name);
   const remote=Array.isArray(list)?list.find(x=>(x.name??x.instance?.instanceName)===name):null;
   if(!remote)return [200,{state:'local',phone:null}];
   const status=await evolution('/instance/connectionState/'+name),state=status.instance?.state??'unknown',phone=remote.ownerJid?.split('@')[0]??null;
@@ -69,6 +69,7 @@ async function messages(ctx,conv,sub,msgId){
   const saved=await db.query('SELECT id,state FROM vant.wa_outbox WHERE id=$1 AND conversation_id=$2',[body.clientId,conv.id]);if(!saved.rowCount)reject(409,'id','Identificador já utilizado.');return [200,saved.rows[0]];
  }
  if(!isUuid(msgId))missing();
+ if(!conv.remote_jid.endsWith('@s.whatsapp.net'))reject(409,'address','Para enviar, abra a conversa com o número de telefone confirmado.');
  const claimed=await db.query("UPDATE vant.wa_outbox SET state='sending' WHERE id=$1 AND conversation_id=$2 AND state='queued' RETURNING *",[msgId,conv.id]);
  if(!claimed.rowCount){const r=await db.query('SELECT id,state FROM vant.wa_outbox WHERE id=$1 AND conversation_id=$2',[msgId,conv.id]);if(!r.rowCount)missing();return [200,r.rows[0]];}
  // A transação confirma a reserva antes de qualquer envio externo.
