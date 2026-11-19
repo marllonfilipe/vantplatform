@@ -1,0 +1,46 @@
+name: Validar inteligência local
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      db:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: disposable_ci_only
+          POSTGRES_DB: vant_core_test
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 12
+    env:
+      APP_ENV: test
+      ADMIN_DATABASE_URL: postgresql://postgres:disposable_ci_only@127.0.0.1:5432/vant_core_test
+      DATABASE_URL: postgresql://vant_runtime:temporary_ci_runtime@127.0.0.1:5432/vant_core_test
+      VANT_MODEL_ROOT: ${{ github.workspace }}/.models
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/cache@v4
+        with:
+          path: .models
+          key: core-cpu-${{ hashFiles('core/model.json', 'core/install-model.py') }}
+      - name: Preparar pesos e dependências locais
+        run: |
+          pip install -q -r core/requirements.txt
+          python core/install-model.py
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run migrate
+          node scripts/create-runtime.mjs
+      - name: Exercitar o núcleo com PostgreSQL e inferência em CPU
+        run: node --test --test-concurrency=1 tests/core/*.test.mjs

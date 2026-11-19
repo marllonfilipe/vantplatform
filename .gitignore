@@ -7,3 +7,5 @@ backups/
 coverage/
 *.dump
 *.log
+
+.models/
