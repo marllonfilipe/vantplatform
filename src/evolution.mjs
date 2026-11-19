@@ -11,12 +11,17 @@ export function authentic(tenant,id,header) {
  return actual.length===expected.length&&timingSafeEqual(actual,expected);
 }
 export const instanceName=id=>'vant-'+id;
-export async function evolution(route,method='GET',payload){
+export function evolutionConnection(){
  const base=process.env.EVOLUTION_URL,key=process.env.EVOLUTION_API_KEY;
  if(!base||!key)reject(503,'provider_config','Configure a instância Evolution no servidor.');
- const url=new URL(base);
+ let url;
+ try { url=new URL(base); } catch { reject(503,'provider_config','URL de provedor inválida.'); }
  if(url.username||url.password||url.search||url.hash||(!['http:','https:'].includes(url.protocol)))reject(503,'provider_config','URL de provedor inválida.');
- const response=await fetch(base.replace(/\/$/,'')+route,{method,redirect:'error',signal:AbortSignal.timeout(15000),
+ return {base:base.replace(/\/$/,''),key};
+}
+export async function evolution(route,method='GET',payload,connection=evolutionConnection()){
+ const {base,key}=connection;
+ const response=await fetch(base+route,{method,redirect:'error',signal:AbortSignal.timeout(15000),
  headers:{apikey:key,'Content-Type':'application/json'},body:payload===undefined?undefined:JSON.stringify(payload)}).catch(()=>reject(503,'provider_network','O provedor não respondeu.'));
  let body;try{body=await response.json();}catch{reject(502,'provider_response','Resposta inválida do provedor.');}
  if(!response.ok||body?.error)reject(response.status===404?404:502,'provider_response','O provedor recusou a operação.');
@@ -42,9 +47,9 @@ export async function configureInstance(tenant,id){
  }
  await evolution('/instance/create','POST',{instanceName:name,integration:'WHATSAPP-BAILEYS',qrcode:false,groupsIgnore:true,webhook});
 }
-export async function send(instance,jid,message){
+export async function send(instance,jid,message,connection){
  const name=instanceName(instance);
  const number=jid.split('@')[0];
- if(message.kind==='text')return evolution('/message/sendText/'+name,'POST',{number,text:message.body});
- return evolution('/message/sendMedia/'+name,'POST',{number,mediatype:message.kind,mimetype:message.mime,caption:message.body,fileName:message.filename,media:message.media.toString('base64')});
+ if(message.kind==='text')return evolution('/message/sendText/'+name,'POST',{number,text:message.body},connection);
+ return evolution('/message/sendMedia/'+name,'POST',{number,mediatype:message.kind,mimetype:message.mime,caption:message.body,fileName:message.filename,media:message.media.toString('base64')},connection);
 }

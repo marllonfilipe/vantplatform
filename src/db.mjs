@@ -3,7 +3,14 @@ import { isUuid } from './security.mjs';
 
 export function createPool(connectionString) {
   if (!connectionString) throw new Error('Defina DATABASE_URL.');
-  const pool = new pg.Pool({ connectionString, max: 12, connectionTimeoutMillis: 4000, idleTimeoutMillis: 30000, statement_timeout: 10000 });
+  // Uma coluna DATE representa um dia do calendário em qualquer fuso horário.
+  const types = {
+    getTypeParser(oid, format) {
+      if (oid === pg.types.builtins.DATE && format !== 'binary') return text => text;
+      return pg.types.getTypeParser(oid, format);
+    }
+  };
+  const pool = new pg.Pool({ connectionString, types, max: 12, connectionTimeoutMillis: 4000, idleTimeoutMillis: 30000, statement_timeout: 10000 });
   pool.on('error', () => console.error(JSON.stringify({ event:'database.pool.error' })));
   return pool;
 }
