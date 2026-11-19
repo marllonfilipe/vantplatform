@@ -28,6 +28,16 @@ test('indicadores e navegação em Chromium com PostgreSQL',async()=>{
   await page.getByRole('heading',{name:'Funil comercial'}).waitFor();
   const overview=await page.evaluate(async()=>{const r=await fetch('/api/v1/dashboard?days=7');return r.json();});
   assert.equal(overview.totals.leads,1);assert.equal(overview.totals.pending,1);assert.equal(overview.totals.overdue,1);assert.equal(overview.trend.length,7);
+  const former=randomUUID();
+  await admin.query("INSERT INTO vant.members(tenant_id,id,email,name,role,password_hash,active) SELECT tenant_id,$2,'former@vant.invalid','Vendedor anterior','seller',password_hash,false FROM vant.members WHERE id=$1",[owner,former]);
+  const pipeline=(await admin.query("INSERT INTO vant.pipelines(tenant_id,name) VALUES($1,'Histórico') RETURNING id",[a])).rows[0].id;
+  const stage=(await admin.query("INSERT INTO vant.stages(tenant_id,pipeline_id,name,position) VALUES($1,$2,'Proposta',0) RETURNING id",[a,pipeline])).rows[0].id;
+  await admin.query("INSERT INTO vant.deals(tenant_id,name,pipeline_id,stage_id,owner_id,amount_cents,probability,status,closed_at) VALUES($1,'Venda anterior',$2,$3,$4,32100,100,'won',now())",[a,pipeline,stage,former]);
+  const historical=await page.evaluate(async()=> (await fetch('/api/v1/dashboard?days=30')).json());
+  assert.equal(historical.totals.won,'32100','A receita permanece após desativar um vendedor');
+  assert.equal(historical.performance.find(r=>r.label==='Vendedor anterior')?.count,1);
+  const personal=await page.evaluate(async()=> (await fetch('/api/v1/dashboard?days=30&mine=1')).json());
+  assert.equal(personal.totals.won,'0','O filtro pessoal continua restrito ao usuário');
   await page.getByLabel('Período',{exact:true}).selectOption('7');await page.getByRole('heading',{name:'Evolução de oportunidades'}).waitFor();
   await page.getByLabel('Busca global').fill('Conta Alfa');await page.getByRole('button',{name:'Buscar',exact:true}).click();await page.getByText('Conta Alfa',{exact:true}).waitFor();await page.getByRole('button',{name:'Fechar'}).click();
   await page.getByRole('button',{name:'Equipe',exact:true}).click();await page.getByRole('button',{name:'Criar equipe'}).click();await page.getByLabel('Nome da equipe').fill('Sul');await page.getByRole('button',{name:'Salvar'}).click();await page.getByText('Sul',{exact:true}).last().waitFor();

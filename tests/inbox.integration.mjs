@@ -1,3 +1,4 @@
+import {createServer} from 'node:http';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomBytes,randomUUID} from 'node:crypto';
@@ -43,7 +44,19 @@ test('inbox: webhooks HTTP, duplicação, CRM, mídia, falhas e segregação',as
   assert.equal((await api(url+'/messages')).outbox.length,1);
   // Ambiente isolado, sem provedor configurado ou destinatário externo.
   delete process.env.EVOLUTION_URL;delete process.env.EVOLUTION_API_KEY;
-  await api(url+'/messages/'+id,'POST',{},502);assert.equal((await api(url+'/messages/'+id,'POST',{})).state,'unknown');
+  await api(url+'/messages/'+id,'POST',{},503);
+  assert.equal((await api(url+'/messages')).outbox.find(x=>x.id===id)?.state,'queued');
+  // O servidor recebe a tentativa e fecha a conexão antes de confirmar o envio.
+  let attempts=0;
+  const interrupted=createServer((req,res)=>{attempts++;req.resume();req.on('end',()=>res.destroy());});
+  await new Promise((ok,fail)=>{interrupted.once('error',fail);interrupted.listen(0,'127.0.0.1',ok);});
+  try{
+   process.env.EVOLUTION_URL='http://127.0.0.1:'+interrupted.address().port;
+   process.env.EVOLUTION_API_KEY=randomBytes(32).toString('hex');
+   await api(url+'/messages/'+id,'POST',{},502);
+   assert.equal((await api(url+'/messages/'+id,'POST',{})).state,'unknown');
+   assert.equal(attempts,1,'Uma entrega incerta não pode ser reenviada automaticamente');
+  }finally{await new Promise(ok=>interrupted.close(ok));delete process.env.EVOLUTION_URL;delete process.env.EVOLUTION_API_KEY;}
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});const ctx=await browser.newContext();await ctx.addCookies([{name:'vant_session',value:ca.slice(13),url:origin}]);
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Caixa de entrada',exact:true}).click();await page.getByRole('button',{name:/Cliente Inbox/}).click();await page.getByText('Gostaria de uma proposta.',{exact:true}).waitFor();
  }finally{await browser?.close();if(server.listening)await new Promise(ok=>server.close(ok));await pool.end();await admin.end();}

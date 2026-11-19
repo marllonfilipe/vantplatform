@@ -24,7 +24,7 @@ export async function dashboardRoutes({db,member,url,method}) {
  if (team && !(await db.query('SELECT 1 FROM vant.teams WHERE id=$1',[team])).rowCount) reject(404,'team','Equipe não encontrada.');
  const mine=url.searchParams.get('mine')==='1'?member.id:null;
  const parameters=[days,team,mine];
- const base=`WITH owners AS (SELECT id FROM vant.members m WHERE active AND ($3::uuid IS NULL OR m.id=$3)
+ const base=`WITH owners AS (SELECT id FROM vant.members m WHERE ($3::uuid IS NULL OR m.id=$3)
      AND ($2::uuid IS NULL OR EXISTS (SELECT FROM vant.team_members tm WHERE tm.member_id=m.id AND tm.team_id=$2))),
    bounds AS (SELECT ((now() AT TIME ZONE 'America/Sao_Paulo')::date-($1::int-1))::timestamp AT TIME ZONE 'America/Sao_Paulo' AS since),
    l AS (SELECT * FROM vant.leads WHERE owner_id IN (SELECT id FROM owners) OR (team_id=$2 AND ($3::uuid IS NULL OR owner_id=$3))),
@@ -50,7 +50,8 @@ export async function dashboardRoutes({db,member,url,method}) {
    JOIN vant.pipelines p ON p.id=s.pipeline_id LEFT JOIN d ON d.stage_id=s.id AND d.status='open' GROUP BY p.id,p.name,s.id,s.position,s.name ORDER BY p.name,s.position`);
  const sources=await q('SELECT source AS label,count(*)::int AS count FROM l,bounds WHERE created_at>=since GROUP BY source ORDER BY count DESC,source LIMIT 8');
  const performance=await q(`SELECT m.name AS label,count(d.id)::int AS count FROM owners o JOIN vant.members m ON m.id=o.id
-   LEFT JOIN d ON d.owner_id=o.id AND d.status='won' AND d.closed_at>=(SELECT since FROM bounds) GROUP BY m.id,m.name ORDER BY count DESC,m.name LIMIT 12`);
+   LEFT JOIN d ON d.owner_id=o.id AND d.status='won' AND d.closed_at>=(SELECT since FROM bounds) GROUP BY m.id,m.name,m.active
+   HAVING m.active OR count(d.id)>0 ORDER BY count DESC,m.name,m.id LIMIT 12`);
  const next=await q("SELECT id,title,kind,due_at FROM a WHERE done_at IS NULL ORDER BY due_at NULLS LAST,id LIMIT 12");
  const recent=await q("SELECT id,title,kind,created_at FROM a,bounds WHERE created_at>=since ORDER BY created_at DESC,id LIMIT 10");
  const recommendations=await q("SELECT title,detail FROM vant.recommendations,bounds WHERE owner_id IN (SELECT id FROM owners) AND dismissed_at IS NULL AND created_at>=since ORDER BY created_at DESC,id LIMIT 6");

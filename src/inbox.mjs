@@ -1,7 +1,7 @@
 import {isUuid,mayManageTeams} from './security.mjs';
 import {withTenant,audit} from './db.mjs';
 import {pagination,reject,textField} from './http.mjs';
-import {configureInstance,evolution,instanceName,remoteInstances,send} from './evolution.mjs';
+import {configureInstance,evolution,evolutionConnection,instanceName,remoteInstances,send} from './evolution.mjs';
 import {ingest} from './wa-events.mjs';
 function missing(){reject(404,'missing','Registro não encontrado.');}
 function manage(member){if(!mayManageTeams(member.role))reject(403,'permission','Apenas gestores podem configurar instâncias.');}
@@ -72,10 +72,12 @@ async function messages(ctx,conv,sub,msgId){
  if(!conv.remote_jid.endsWith('@s.whatsapp.net'))reject(409,'address','Para enviar, abra a conversa com o número de telefone confirmado.');
  const claimed=await db.query("UPDATE vant.wa_outbox SET state='sending' WHERE id=$1 AND conversation_id=$2 AND state='queued' RETURNING *",[msgId,conv.id]);
  if(!claimed.rowCount){const r=await db.query('SELECT id,state FROM vant.wa_outbox WHERE id=$1 AND conversation_id=$2',[msgId,conv.id]);if(!r.rowCount)missing();return [200,r.rows[0]];}
+ // Uma falha de configuração reverte a reserva na mesma transação.
+ const connection=evolutionConnection();
  // A transação confirma a reserva antes de qualquer envio externo.
  return async()=>{
   const draft=claimed.rows[0];let response;
-  try{response=await send(inst.id,conv.remote_jid,draft);if(!response?.key?.id)throw Error('Resposta sem ID.');}
+  try{response=await send(inst.id,conv.remote_jid,draft,connection);if(!response?.key?.id)throw Error('Resposta sem ID.');}
   catch{await withTenant(pool,tenant,c=>c.query("UPDATE vant.wa_outbox SET state='unknown' WHERE id=$1",[msgId]));reject(502,'uncertain','Entrega não confirmada. Verifique o aparelho antes de repetir.');}
   await withTenant(pool,tenant,async c=>{
    await c.query('SELECT id FROM vant.wa_instances WHERE id=$1 FOR UPDATE',[inst.id]);
