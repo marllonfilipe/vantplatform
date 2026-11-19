@@ -35,7 +35,7 @@ CREATE TABLE vant.wa_outbox (
  PRIMARY KEY(tenant_id,id),FOREIGN KEY(tenant_id,conversation_id) REFERENCES vant.conversations(tenant_id,id)
 );
 GRANT SELECT, INSERT, UPDATE ON vant.wa_outbox TO vant_app;
-DO $ DECLARE target text; BEGIN
+DO $$ DECLARE target text; BEGIN
  FOREACH target IN ARRAY ARRAY['wa_instances','wa_messages','wa_receipts','wa_notes','wa_outbox'] LOOP
   EXECUTE format('ALTER TABLE vant.%I ENABLE ROW LEVEL SECURITY',target);
   EXECUTE format('ALTER TABLE vant.%I FORCE ROW LEVEL SECURITY',target);
