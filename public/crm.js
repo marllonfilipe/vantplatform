@@ -79,7 +79,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   if(manager())bar.append(button('Editar funil',()=>pipeline(p)));if(canWrite())bar.append(button('Cadastrar oportunidade',()=>edit('deals',{pipeline_id:p.id})));
   const deals=await all(path('deals')+'?pipeline_id='+p.id);
   for(const s of p.stages){const lane=node('section',undefined,'panel lane');lane.append(node('h2',s.name));for(const d of deals.filter(v=>v.stage_id===s.id)){const card=node('article');card.append(button(d.name,()=>detail('deals',d)),pair('Valor',money(d.amount_cents)));if(canWrite(d)){
-    const stage=select(p.stages.map(v=>[v.id,v.name]),s.id,false);stage.setAttribute('aria-label','Mover '+d.name);stage.onchange=async()=>{try{await api(path('deals',d.id),'PATCH',{stage_id:stage.value});await view(active);}catch(e){stage.value=s.id;modal('Movimentação',empty(e.message));}};card.append(stage);}lane.append(card);}board.append(lane);}return [bar,board];
+    const stage=select(p.stages.map(v=>[v.id,v.name]),s.id,false);stage.setAttribute('aria-label','Mover '+d.name);stage.onchange=async()=>{try{await api(path('deals',d.id),'PATCH',{stage_id:stage.value});if(active==='Funil de vendas')await view(active);}catch(e){stage.value=s.id;modal('Movimentação',empty(e.message));}};card.append(stage);}lane.append(card);}board.append(lane);}return [bar,board];
  }
  async function page(name){
   if(active!==name){active=name;criteria={};cursor='';previous=[];}if(name==='Funil de vendas')return board();
@@ -90,8 +90,8 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    c.name=key;if(c.tagName==='INPUT'){c.placeholder=label;c.value=criteria[key]??'';}else c.options[0].text=label;c.setAttribute('aria-label',label);filter.append(c);}
   filter.append(node('button','Filtrar'));filter.onsubmit=e=>{e.preventDefault();criteria=Object.fromEntries([...new FormData(filter)].filter(([,v])=>v));cursor='';previous=[];view(active);};
   const query=new URLSearchParams({...criteria,limit:25});if(cursor)query.set('cursor',cursor);const result=await api(path(kind)+'?'+query),wrap=node('div',undefined,'tablewrap'),table=node('table');
-  const headers=kind==='deals'?['Oportunidade','Valor','Probabilidade','Situação']:['Registro','Detalhes'];const h=node('tr');for(const title of headers)h.append(node('th',title));table.append(h);
-  for(const row of result.items){const tr=node('tr'),td=node('td');td.append(button(row.name??row.title,()=>detail(kind,row)));tr.append(td);for(const val of kind==='deals'?[money(row.amount_cents),row.probability+'%',options.status[row.status]]:[row.email??row.phone??row.segment??(row.due_at?date(row.due_at):'—')])tr.append(node('td',val));table.append(tr);}
+  const headers=kind==='deals'?['Oportunidade','Valor','Probabilidade','Situação']:['Registro','Detalhes'];const h=node('tr'),head=node('thead'),body=node('tbody');for(const title of headers){const th=node('th',title);th.scope='col';h.append(th);}head.append(h);table.append(head,body);
+  for(const row of result.items){const tr=node('tr'),td=node('td');td.append(button(row.name??row.title,()=>detail(kind,row)));tr.append(td);for(const val of kind==='deals'?[money(row.amount_cents),row.probability+'%',options.status[row.status]]:[row.email??row.phone??row.segment??(row.due_at?date(row.due_at):'—')])tr.append(node('td',val));body.append(tr);}
   wrap.append(result.items.length?table:empty('Nenhum registro nos filtros atuais.'));const pager=node('div',undefined,'toolbar');
   if(previous.length)pager.append(button('Página anterior',()=>{cursor=previous.pop();return view(active);}));if(result.nextCursor)pager.append(button('Próxima página',()=>{previous.push(cursor);cursor=result.nextCursor;return view(active);}));
   return [bar,filter,wrap,pager];

@@ -47,7 +47,7 @@ test('CRM, persistência e navegação',async t=>{
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Leads',exact:true}).click();
   await page.getByRole('button',{name:'Cadastrar registro'}).click();await page.getByLabel('Nome',{exact:true}).fill('Lead pelo navegador');await page.getByRole('button',{name:'Salvar'}).click();
   await page.getByRole('button',{name:'Lead pelo navegador'}).waitFor();await page.getByRole('button',{name:'Funil de vendas',exact:true}).click();
-  const updated=page.waitForResponse(r=>r.url().endsWith('/deals/'+deal.id)&&r.request().method()==='PATCH');await page.getByLabel('Mover Contrato anual').selectOption(pipe.stages[0].id);assert.equal((await updated).status(),200);
-  await page.getByRole('button',{name:'Oportunidades',exact:true}).click();await page.getByRole('columnheader',{name:'Probabilidade'}).waitFor();
+  const updated=page.waitForResponse(r=>r.url().endsWith('/deals/'+deal.id)&&r.request().method()==='PATCH');await page.getByLabel('Mover Contrato anual').selectOption(pipe.stages[0].id);assert.equal((await updated).status(),200);await page.locator('.lane').filter({has:page.getByRole('heading',{name:'Contato',exact:true})}).getByRole('button',{name:'Contrato anual'}).waitFor();
+  await page.getByRole('button',{name:'Oportunidades',exact:true}).click();try {await page.getByRole('columnheader',{name:'Probabilidade'}).waitFor({timeout:12000});} catch(error) {throw Error('Tabela do CRM: '+(await page.locator('#pageTitle').innerText())+' / '+(await page.locator('#status').innerText())+' / '+(await page.locator('#content').innerText()).slice(0,400),{cause:error});}
  }finally{await browser?.close();if(server.listening)await new Promise(ok=>server.close(ok));await pool.end();await admin.end();}
 });
