@@ -27,7 +27,7 @@ export function webhookSettings(tenant,id){
  if(!origin)reject(503,'callback_config','Configure a origem pública da API.');
  return {enabled:true,url:new URL('/hooks/evolution/'+tenant+'/'+id,origin).href,
  headers:{Authorization:'Bearer '+webhookToken(tenant,id)},base64:false,byEvents:false,
- events:['MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE','SEND_MESSAGE']};
+ events:['QRCODE_UPDATED','MESSAGES_UPSERT','MESSAGES_UPDATE','CONNECTION_UPDATE','SEND_MESSAGE']};
 }
 export async function remoteInstances(name){
  try{return await evolution('/instance/fetchInstances?instanceName='+name);}
