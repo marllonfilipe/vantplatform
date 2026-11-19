@@ -3,6 +3,24 @@ import assert from 'node:assert/strict';
 import { randomBytes,randomUUID } from 'node:crypto';
 import { hashPassword,verifyPassword,issueSession,parseSession,sealSecret,openSecret,mayManageTeams } from '../src/security.mjs';
 import { pagination,textField } from '../src/http.mjs';
+import { mkdtemp,rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { readPrivateFile,writePrivateFile,removePrivateFile } from '../src/storage.mjs';
+
+test('armazenamento privado segrega empresa e impede sobrescrita',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'vant-files-'));
+  const tenant=randomUUID(), id=randomUUID();
+  try {
+    await writePrivateFile(root,tenant,id,Buffer.from('documento'));
+    assert.equal((await readPrivateFile(root,tenant,id)).toString(),'documento');
+    await assert.rejects(readPrivateFile(root,randomUUID(),id),{code:'ENOENT'});
+    await assert.rejects(writePrivateFile(root,tenant,id,Buffer.from('outro')),{code:'EEXIST'});
+    assert.throws(()=>readPrivateFile(root,tenant,'../dados'));
+    await removePrivateFile(root,tenant,id);
+    await assert.rejects(readPrivateFile(root,tenant,id),{code:'ENOENT'});
+  } finally { await rm(root,{recursive:true,force:true}); }
+});
 
 test('senha com salt individual e verificação de valor incorreto',async()=>{
   const password='Frase exclusiva de teste 2026';

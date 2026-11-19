@@ -6,6 +6,8 @@ O serviço HTTP expõe saúde, login, sessão e gestão básica de equipes. O lo
 
 ## Validação
 
+O [job da implementação](https://github.com/marllonfilipe/vantplatform/actions/runs/44595401852) passou com quatro testes unitários e cinco resultados de integração contabilizados pelo Node. As migrations rodaram duas vezes e a restauração conservou o registro de criação de equipe. Uma verificação adicional do armazenamento privado passou localmente, incluindo segregação de arquivos e prevenção de sobrescrita.
+
 Execute npm test para a suíte unitária. A suíte npm run test:integration exige PostgreSQL de testes com pgvector, migrations aplicadas, dois papéis de banco e APP_ENV=test. Os cenários exercitam login por tenant, bloqueio por origem, permissões, paginação de equipes, revogação, expiração, RLS, integridade entre empresas e auditoria. O CI executa as suítes e restaura um backup em outro banco. Os dados dos testes são exclusivos de uma base descartável.
 
 A integração externa desta missão é PostgreSQL com pgvector. Credenciais e contas reais de clientes, evolução do schema comercial e operação em produção ficam nas respectivas etapas. O resultado vinculante desta entrega é o job postgres do commit da implementação.

@@ -11,5 +11,6 @@
     "test": "node --test tests/unit.test.mjs",
     "test:integration": "node --test tests/integration.test.mjs"
   },
-  "dependencies": { "pg": "8.16.3" }
+  "dependencies": { "pg": "8.16.3" },
+  "devDependencies": { "playwright-core": "1.55.0" }
 }
