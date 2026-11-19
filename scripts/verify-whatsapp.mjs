@@ -26,21 +26,25 @@ try{
  await request(route+'/restart','POST',{});await awaitOpen();console.log('Reconexão confirmada na Evolution.');
  const thread=await request('inbox/conversations','POST',{instanceId,phone,name:'Homologação do canal'});
  const url='inbox/conversations/'+thread.id+'/messages',nonce=randomBytes(5).toString('hex');
- const clientId=randomUUID(),expected='V4NT '+nonce;
- await request(url,'POST',{clientId,kind:'text',text:'Teste autorizado da V4NT. Responda a esta mensagem com '+expected});
+ const documentCode=randomBytes(5).toString('hex');
+ const clientId=randomUUID(),expected='V4NT '+nonce+' '+documentCode;
+ await request(url,'POST',{clientId,kind:'text',text:'Teste da V4NT. Abra homologacao.txt e responda em uma única mensagem: V4NT '+nonce+' seguido de um espaço e do código que está dentro do arquivo.'});
  const sent=await request(url+'/'+clientId,'POST',{});assert.equal(sent.state,'sent');
- const mediaId=randomUUID();const attachment=Buffer.from('Arquivo de homologação '+nonce);
+ const mediaId=randomUUID();const attachment=Buffer.from('Código do arquivo: '+documentCode+'\n');
  await request(url,'POST',{clientId:mediaId,kind:'document',text:'Arquivo de homologação '+nonce,filename:'homologacao.txt',mime:'text/plain',base64:attachment.toString('base64')});
  assert.equal((await request(url+'/'+mediaId,'POST',{})).state,'sent');
  console.log('Envios aceitos pela Evolution. Aguardando resposta do aparelho de homologação.');
  for(let n=0;n<120;n++){
   const page=await request(url+'?limit=100');
-  if(page.items.some(m=>!m.from_me&&m.kind==='text'&&m.body.trim()===expected)){
-   const media=page.items.find(m=>m.from_me&&m.filename==='homologacao.txt'&&m.body==='Arquivo de homologação '+nonce);
-   if(media){const data=await request(url+'/'+media.id);assert.ok(Buffer.from(data.base64,'base64').equals(attachment));}
-   if(!media)throw Error('Documento enviado ainda sem histórico correlacionado.');
-   console.log('Aceite ao vivo: reconexão, envio de texto e documento, resposta externa recebida e histórico verificado.');
+  const answered=page.items.some(m=>!m.from_me&&m.kind==='text'&&m.body.trim()===expected);
+  const media=page.items.find(m=>m.from_me&&m.filename==='homologacao.txt'&&m.body==='Arquivo de homologação '+nonce);
+  if(answered&&media){
+   const data=await request(url+'/'+media.id);
+   assert.ok(Buffer.from(data.base64,'base64').equals(attachment),'Conteúdo do arquivo divergiu do original.');
+   console.log('Aceite ao vivo: reconexão, texto e documento conferidos no aparelho externo, resposta recebida e histórico verificado.');
    break;
-  }if(n===119)throw Error('O aparelho de homologação não respondeu ao desafio no prazo.');await delay(5000);
+  }
+  if(n===119)throw Error('O prazo terminou antes da confirmação do texto, do documento e do histórico.');
+  await delay(5000);
  }
 } finally {await request('auth/logout','POST').catch(()=>{});}

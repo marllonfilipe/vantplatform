@@ -2,6 +2,7 @@
 set -euo pipefail
 export APP_ENV=test
 npm install --ignore-scripts --no-audit --no-fund
+node --check scripts/verify-whatsapp.mjs
 npm test
 npm run migrate
 npm run migrate
