@@ -25,3 +25,5 @@ A missão 02 exige um PostgreSQL descartável para exercitar permissões e migra
 ## Processo de entrega
 
 O relatório de cada missão registra caminhos de arquivos, funções entregues, integrações exercitadas, testes com resultados, limitações e procedimento de reprodução. O commit identifica a missão. A próxima começa quando os critérios de aceite da atual estão comprovados. Trabalho parcial pode ser publicado com as pendências explícitas.
+
+A [diretriz temporária de continuidade](continuidade.md) define o trabalho que pode avançar durante a homologação da missão 05.
