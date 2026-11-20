@@ -88,6 +88,12 @@ export async function analysisRoutes({db, tenant, member, requestId, url, method
     reject(403,'permission','A análise exige gestão ou responsabilidade pelo registro.');
   }
   const result = lead ? qualify(row) : assess(row);
+  const subjectColumn = lead ? 'lead_id' : 'deal_id';
+  const taskFields = 't.id,t.title,t.kind,t.due_at,t.done_at,t.owner_id,m.name AS owner_name';
+  const taskQuery = 'SELECT '+taskFields+' FROM vant.activities t JOIN vant.members m ON (m.tenant_id,m.id)=(t.tenant_id,t.owner_id) WHERE t.tenant_id=$1 AND t.'+subjectColumn+'=$2 ';
+  const pending = await db.query(taskQuery+'AND t.done_at IS NULL ORDER BY t.due_at NULLS LAST,t.created_at,t.id LIMIT 5',[tenant,id]);
+  const completed = await db.query(taskQuery+'AND t.done_at<=now() ORDER BY t.done_at DESC,t.id LIMIT 5',[tenant,id]);
+  result.activities = {pending:pending.rows,completed:completed.rows};
   const query = (lead ? [row.stated_need,row.stated_objection,row.segment,row.notes,row.account_name,row.name] : [row.products,row.loss_reason,row.name]).filter(Boolean).join(' ').slice(0,320) || subject;
   const memory = await retrieveKnowledge(db,tenant,query,3,Boolean(lead && row.stated_need));
   result.ruleset = lead ? 'crm-v2' : 'crm-v1';

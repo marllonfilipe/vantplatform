@@ -25,3 +25,26 @@ test('fila de CPU processa quatro consultas concorrentes por rodada',async()=>{
  const percentile=p=>samples[Math.ceil(samples.length*p)-1];
  console.log(JSON.stringify({scenario:'cpu-queue',requests:samples.length,concurrency:4,p50_ms:percentile(0.5),p95_ms:percentile(0.95),max_ms:samples.at(-1)}));
 });
+
+test('runtime volta a processar após falha real de inicialização',async()=>{
+ stopInference();
+ const original=process.env.VANT_PYTHON;
+ try{
+  process.env.VANT_PYTHON='/vant-test/missing-python';
+  await assert.rejects(embed(['Verificar disponibilidade']),{code:'model_unavailable'});
+ }finally{
+  if(original===undefined)delete process.env.VANT_PYTHON;
+  else process.env.VANT_PYTHON=original;
+ }
+ const result=await embed(['Verificar disponibilidade']);
+ assert.equal(result.vectors.length,1);
+ assert.equal(result.vectors[0].length,model.dimensions);
+});
+
+test('fila limitada recusa excesso e preserva as consultas aceitas',async()=>{
+ const attempts=await Promise.allSettled(Array.from({length:10},()=>embed(['Prazo da proposta'])));
+ const failures=attempts.filter(item=>item.status==='rejected');
+ assert.equal(failures.length,1);
+ assert.equal(failures[0].reason.code,'model_busy');
+ assert.ok(attempts.filter(item=>item.status==='fulfilled').every(item=>item.value.vectors[0].length===model.dimensions));
+});

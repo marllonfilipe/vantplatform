@@ -50,4 +50,12 @@ Ao cadastrar um documento, o gestor pode selecionar a categoria **Oferta do cat�
 
 Cada substituição de documento incrementa sua revisão. As novas análises registram documento, revisão e índice do trecho usado. A recomendação registra também a identificação e o título da oferta vigente na consulta. Registros anteriores à migration 008 mantêm os dados disponíveis na época. O teste de integração cobre ausência de oferta no tenant, inclusão em catálogo próprio, mudança de revisão e referência da análise à versão consultada.
 
-A próxima atividade do Core é a memória operacional de tarefas com estado, responsável e histórico. Ainda faltam avaliação comercial das regras, monitoramento de falhas e validação integral da missão. A integração de conversas reais segue a dependência da missão 05.
+O [teste de integração da revisão 4db4bcf](https://github.com/marllonfilipe/vantplatform/actions/runs/44658530049) confirmou catálogo isolado por empresa e referências versionadas.
+
+## Tarefas, histórico e falhas do runtime
+
+Cada análise registra até cinco atividades pendentes por prazo e as cinco últimas concluídas do lead ou da oportunidade, com responsável e datas. O Core consulta as atividades da própria agenda do CRM. A interface exibe o estado na data da análise. Concluir uma atividade no CRM muda o resultado da análise seguinte e preserva a anterior. A migration 009 cria índices para essas consultas por empresa e registro.
+
+O processo local de inferência recebe somente as variáveis de runtime necessárias. Falhas geram eventos com código, revisão do modelo e tamanho da fila. O log de falhas do Core não recebe textos, vetores ou parâmetros de conexão. O teste interrompe o worker, usa um executável ausente e verifica recuperação com o modelo real. Outro teste excede a capacidade da fila e verifica que os pedidos aceitos terminam.
+
+A próxima atividade independente é aproveitar as análises para propostas de ação interna do agente de qualificação, com aprovação humana, histórico e controle de duplicidade na agenda. Ficam pendentes a avaliação comercial das regras e da seleção de ofertas, capacidade no host de implantação e as memórias de conversa vinculadas ao canal. A homologação da missão 05 segue o procedimento existente. O aceite integral da 06 permanece em aberto.

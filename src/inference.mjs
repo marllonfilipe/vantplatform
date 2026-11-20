@@ -8,7 +8,17 @@ export const model=JSON.parse(readFileSync(new URL('../core/model.json',import.m
 export const modelVersion=model.repository+'@'+model.revision;
 const queue=[];
 let child,active;
-function failure(code){return Object.assign(new Error(code),{code});}
+function failure(code){
+ console.warn(JSON.stringify({event:'core.inference.failure',code,model:modelVersion,queued:queue.length}));
+ return Object.assign(new Error(code),{code});
+}
+function workerEnvironment(){
+ const env={TOKENIZERS_PARALLELISM:'false'};
+ for(const key of ['PATH','LANG','LC_ALL','LC_CTYPE','SYSTEMROOT','WINDIR','TMP','TEMP','TMPDIR','LD_LIBRARY_PATH','VIRTUAL_ENV','VANT_MODEL_ROOT','VANT_MODEL_THREADS']){
+  if(process.env[key]!==undefined)env[key]=process.env[key];
+ }
+ return env;
+}
 
 function finish(error, vectors){
  if(!active)return;
@@ -21,7 +31,7 @@ function schedule(){
  if(active||!queue.length)return;
  if(!child){
   const proc=spawn(process.env.VANT_PYTHON||'python3',['-u',fileURLToPath(new URL('../core/encode.py',import.meta.url))],{
-   stdio:['pipe','pipe','inherit'],windowsHide:true,env:{...process.env,TOKENIZERS_PARALLELISM:'false'}
+   stdio:['pipe','pipe','inherit'],windowsHide:true,env:workerEnvironment()
   });
   child=proc;
   function stopped(){if(child!==proc)return;child=null;finish(failure('model_unavailable'));schedule();}

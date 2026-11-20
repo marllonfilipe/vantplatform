@@ -54,6 +54,11 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
     if(value)parts.push(pair(label,value));
    }
   }
+  if(result.activities){
+   for(const [title,activities] of [['Atividades pendentes na análise',result.activities.pending],['Últimas atividades concluídas',result.activities.completed]]){
+    if(activities.length)parts.push(panel(title,...activities.map(task=>pair(task.title,task.owner_name+' · '+date(task.done_at??task.due_at)))));
+   }
+  }
   if(result.offer)parts.push(pair('Oferta para revisão',result.offer.title+' · revisão '+result.offer.revision));
   for(const item of result.evidence)parts.push(node('p',item.detail+(item.points?' (+'+item.points+')':'')));
   parts.push(pair('Próxima ação',result.nextAction));
