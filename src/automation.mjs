@@ -1,3 +1,4 @@
+import {summarizeRecords} from './flow-summary.mjs';
 import {notifyOwner} from './notifications.mjs';
 import {timerTarget} from './timers.mjs';
 import {randomUUID} from 'node:crypto';
@@ -8,7 +9,7 @@ import {reject,textField} from './http.mjs';
 
 const events=['lead_created','lead_updated','deal_created','deal_moved','deal_lost','meeting_scheduled','meeting_completed','score_changed','lead_qualified','task_overdue','lead_inactive'];
 const jobKinds=events.map(event=>'flow.'+event);
-const actionKinds=new Set(['task','reminder','followup','assign_owner','notify_owner','comment','update_record']);
+const actionKinds=new Set(['task','reminder','followup','assign_owner','notify_owner','comment','update_record','summarize']);
 const assignmentEvents=new Set(['lead_created','score_changed','lead_qualified','deal_created','deal_moved','deal_lost']);
 
 function assignmentOwner(kind,id,event){
@@ -60,12 +61,22 @@ function parseSteps(value={},hasAlternative,event){
    if(!item||!actionKinds.has(item.kind))reject(400,'flow_steps','Tipo de atividade inválido.');
    const wait=item.wait_minutes??0,due=item.due_minutes??null;
    if(!Number.isInteger(wait)||wait<0||wait>43200||(due!==null&&(!Number.isInteger(due)||due<0||due>43200))||(item.kind==='reminder'&&due===null))reject(400,'flow_steps','Espera ou prazo inválido.');
+   if(item.kind==='summarize')return {kind:item.kind,wait_minutes:wait};
    if(item.kind==='update_record')return {kind:item.kind,changes:recordChanges(item.kind,item.changes,event),wait_minutes:wait};
    if(item.kind==='assign_owner')return {kind:item.kind,owner_id:assignmentOwner(item.kind,item.owner_id,event),wait_minutes:wait};
    return {kind:item.kind,title:textField(item.title,240),wait_minutes:wait,due_minutes:due};
   });
  }
  return steps;
+}
+function actionTitle(kind,title){
+ switch(kind){
+  case null:return null;
+  case 'assign_owner':return 'Atribuir responsável';
+  case 'update_record':return 'Atualizar registro do CRM';
+  case 'summarize':return 'Gerar resumo comercial';
+  default:return textField(title,240);
+ }
 }
 function actions(body,source){
  const cooldown=body.cooldown_minutes===undefined?0:body.cooldown_minutes;
@@ -83,7 +94,7 @@ function actions(body,source){
  const primaryOwner=assignmentOwner(primary,body.action_owner_id,event);
  const alternativeOwner=assignmentOwner(alternative,body.else_owner_id,event);
  const primaryChanges=recordChanges(primary,body.action_changes,event),elseChanges=recordChanges(alternative,body.else_changes,event);
- return {cooldown,primaryChanges,elseChanges,primaryOwner,alternativeOwner,steps:parseSteps(body.steps,alternative!==null,event),conditions,event,primary,alternative,alternateTitle:alternative===null?null:alternative==='assign_owner'?'Atribuir responsável':alternative==='update_record'?'Atualizar registro do CRM':textField(body.else_title,240),due};
+ return {cooldown,primaryChanges,elseChanges,primaryOwner,alternativeOwner,steps:parseSteps(body.steps,alternative!==null,event),conditions,event,primary,alternative,alternateTitle:actionTitle(alternative,body.else_title),due};
 }
 export async function automationRoutes({db,tenant,member,url,method,body,requestId}){
  const base='/api/v1/automations';
@@ -120,7 +131,7 @@ export async function automationRoutes({db,tenant,member,url,method,body,request
   version=existing.version+1;
   await db.query('UPDATE vant.automation_flows SET version=$3,enabled=$4,name=$5 WHERE tenant_id=$1 AND id=$2',[tenant,id,version,body.enabled,name]);
  }
- const title=action.primary==='assign_owner'?'Atribuir responsável':action.primary==='update_record'?'Atualizar registro do CRM':textField(body.task_title,240);
+ const title=actionTitle(action.primary,body.task_title);
  const owners=new Set([action.primaryOwner,action.alternativeOwner,...Object.values(action.steps).flat().map(step=>step.owner_id)].filter(Boolean));
  if(owners.size){
   const active=await db.query('SELECT id FROM vant.members WHERE tenant_id=$1 AND id=ANY($2::uuid[]) AND active',[tenant,[...owners]]);
@@ -164,7 +175,7 @@ export function processNext(pool,tenant){
     WHERE j.tenant_id=$1 AND j.kind=ANY($2::text[]) AND j.state='queued' AND j.available_at<=now() AND f.enabled
     ORDER BY j.available_at,j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED FOR SHARE OF f`,[tenant,jobKinds])).rows[0];
   if(!job)return false;
-  let outcome='skipped',reason=null,activity=null,assignment=null,change=null;
+  let outcome='skipped',reason=null,activity=null,assignment=null,change=null,summary=null;
   const match=(!job.source_filter || job.source_filter===job.payload.source)&&matchesConditions(job.conditions,job.payload.facts);
   const branch=match?'match':'otherwise';
   const step=job.payload.step??0;
@@ -177,12 +188,15 @@ export function processNext(pool,tenant){
   try{
    if(kind){
     const record=await activityTarget(db,tenant,job.payload,kind==='assign_owner'||kind==='update_record');
-    if(record){
+    if(record&&(kind!=='summarize'||record.lead_id||record.deal_id)){
      const member=(await db.query('SELECT id,role FROM vant.members WHERE tenant_id=$1 AND id=$2 AND active',[tenant,job.author_id])).rows[0];
      if(!member||!mayManageTeams(member.role))throw Object.assign(new Error('author_unavailable'),{code:'author_unavailable'});
      if(step===0&&!await admitStart(db,tenant,job))return true;
      const ctx={db,tenant,member,requestId:randomUUID()};
-     if(kind==='assign_owner'){
+     if(kind==='summarize'){
+      summary=await summarizeRecords(db,tenant,record);
+      outcome=summary.length?'summarized':'skipped';
+     }else if(kind==='assign_owner'){
       assignment=await assignCrmOwner(ctx,record,current.owner_id);
       outcome=assignment.previous_owner_id===assignment.owner_id?'unchanged':'assigned';
      }else if(kind==='update_record'){
@@ -205,15 +219,15 @@ export function processNext(pool,tenant){
   }catch(error){
    reason=['author_unavailable','owner_unavailable'].includes(error.code)?error.code:'action_failed';
    await db.query('ROLLBACK TO SAVEPOINT flow_effect');
-   activity=null;assignment=null;change=null;outcome=stepAttempt>=3?'failed':'retry';
+   activity=null;assignment=null;change=null;summary=null;outcome=stepAttempt>=3?'failed':'retry';
   }
-  const next=['created','assigned','unchanged','notified','updated'].includes(outcome)?following[step]:null;
+  const next=['created','assigned','unchanged','notified','updated','summarized'].includes(outcome)?following[step]:null;
   const state=outcome==='retry'||next?'queued':outcome==='failed'?'failed':'done';
   const delay=next?next.wait_minutes*60:stepAttempt*30;
   const progress={step:next?step+1:step,step_attempts:next?0:stepAttempt};
   await db.query(`UPDATE vant.jobs SET state=$3,attempts=$4,payload=(payload-\'frequency_deferred\')||$6::jsonb,available_at=CASE WHEN $3='queued' THEN now()+make_interval(secs=>$5::integer) ELSE available_at END
     WHERE tenant_id=$1 AND id=$2`,[tenant,job.id,state,attempt,delay,progress]);
-  await db.query('INSERT INTO vant.automation_attempts(tenant_id,job_id,attempt,outcome,activity_id,reason,branch,action_kind,step_index,assignment,record_change) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',[tenant,job.id,attempt,outcome,activity,reason,branch,kind,step,assignment,change]);
+  await db.query('INSERT INTO vant.automation_attempts(tenant_id,job_id,attempt,outcome,activity_id,reason,branch,action_kind,step_index,assignment,record_change,summary) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',[tenant,job.id,attempt,outcome,activity,reason,branch,kind,step,assignment,change,summary===null?null:JSON.stringify(summary)]);
   return true;
  });
 }

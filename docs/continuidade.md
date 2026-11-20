@@ -45,3 +45,7 @@ A evidência de CI pertence ao commit testado. Nas próximas execuções, confer
 | Alteração do CRM | [1ea0100](https://github.com/marllonfilipe/vantplatform/commit/1ea01003338841be744b0a631c161f7ebb9ecd90) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44753548026) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44753547952) |
 
 A última execução de fundação voltou a passar pelos cinco cenários na mesma revisão. O [relatório técnico](missoes/08-automacoes.md) reúne as instruções de operação e os testes de cada incremento. A implementação da Missão 08 continua parcial. O marco que gera relatório de conclusão no ChatGPT e envio por e-mail ainda está pendente. O próximo trabalho independente é o resumo interno do lead ou da oportunidade com o CRM e o Intelligence Core.
+
+## Missão 08 · Resumo comercial
+
+O worker grava o resumo de leads e oportunidades no histórico da etapa, com a análise disponível no Core no momento da execução. Os testes estão em `tests/flow-updates.integration.mjs` e `tests/core/knowledge.test.mjs`. Conferir os checks do commit e continuar a ação supervisionada de agente do CRM. A entrega é parcial.

@@ -63,7 +63,7 @@ test('fluxo atualiza campos do CRM preservando tags, versão, histórico e valor
   assert.deepEqual(history.find(h=>h.action==='updated').changes.tags,{from:['Evento'],to:['Evento','Qualificado']});
   const dealSpec={name:'Previsão comercial',trigger_event:'deal_created',enabled:true,source_filter:'Indicação',
    task_title:'Revisar indicação',else_kind:'update_record',else_changes:{probability:75},
-   steps:{otherwise:[{kind:'update_record',changes:{probability:75}}]}};
+   steps:{otherwise:[{kind:'update_record',changes:{probability:75}},{kind:'summarize'}]}};
   assert.equal((await call('automations','POST',{...dealSpec,else_changes:{probability:101}})).status,400);
   assert.equal((await call('automations','POST',dealSpec)).status,201);
   const setup=await call('crm/pipelines','POST',{name:'Funil',stages:['Entrada','Proposta']});
@@ -71,11 +71,18 @@ test('fluxo atualiza campos do CRM preservando tags, versão, histórico e valor
   const {stages}=(await (await call('crm/pipelines')).json()).items.find(p=>p.id===pipeline);
   const created=await call('crm/deals','POST',{name:'Contrato',source:'Feira',pipeline_id:pipeline,stage_id:stages[0].id,amount_cents:50000,probability:20});
   assert.equal(created.status,201);const deal=(await created.json()).id;
-  await worker(tenant);await worker(tenant);
+  await worker(tenant);await worker(tenant);await worker(tenant);
   const updated=await (await call('crm/deals/'+deal)).json();
   assert.equal(updated.probability,75);assert.equal(updated.stage_id,stages[0].id);assert.equal(Number(updated.amount_cents),50000);
   jobs=(await (await call('automations/runs')).json()).items.filter(j=>j.payload.deal===deal);
-  assert.equal(jobs.length,1);assert.deepEqual(jobs[0].history.map(h=>h.outcome),['updated','unchanged']);
+  assert.equal(jobs.length,1);assert.deepEqual(jobs[0].history.map(h=>h.outcome),['updated','unchanged','summarized']);
+  const [snapshot]=jobs[0].history[2].summary;
+  assert.equal(snapshot.id,deal);assert.equal(snapshot.analysis,null);
+  assert.equal(snapshot.facts.probability,75);assert.equal(snapshot.facts.stage,'Entrada');
+  await page.getByRole('button',{name:'Automações',exact:true}).click();
+  await page.getByText('Previsão comercial · v1 · Concluído',{exact:true}).click();
+  await page.getByRole('heading',{name:'Oportunidade · Contrato'}).waitFor();
+  await page.getByText('Sem análise registrada no Core.',{exact:true}).waitFor();
   const changesLog=(await (await call('crm/deals/'+deal+'/history')).json()).items.filter(h=>h.action==='updated');
   assert.equal(changesLog.length,1);assert.deepEqual(changesLog[0].changes.probability,{from:20,to:75});
  }finally{

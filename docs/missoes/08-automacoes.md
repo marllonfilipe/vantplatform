@@ -147,3 +147,11 @@ A API recebe `update_record` e os parâmetros `action_changes`, `else_changes` o
 A suíte de fundação executa `tests/flow-updates.integration.mjs`. O teste publica no Chromium, cria um lead com tag anterior, publica uma versão diferente e confere a atualização pelo worker e a trilha do CRM. Uma oportunidade exercita a ação alternativa, a etapa repetida e a preservação de valor e estágio. Os checks da revisão registram o resultado. A missão continua parcial. A próxima atividade independente é gerar um resumo interno do registro a partir dos dados do CRM e do Intelligence Core.
 
 As atualizações comerciais de [1ea0100](https://github.com/marllonfilipe/vantplatform/commit/1ea01003338841be744b0a631c161f7ebb9ecd90) passaram na [fundação com Chromium e PostgreSQL](https://github.com/marllonfilipe/vantplatform/actions/runs/44753548026) e na [suíte de inteligência local](https://github.com/marllonfilipe/vantplatform/actions/runs/44753547952).
+
+## Resumo comercial na execução do fluxo
+
+Em **Automações**, escolha **Gerar resumo comercial** como ação principal, alternativa ou etapa. Em **Execuções recentes**, abra a ocorrência concluída. O resumo registra nome, responsável e próxima atividade pendente, quando houver. Para leads, inclui origem e segmento. Para oportunidades, inclui etapa, probabilidade e valor. Uma atividade ligada a lead e oportunidade produz uma seção para cada registro. Uma ocorrência sem registro comercial vinculado é ignorada.
+
+A API aceita a ação `summarize`. O worker lê os dados do CRM e a análise mais recente já concluída pelo Intelligence Core em uma única consulta. A tentativa persiste o retrato, a classificação, a próxima ação recomendada e a referência à análise e à revisão do modelo. Quando ainda não existe análise, o monitor informa essa condição. A leitura do resumo preserva o retrato mesmo após novas edições no CRM.
+
+O cenário de fundação abre no Chromium o resumo de uma oportunidade sem análise. O cenário do Core executa inferência local sobre um lead, consulta o resumo produzido na etapa seguinte à tarefa e verifica a análise de origem e o isolamento entre empresas. A missão segue parcial. A próxima ação independente é a execução supervisionada do agente comercial pelo fluxo.

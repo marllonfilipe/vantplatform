@@ -323,7 +323,7 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     assert.deepEqual((await consult(seller,bottleneckQuestion)).items,[]);
     assert.deepEqual((await consult(other,bottleneckQuestion)).items,[]);
     for(const trigger_event of ['score_changed','lead_qualified']){
-      const configured=await call('automations','POST',owner,{name:trigger_event,enabled:true,trigger_event,task_title:'Revisar qualificação',conditions:{min_score:70}});
+      const configured=await call('automations','POST',owner,{name:trigger_event,enabled:true,trigger_event,task_title:'Revisar qualificação',conditions:{min_score:70},steps:{match:[{kind:'summarize'}]}});
       assert.equal(configured.status,201);
     }
     const scored=(await (await call('crm/leads','POST',owner,{name:'Qualificação',phone:'000',segment:'Indústria'})).json()).id;
@@ -335,11 +335,22 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     const measuredRuns=await Promise.all([runScore(),runScore()]);
     assert.ok(measuredRuns.every(r=>r.result.score===80));
     await Promise.all([processNext(pool,tenants[0]),processNext(pool,tenants[0])]);
+    await processNext(pool,tenants[0]);await processNext(pool,tenants[0]);
     const scoreJobs=(await (await call('automations/runs','GET',owner)).json()).items.filter(r=>r.payload.lead===scored);
     assert.deepEqual(scoreJobs.map(r=>r.payload.event).sort(),['lead_qualified','score_changed']);
     assert.ok(scoreJobs.every(r=>r.payload.score===80&&r.payload.previous_score===20&&r.payload.facts.min_score===80));
     assert.ok(scoreJobs.every(r=>measuredRuns.some(m=>m.id===r.payload.occurrence)));
     assert.ok(scoreJobs.every(r=>r.state==='done'&&r.history[0].activity_id));
+    for(const job of scoreJobs){
+      assert.equal(job.history[1].outcome,'summarized');
+      const [snapshot]=job.history[1].summary;
+      assert.equal(snapshot.id,scored);assert.equal(snapshot.facts.segment,'Indústria');
+      assert.equal(snapshot.pending_title,'Revisar qualificação');
+      const measured=measuredRuns.find(run=>run.id===snapshot.analysis.id);
+      assert.ok(measured);assert.equal(snapshot.analysis.model,measured.model_version);
+      assert.equal(snapshot.analysis.classification,measured.result.classification);
+      assert.equal(snapshot.analysis.next_action,measured.result.nextAction);
+    }
     assert.ok(!(await (await call('automations/runs','GET',other)).json()).items.some(r=>r.payload.lead===scored));
     assert.equal((await call(path+'/'+id,'DELETE',owner)).status,204);
     assert.ok((await search(owner)).every(row=>row.document_id!==id));
