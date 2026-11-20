@@ -82,6 +82,14 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     assert.equal((await newRun.json()).result.score,55);
     const history=await (await call(leadPath,'GET',owner)).json();
     assert.deepEqual(history.items.map(r=>r.result.score),[55,20]);
+    const metrics=await call('core/metrics?days=7','GET',owner);
+    assert.equal(metrics.status,200);
+    const measured=(await metrics.json()).items;
+    assert.deepEqual(measured.map(item=>[item.subject_kind,item.runs]),[['deal',1],['lead',2]]);
+    assert.ok(measured.every(item=>item.p95_ms>=item.p50_ms && item.p50_ms>0));
+    assert.equal((await call('core/metrics','GET',seller)).status,403);
+    assert.equal((await call('core/metrics?days=1','GET',owner)).status,400);
+    assert.deepEqual((await (await call('core/metrics','GET',other)).json()).items,[]);
     assert.equal((await call(path+'/'+id,'DELETE',owner)).status,204);
     assert.ok((await search(owner)).every(row=>row.document_id!==id));
     assert.equal((await admin.query('SELECT count(*)::int AS n FROM vant.document_chunks WHERE document_id=$1',[id])).rows[0].n,0);

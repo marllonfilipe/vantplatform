@@ -30,4 +30,8 @@ A navegação **Inteligência → Memória comercial** reúne cadastro, substitu
 
 O teste de fila aquece o modelo antes de enviar 24 inferências em seis rodadas de quatro chamadas simultâneas. O log do job informa mediana, p95 e máximo em milissegundos, incluindo o tempo de fila. A amostra mede esse runner de CI. Capacidade com documentos e tráfego de produção precisa de medição no host correspondente.
 
+O [teste de navegador e carga do commit d9e24e7](https://github.com/marllonfilipe/vantplatform/actions/runs/44657698205) passou. No cenário de 24 consultas curtas em quatro chamadas concorrentes, esse runner registrou mediana de 8 ms, p95 de 14 ms e máximo de 15 ms após o aquecimento.
+
+Gestores consultam o volume de análises de leads e oportunidades por revisão de modelo, a mediana e o p95 de latência de inferência na página de memória. O endpoint `GET /api/v1/core/metrics?days=30` aceita janelas de 7, 30 e 90 dias. Os dados vêm das análises concluídas da empresa. Consultas avulsas de busca, falhas e tempo total da requisição não entram nesse indicador. A suíte HTTP verifica contagens, ordenação dos percentis, papel de acesso e isolamento entre empresas.
+
 Próximos incrementos da 06 abrangem memória operacional e histórica, critérios comerciais de qualificação (necessidade, intenção, oferta e objeções com evidências) e monitoramento. O aceite integral continua pendente. A integração de conversas reais segue a dependência da missão 05.

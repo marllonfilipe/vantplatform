@@ -47,6 +47,21 @@ function assess(deal) {
 }
 
 export async function analysisRoutes({db, tenant, member, requestId, url, method}) {
+  if (url.pathname === '/api/v1/core/metrics' && method === 'GET') {
+    if (!mayManageTeams(member.role)) reject(403,'permission','Apenas gestores consultam o consumo da empresa.');
+    const days = Number(url.searchParams.get('days') ?? 30);
+    if (![7,30,90].includes(days)) reject(400,'period','Use 7, 30 ou 90 dias.');
+    const {rows} = await db.query(
+      `SELECT subject_kind, model_version, count(*)::int AS runs,
+              percentile_disc(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50_ms,
+              percentile_disc(0.95) WITHIN GROUP (ORDER BY latency_ms) AS p95_ms,
+              max(created_at) AS last_run
+         FROM vant.core_runs
+        WHERE tenant_id=$1 AND created_at >= now() - make_interval(days => $2::integer)
+        GROUP BY subject_kind, model_version ORDER BY subject_kind, model_version`,
+      [tenant,days]);
+    return [200,{days,items:rows}];
+  }
   const match = /^\/api\/v1\/core\/(leads|deals)\/([^/]+)\/analyses$/.exec(url.pathname);
   if (!match || !['GET','POST'].includes(method) || !isUuid(match[2])) return;
   const [, collection, id] = match;

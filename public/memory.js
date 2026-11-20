@@ -71,6 +71,15 @@ export function createMemoryPage({api, node, button, panel, empty, modal, view, 
     });
     const documents = panel('Documentos recentes',...(list.length ? list : [empty('Nenhum documento indexado.')]));
     if (manages) documents.prepend(button('Adicionar documento',()=>edit()));
-    return [documents,panel('Busca semântica',form,results)];
+    const sections = [documents,panel('Busca semântica',form,results)];
+    if (manages) {
+      const metrics = await api('/core/metrics?days=30');
+      const rows = metrics.items.map(item => {
+        const group = item.subject_kind === 'lead' ? 'Leads' : 'Oportunidades';
+        return node('p',group+' · '+item.runs+' análises · mediana '+item.p50_ms+' ms · p95 '+item.p95_ms+' ms · '+item.model_version);
+      });
+      sections.push(panel('Inferência nas análises dos últimos 30 dias',...(rows.length ? rows : [empty('Nenhuma análise registrada no período.')])));
+    }
+    return sections;
   };
 }
