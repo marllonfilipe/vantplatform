@@ -173,3 +173,11 @@ O teste do Core aciona um processo real do worker, confere a versão do modelo, 
 Em **Condições comerciais**, **Última interação concluída nos últimos 30 dias** permite escolher ligação, reunião, follow-up ou ausência de interação. O banco calcula o valor no enfileiramento, apenas quando a versão contém a condição. Uma oportunidade considera suas próprias atividades. Um gatilho de lead considera as atividades vinculadas ao lead. O intervalo inclui os últimos trinta dias até a captura e usa o horário de conclusão. Comentários internos, atividades abertas e datas futuras ficam fora do cálculo.
 
 A API aceita `conditions.last_interaction_30d` com `call`, `meeting`, `followup` ou `none`. A ausência de vínculo comercial produz um valor desconhecido. O worker decide o caminho com o fato registrado no evento. O cenário de oportunidades em `tests/flow-updates.integration.mjs` acumula três movimentações antes de executar os trabalhos e confere o caminho de cada uma.
+
+## Mapa do fluxo e ordem das etapas
+
+Durante a criação ou edição, **Mapa do fluxo** mostra o evento, a espera inicial, o intervalo entre execuções, os filtros preenchidos e as ações em ordem. Um fluxo condicional mostra ambos os caminhos, inclusive o encerramento quando a condição falha e não há ação alternativa. Em telas estreitas, os caminhos ficam um abaixo do outro.
+
+Em **Etapas após a ação principal** ou **Etapas após a ação alternativa**, use **Mover para cima** e **Mover para baixo** para mudar a ordem das etapas adicionais. As esperas e demais parâmetros acompanham a etapa. A prévia, os campos do formulário e o conteúdo publicado usam a mesma sequência. A versão vigente continua em uso até a publicação.
+
+O teste de automações usa Chromium para editar duas etapas, inverter a ordem, conferir a espera de quinze minutos e o caminho alternativo, verificar o mapa a 390 pixels e recuperar a sequência publicada pela API. O aceite integral da missão segue pendente. A entrega de webhooks de saída e os gatilhos externos continuam no planejamento original.

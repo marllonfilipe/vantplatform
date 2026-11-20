@@ -48,6 +48,18 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const section=node('details'),items=node('div'),rows=[];
   section.append(node('summary',label),items);form.append(section);
   const addButton=button('Adicionar etapa',()=>add({}));
+  function sync(){
+   rows.forEach((item,index)=>{item.up.disabled=index===0;item.down.disabled=index===rows.length-1;});
+   addButton.disabled=rows.length>=7;
+   form.dispatchEvent(new Event('input'));
+  }
+  function move(item,offset){
+   const index=rows.indexOf(item),next=index+offset,neighbor=rows[next];
+   if(!neighbor)return;
+   rows.splice(index,1);rows.splice(next,0,item);
+   if(offset<0)items.insertBefore(item.wrapper,neighbor.wrapper);else items.insertBefore(neighbor.wrapper,item.wrapper);
+   sync();(offset<0?item.down:item.up).focus();
+  }
   function add(initial){
    const wrapper=node('fieldset');
    items.append(wrapper);
@@ -66,12 +78,17 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
     ?{kind:kind.value,owner_id:owner.field.value,wait_minutes:Number(wait.value)}
     :kind.value==='update_record'?{kind:kind.value,changes:changes(),wait_minutes:Number(wait.value)}
     :{kind:kind.value,title:title.value,wait_minutes:Number(wait.value),due_minutes:due.disabled||due.value===''?null:Number(due.value)};
-   rows.push(row);addButton.disabled=rows.length>=7;
-   wrapper.append(button('Remover etapa',()=>{rows.splice(rows.indexOf(row),1);wrapper.remove();addButton.disabled=false;}));
+   const item={wrapper,read:row};
+   item.up=button('Mover para cima',()=>move(item,-1));
+   item.down=button('Mover para baixo',()=>move(item,1));
+   rows.push(item);
+   const controls=node('div',undefined,'step-controls');
+   controls.append(item.up,item.down,button('Remover etapa',()=>{rows.splice(rows.indexOf(item),1);wrapper.remove();sync();addButton.focus();}));
+   wrapper.append(controls);sync();
   }
   for(const item of initial)add(item);
   section.append(addButton);
-  return {section,values:()=>rows.map(read=>read())};
+  return {section,values:()=>rows.map(item=>item.read())};
  }
  async function editor(existing){
   const [members,pipelines]=await Promise.all([api('/crm/members'),api('/crm/pipelines')]);
@@ -128,6 +145,38 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
    due.parentElement.hidden=due.disabled;due.required=branches.includes('reminder');
   }
   conditions.addEventListener('input',refresh);conditions.addEventListener('change',refresh);condition.oninput=refresh;kind.onchange=refresh;alternate.onchange=refresh;refresh();
+  const diagram=node('section',undefined,'flow-diagram');diagram.setAttribute('aria-label','Mapa do fluxo');
+  form.insertBefore(diagram,trigger.parentElement);
+  function draw(){
+   const start=node('div',events[trigger.value],'flow-trigger');
+   if(Number(delay.value)>0)start.append(node('small','Aguardar '+delay.value+' min'));
+   if(Number(cooldown.value)>0)start.append(node('small','Intervalo entre execuções: '+cooldown.value+' min'));
+   const filters=[];
+   if(condition.value.trim())filters.push('Origem: '+condition.value.trim());
+   for(const field of Object.values(fields)){
+    if(field.value!=='')filters.push(field.parentElement.firstChild.textContent+' · '+(field.selectedOptions?.[0]?.text??field.value));
+   }
+   const branches=node('div',undefined,'flow-paths');
+   function addPath(label,actions){
+    const path=node('section',undefined,'flow-path');path.setAttribute('aria-label',label);path.append(node('h4',label));
+    const sequence=node('ol');
+    for(const action of actions){
+     const item=node('li');
+     if(action.wait_minutes>0)item.append(node('small','Aguardar '+action.wait_minutes+' min'));
+     item.append(node('strong',kinds[action.kind]));
+     if(action.title&&!['assign_owner','update_record','summarize','run_agent'].includes(action.kind))item.append(node('span',action.title));
+     sequence.append(item);
+    }
+    if(actions.length)path.append(sequence);
+    path.append(node('span','Encerrar','flow-end'));branches.append(path);
+   }
+   addPath(filters.length?'Condições atendidas':'Ações',[{kind:kind.value,title:title.value},...mainSteps.values()]);
+   if(filters.length)addPath('Caminho alternativo',alternate.value?[{kind:alternate.value,title:alternateTitle.value},...otherSteps.values()]:[]);
+   diagram.replaceChildren(node('h3','Mapa do fluxo'),start);
+   if(filters.length)diagram.append(node('p',filters.join(' · '),'flow-filters'));
+   diagram.append(branches);
+  }
+  form.addEventListener('input',draw);form.addEventListener('change',draw);draw();
   const enabled=input(form,'Ativar fluxo','checkbox');enabled.checked=existing?.enabled??false;
   const save=node('button','Publicar versão','primary'),feedback=node('p');feedback.setAttribute('role','alert');form.append(save,feedback);
   form.onsubmit=async e=>{
