@@ -42,4 +42,12 @@ A ficha de lead conserva necessidade, intenção de compra, orçamento, janela d
 
 O núcleo prioriza o tratamento de uma objeção registrada. Uma solicitação de proposta com orçamento confirmado gera a recomendação de preparar a proposta. Na recuperação semântica, a necessidade e a objeção precedem o segmento e as notas. A pontuação de atividade conserva a fórmula documentada. O teste via HTTP confirma rejeição de opções inválidas, nova análise após alteração pelo CRM e preservação da avaliação anterior.
 
-Próxima atividade: recomendação de oferta a partir do catálogo da própria empresa e rastreabilidade das fontes após reindexação. Permanecem abertas a memória operacional de tarefas, a avaliação comercial das regras e a homologação do conjunto dos critérios da 06. A integração de conversas reais segue a dependência da missão 05.
+A [validação do Core de cb9ab17](https://github.com/marllonfilipe/vantplatform/actions/runs/44658276180) exercitou alteração via CRM, inferência com esses dados e preservação do histórico.
+
+## Catálogo e referências
+
+Ao cadastrar um documento, o gestor pode selecionar a categoria **Oferta do catálogo**. Documentos antigos são referências por padrão. Uma análise de lead com necessidade declarada compara seu contexto com o catálogo daquela empresa usando o modelo local. A oferta candidata aparece para revisão humana quando a similaridade do cosseno alcança 0,65. Esse corte inicial é configurado no código e precisa de avaliação com dados comerciais representativos. A sugestão não envia proposta nem altera preços.
+
+Cada substituição de documento incrementa sua revisão. As novas análises registram documento, revisão e índice do trecho usado. A recomendação registra também a identificação e o título da oferta vigente na consulta. Registros anteriores à migration 008 mantêm os dados disponíveis na época. O teste de integração cobre ausência de oferta no tenant, inclusão em catálogo próprio, mudança de revisão e referência da análise à versão consultada.
+
+A próxima atividade do Core é a memória operacional de tarefas com estado, responsável e histórico. Ainda faltam avaliação comercial das regras, monitoramento de falhas e validação integral da missão. A integração de conversas reais segue a dependência da missão 05.

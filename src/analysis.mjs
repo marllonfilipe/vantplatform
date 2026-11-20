@@ -89,9 +89,13 @@ export async function analysisRoutes({db, tenant, member, requestId, url, method
   }
   const result = lead ? qualify(row) : assess(row);
   const query = (lead ? [row.stated_need,row.stated_objection,row.segment,row.notes,row.account_name,row.name] : [row.products,row.loss_reason,row.name]).filter(Boolean).join(' ').slice(0,320) || subject;
-  const memory = await retrieveKnowledge(db,tenant,query,3);
+  const memory = await retrieveKnowledge(db,tenant,query,3,Boolean(lead && row.stated_need));
   result.ruleset = lead ? 'crm-v2' : 'crm-v1';
-  result.sources = memory.items.map(({document_id,chunk_index,similarity})=>({document_id,chunk_index,similarity}));
+  result.sources = memory.items.map(({document_id,revision,chunk_index,similarity})=>({document_id,revision,chunk_index,similarity}));
+  if (lead && memory.offer && memory.offer.similarity >= 0.65) {
+    const {document_id,revision,chunk_index,similarity,title}=memory.offer;
+    result.offer={document_id,revision,chunk_index,similarity,title};
+  }
   const {rows} = await db.query(`INSERT INTO vant.core_runs(tenant_id,actor_id,subject_kind,subject_id,model_version,latency_ms,result)
     VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,result,model_version,latency_ms,created_at`,
     [tenant,member.id,subject,id,memory.model,memory.latencyMs,result]);

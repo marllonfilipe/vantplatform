@@ -54,6 +54,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
     if(value)parts.push(pair(label,value));
    }
   }
+  if(result.offer)parts.push(pair('Oferta para revisão',result.offer.title+' · revisão '+result.offer.revision));
   for(const item of result.evidence)parts.push(node('p',item.detail+(item.points?' (+'+item.points+')':'')));
   parts.push(pair('Próxima ação',result.nextAction));
   for(const source of run.context??[])parts.push(panel(source.title,node('p',source.content)));

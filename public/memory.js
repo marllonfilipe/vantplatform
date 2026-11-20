@@ -31,11 +31,15 @@ export function createMemoryPage({api, node, button, panel, empty, modal, view, 
     const title = field(form,'Título',node('input'));
     title.value = record?.title ?? '';
     title.maxLength = 180;
+    const category = field(form,'Categoria',node('select'));
+    category.add(new Option('Documento de referência','reference'));
+    category.add(new Option('Oferta do catálogo','offer'));
+    category.value = record?.category ?? 'reference';
     const content = field(form,record ? 'Novo texto integral' : 'Texto do documento',node('textarea'));
     content.rows = 8;
     content.maxLength = 12000;
     submit(form,'Indexar documento',async () => {
-      const data = {title:title.value, content:content.value};
+      const data = {title:title.value, content:content.value, category:category.value};
       await api(record ? endpoint+'/'+record.id : endpoint, record ? 'PUT' : 'POST', data);
       await refresh();
     });
