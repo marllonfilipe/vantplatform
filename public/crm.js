@@ -42,6 +42,16 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
  }
  function csv(){const f=node('form',undefined,'stack');f.append(empty('Até 500 linhas. Colunas: nome, email, telefone, origem, segmento, tags e observações. Apenas nome é obrigatória.'));
   const c=field(f,'Arquivo CSV',node('input'));c.type='file';c.accept='.csv';c.required=true;submit(f,async()=>api(path('leads','import'),'POST',{csv:await c.files[0].text()}));modal('Importar leads',f);}
+ function showAnalysis(run){
+  const result=run.result,parts=[pair('Classificação',result.classification)];
+  if(result.score!=null)parts.push(pair('Pontuação de qualificação',result.score+' / 100'));
+  if(result.probability!=null)parts.push(pair('Probabilidade registrada no CRM',result.probability+'%'));
+  for(const item of result.evidence)parts.push(node('p',item.detail+(item.points?' (+'+item.points+')':'')));
+  parts.push(pair('Próxima ação',result.nextAction));
+  for(const source of run.context??[])parts.push(panel(source.title,node('p',source.content)));
+  parts.push(pair('Inferência local',run.latency_ms+' ms'),pair('Regra',result.ruleset));
+  modal('Análise comercial',...parts);
+ }
  async function detail(kind,row){
   const parts=[],keys=entities[kind].fields.split(' ');
   for(const key of keys){let v=row[key];if(v==null||v===''||Array.isArray(v)&&!v.length)continue;
@@ -51,6 +61,14 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    parts.push(pair(labels[key],v));
   }
   if(canWrite(row))parts.unshift(button('Editar',()=>edit(kind,row)));
+  if(kind==='leads'||kind==='deals'){
+   const analyses='/core/'+kind+'/'+row.id+'/analyses';
+   parts.push(button('Histórico de análises',async()=>{
+    const history=await api(analyses);
+    modal('Histórico de análises',...(history.items.length?history.items.map(run=>button(date(run.created_at)+' · '+run.result.classification,()=>showAnalysis(run))):[empty('Nenhuma análise registrada.')]));
+   }));
+   if(canWrite(row))parts.push(button('Analisar no Intelligence Core',async()=>showAnalysis(await api(analyses,'POST',{}))));
+  }
   if(kind==='conversations'&&canWrite(row))parts.push(button(row.lead_id?'Abrir lead':'Criar lead da conversa',async()=>detail('leads',await api(path(kind,row.id)+'/lead','POST',{}))));
   if(kind==='activities'&&!row.done_at&&canWrite(row))parts.push(button('Concluir atividade',async()=>detail(kind,await api(path(kind,row.id),'PATCH',{done_at:new Date().toISOString()}))));
   if(kind==='leads'){

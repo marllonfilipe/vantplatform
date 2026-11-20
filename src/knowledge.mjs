@@ -35,22 +35,26 @@ async function encode(texts) {
   }
 }
 
+export async function retrieveKnowledge(db, tenant, query, limit) {
+  const { vectors, latencyMs } = await encode([query]);
+  const { rows } = await db.query(
+    `SELECT d.id AS document_id, d.filename AS title, c.chunk_index, c.content,
+            1 - (c.embedding <=> $1::vector) AS similarity
+       FROM vant.documents d JOIN vant.document_chunks c USING (tenant_id)
+      WHERE c.document_id = d.id AND d.tenant_id = $2 AND d.purpose = $3 AND c.model = $4
+      ORDER BY c.embedding <=> $1::vector, d.id, c.chunk_index LIMIT $5`,
+    [JSON.stringify(vectors[0]), tenant, purpose, modelVersion, limit]
+  );
+  return { items: rows, model: modelVersion, latencyMs };
+}
+
 export async function knowledgeRoutes({ db, tenant, member, requestId, url, method, body }) {
   const path = url.pathname;
   if (path === searchPath && method === 'POST') {
     const query = textField(body.query, 320);
     const limit = body.limit ?? 5;
     if (!Number.isInteger(limit) || limit < 1 || limit > 20) reject(400, 'limit', 'Use um limite de 1 a 20.');
-    const { vectors, latencyMs } = await encode([query]);
-    const { rows } = await db.query(
-      `SELECT d.id AS document_id, d.filename AS title, c.chunk_index, c.content,
-              1 - (c.embedding <=> $1::vector) AS similarity
-         FROM vant.documents d JOIN vant.document_chunks c USING (tenant_id)
-        WHERE c.document_id = d.id AND d.tenant_id = $2 AND d.purpose = $3 AND c.model = $4
-        ORDER BY c.embedding <=> $1::vector, d.id, c.chunk_index LIMIT $5`,
-      [JSON.stringify(vectors[0]), tenant, purpose, modelVersion, limit]
-    );
-    return [200, { items: rows, model: modelVersion, latencyMs }];
+    return [200, await retrieveKnowledge(db, tenant, query, limit)];
   }
   if (path === documentsPath && method === 'GET') {
     const { rows } = await db.query(

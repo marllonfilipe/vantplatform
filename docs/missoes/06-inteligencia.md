@@ -12,4 +12,14 @@ Membros autenticados podem listar os 100 documentos mais recentes por `GET /api/
 
 O workflow **Validar inteligência local** executa `tests/core/knowledge.test.mjs` com chamadas HTTP à aplicação, banco pgvector, papel restrito e pesos locais. Exercita permissões, classificação dos trechos, isolamento entre duas empresas, reindexação, exclusão em cascata e auditoria. O resultado de cada revisão está em [GitHub Actions](https://github.com/marllonfilipe/vantplatform/actions/workflows/inteligencia.yml).
 
-Próxima atividade após validar a API de documentos: qualificação de leads e análise de oportunidades com fatos do CRM e histórico de decisões. Continuam pendentes a interface de memória, a avaliação de desempenho com carga, as demais camadas de memória e o aceite integral da missão. A integração de conversas reais depende da homologação da missão 05.
+A entrega de documentos no commit `1d26b5f` passou na [suíte do Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44657080360) e na [regressão SaaS](https://github.com/marllonfilipe/vantplatform/actions/runs/44657080312).
+
+## Qualificação e oportunidades
+
+Na ficha de lead ou oportunidade, o vendedor responsável ou um gestor pode solicitar uma análise. Qualquer membro com acesso de leitura ao registro pode consultar as últimas vinte análises. As rotas são `GET` e `POST /api/v1/core/{leads|deals}/{id}/analyses`. A execução registra ator, revisão do modelo, duração da inferência e versão das regras. Os trechos recuperados são apresentados com a análise atual. O histórico guarda referências aos trechos, sem copiar o texto dos documentos.
+
+A pontuação de lead soma sinais observáveis no CRM. Canal de contato, empresa, segmento e pessoa de contato valem dez pontos cada. Contato recente vale 25 e oportunidade aberta vale 35. A interface apresenta os motivos e a próxima ação. A análise de oportunidade verifica vencimento da previsão, inatividade e ausência de atividade pendente. A probabilidade exibida é a cadastrada no CRM. As regras iniciais precisam de avaliação com resultados comerciais antes de qualquer interpretação preditiva. A seleção de trechos usa o modelo local; os documentos recuperados não executam ações nem alteram a pontuação.
+
+O teste HTTP do Core inclui variação da pontuação após abrir uma oportunidade, classificação de risco, registro de análises sucessivas e permissões entre empresas e vendedores. Consultar a execução correspondente ao commit para o resultado.
+
+Pendências da 06 incluem interface de documentos, memória operacional e histórica completa, qualificação de necessidade, intenção e oferta com evidências, avaliação sob carga e homologação dos critérios restantes. A integração de conversas reais continua vinculada à missão 05.
