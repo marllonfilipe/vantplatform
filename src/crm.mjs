@@ -117,6 +117,7 @@ export async function recordFlowComment(ctx,target,title,execution){
  if(target.deal_id)await log(ctx,'deals',target.deal_id,'activity_recorded',changes);
  return activity.id;
 }
+export function createCrmAccount(ctx,values){return save(ctx,'accounts',values);}
 export function createCrmActivity(ctx,task){return save(ctx,'activities',task);}
 async function list(ctx,kind){
  const {db,url}=ctx,fields=entities[kind].fields.split(' '),where=[],params=[];

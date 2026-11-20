@@ -1,5 +1,5 @@
 import {reject} from './http.mjs';
-export function leadCsv(input) {
+export function csvRecords(input,aliases,required) {
  if(typeof input!=='string'||!input.trim()||Buffer.byteLength(input)>512000) reject(400,'csv','Informe um CSV de até 500 KB.');
  const text=input.replace(/^\uFEFF/,'');
  const separator=text.split(/\r?\n/,1)[0].includes(';')?';':',';
@@ -16,12 +16,18 @@ export function leadCsv(input) {
  }
  if(quoted)reject(400,'csv','Campo sem fechamento.');
  line();if(rows.length<2||rows.length>501)reject(400,'csv','Informe de 1 a 500 registros.');
- const aliases={nome:'name',email:'email',telefone:'phone',origem:'source',segmento:'segment',tags:'tags',observações:'notes',observacoes:'notes'};
  const cols=rows.shift().map(k=>Object.hasOwn(aliases,k.toLowerCase())?aliases[k.toLowerCase()]:null);
- if(!cols.includes('name')||cols.includes(null)||new Set(cols).size!==cols.length)reject(400,'csv','Cabeçalho inválido.');
+ if(!required.every(k=>cols.includes(k))||cols.includes(null)||new Set(cols).size!==cols.length)reject(400,'csv','Cabeçalho inválido.');
  return rows.map((r,i)=>{
   if(r.length!==cols.length)reject(400,'csv','Confira a linha '+(i+2)+'.');
-  const data=Object.fromEntries(cols.map((k,j)=>[k,r[j]]));data.source||='Importação CSV';
+  return Object.fromEntries(cols.map((k,j)=>[k,r[j]]));
+ });
+}
+
+export function leadCsv(input){
+ const aliases={nome:'name',email:'email',telefone:'phone',origem:'source',segmento:'segment',tags:'tags',observações:'notes',observacoes:'notes'};
+ return csvRecords(input,aliases,['name']).map(data=>{
+  data.source||='Importação CSV';
   if(data.tags!==undefined)data.tags=data.tags.split('|').map(s=>s.trim()).filter(Boolean);
   return data;
  });

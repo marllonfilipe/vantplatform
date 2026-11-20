@@ -86,6 +86,35 @@ test('perfil de cliente ideal seleciona empresas do CRM com fonte, permissões e
   assert.equal((await call('crm/accounts/'+account)).status,200);
   const audit=await admin.query("SELECT action FROM vant.audit WHERE tenant_id=$1 AND action LIKE 'prospecting.%' ORDER BY action",[tenant]);
   assert.deepEqual(audit.rows.map(a=>a.action),['prospecting.profile.created','prospecting.profile.updated','prospecting.target.added','prospecting.target.removed']);
+  const existingCode='00.000.000/0001-00',newCode='00000000000200';
+  assert.equal((await call('crm/accounts/'+account,'PATCH',{cnpj:existingCode})).status,200);
+  const header='nome;cnpj;fonte;região',lineA='Nome divergente;00000000000100;Catálogo A;Campinas',lineB='Conta por CSV;'+newCode+';Catálogo B;Recife';
+  const importPath=path+'/import',csv=[header,lineA,lineB].join('\n');
+  assert.equal((await viewer(importPath,'POST',{csv})).status,403);
+  assert.equal((await foreign(importPath,'POST',{csv})).status,404);
+  assert.equal((await call(importPath,'POST',{csv:csv+'\nInválida;?;Catálogo;Recife'})).status,400);
+  const before=await admin.query('SELECT count(*)::int AS n FROM vant.accounts WHERE tenant_id=$1 AND cnpj=$2',[tenant,newCode]);
+  assert.equal(before.rows[0].n,0);
+  const imports=await Promise.all([call(importPath,'POST',{csv}),seller(importPath,'POST',{csv:[header,lineB,lineA].join('\n')})]);
+  const results=[];
+  for(const response of imports){assert.equal(response.status,200);results.push(await response.json());}
+  assert.equal(results.reduce((n,v)=>n+v.created,0),1);
+  assert.equal(results.reduce((n,v)=>n+v.selected,0),2);
+  assert.ok(results.every(v=>v.unchanged_values.some(row=>row.fields.includes('name'))));
+  assert.equal((await (await call('crm/accounts/'+account)).json()).name,accountData.name);
+  await page.locator('#closeDialog').click();await page.getByRole('button',{name:'Importar empresas'}).click();
+  await dialog.getByLabel('Conteúdo CSV').fill([header,'Conta por CSV;'+newCode+';Catálogo complementar;Recife'].join('\n'));
+  await dialog.getByRole('button',{name:'Importar para a lista'}).click();
+  await dialog.getByText(/0 empresas criadas · 1 reutilizações · 0 novas seleções/).waitFor();
+  const targets=(await (await call(path+'/targets')).json()).items;
+  const viaCsv=targets.find(a=>a.name==='Conta por CSV');
+  assert.deepEqual(viaCsv.recent_sources.sort(),['Catálogo B','Catálogo complementar']);
+  await call(path+'/targets/'+viaCsv.id,'DELETE');
+  const refs=await admin.query('SELECT source_reference FROM vant.prospect_account_sources WHERE tenant_id=$1 AND account_id=$2',[tenant,viaCsv.id]);
+  assert.equal(refs.rowCount,2);
+  const otherProfile=(await (await foreign(profiles,'POST',spec)).json()).id;
+  const otherImport=await foreign(profiles+'/'+otherProfile+'/import','POST',{csv:[header,lineB].join('\n')});
+  assert.equal(otherImport.status,200);assert.equal((await otherImport.json()).created,1);
  }finally{
   await browser?.close();
   if(server.listening)await new Promise(resolve=>server.close(resolve));

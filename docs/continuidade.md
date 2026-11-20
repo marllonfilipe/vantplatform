@@ -75,3 +75,9 @@ O [mapa e a edição de ordem](https://github.com/marllonfilipe/vantplatform/com
 ## Missão 09 · Perfil e contas-alvo do CRM
 
 O [webhook da Missão 08](https://github.com/marllonfilipe/vantplatform/commit/c08f4e9b5cb799e158e53abd252358f343387ca4) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44798377361) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44798377358). A Missão 09 começou com perfis de cliente ideal e listas de empresas do CRM, com origem da seleção, paginação e auditoria. O [relatório da missão](missoes/09-prospeccao.md) descreve o teste e os critérios restantes. O próximo incremento é a importação CSV de contas com origem autorizada e deduplicação. A missão permanece parcial.
+
+## Missão 09 · Importação e origem de contas
+
+O CSV vincula as contas ao perfil escolhido e ao CRM, conserva os dados existentes e registra cada fonte. A suíte de fundação cobre concorrência, isolamento, validação do lote e importação na interface. A próxima atividade independente é a classificação de aderência ao ICP pelo Core. A implementação continua parcial.
+
+Os [perfis e a seleção no CRM](https://github.com/marllonfilipe/vantplatform/commit/033435f604636bf89ebb08e31d5decbc02dba0e1) passaram na [fundação com Chromium e PostgreSQL](https://github.com/marllonfilipe/vantplatform/actions/runs/44798921819) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44798921771).

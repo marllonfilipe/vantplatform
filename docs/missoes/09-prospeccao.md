@@ -15,3 +15,13 @@ Na API autenticada, use `GET /api/v1/prospecting/profiles`, `POST /api/v1/prospe
 A suíte de fundação executa `tests/prospecting.integration.mjs` em PostgreSQL e Chromium. O cenário cadastra um perfil na interface, escolhe uma empresa com fonte, abre a ficha original, confere papéis de acesso e separação entre empresas, conflito de revisão, paginação e auditoria. O resultado pertence ao commit testado.
 
 O próximo incremento é importar contas de uma fonte autorizada por CSV com deduplicação e rastreabilidade. Pesquisa assistida, classificação pelo Core e apoio à abordagem permanecem pendentes de implementação e validação.
+
+## Importação CSV com origem e deduplicação
+
+Em **Prospecção**, escolha o perfil e **Importar empresas**. Selecione um arquivo CSV ou cole seu conteúdo. São obrigatórios os cabeçalhos `nome`, `cnpj` e `fonte`. Os opcionais são `site`, `segmento`, `região`, `porte` e `atividade`. O importador aceita vírgula ou ponto e vírgula, aspas e até 500 registros em 500 KB. Cada linha representa uma empresa selecionada pela fonte, inclusive quando ela não satisfaz todos os filtros do perfil.
+
+A correspondência usa o identificador da empresa dentro do tenant e desconsidera pontuação, espaços e caixa. A validação verifica o formato de entrada. A confirmação da situação cadastral pertence à fonte informada. Contas existentes são reutilizadas e conservam os dados do CRM. O resultado mostra os campos divergentes preservados. Uma ambiguidade em registros históricos ou uma linha inválida interrompe o lote inteiro. Importações concorrentes e o cadastro normal do CRM coordenam a gravação do identificador.
+
+Cada referência de origem fica vinculada à conta com o usuário e o instante de registro. Uma seleção posterior pode acrescentar uma fonte. A retirada de uma lista preserva as fontes da empresa. O cartão mostra até cinco referências recentes, além da origem da seleção vigente. O endpoint `POST /api/v1/prospecting/profiles/{id}/import` recebe `csv` e devolve as contagens de registros, empresas criadas, reutilizações e novas seleções.
+
+O teste de prospecção importa arquivos com as mesmas contas em ordens opostas, verifica a reversão de lote inválido, confirma o isolamento entre empresas e importa uma fonte complementar pelo Chromium. O próximo incremento é classificar a aderência ao ICP com o Intelligence Core e apresentar a evidência da classificação.

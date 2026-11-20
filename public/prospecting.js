@@ -31,6 +31,29 @@ export function createProspectingPage({api,node,button,panel,empty,modal,date,vi
   submit(form,'Salvar empresa-alvo',()=>api(path+'/targets/'+account.id,'PUT',{source_reference:source.value}));
   modal('Selecionar '+account.name,form);
  }
+ function csvImport(path){
+  const form=node('form',undefined,'stack'),fileLabel=node('label','Arquivo CSV'),file=node('input');
+  file.type='file';file.accept='.csv,text/csv';fileLabel.append(file);
+  const label=node('label','Conteúdo CSV'),content=node('textarea');content.required=true;label.append(content);
+  const feedback=node('p');feedback.setAttribute('role','alert');
+  file.onchange=async()=>{
+   try{const item=file.files[0];if(!item)return;if(item.size>512000)throw Error('Use um arquivo de até 500 KB.');content.value=await item.text();feedback.textContent='';}
+   catch(error){feedback.textContent=error.message;}
+  };
+  const send=node('button','Importar para a lista','primary');
+  form.append(node('p','Colunas obrigatórias: nome, cnpj, fonte. Opcionais: site, segmento, região, porte e atividade.'),fileLabel,label,send,feedback);
+  form.onsubmit=async event=>{
+   event.preventDefault();send.disabled=true;
+   try{
+    const r=await api(path+'/import','POST',{csv:content.value});
+    mode='targets';query='';resetPages();await view(page);
+    const details=[node('p',r.processed+' registros · '+r.created+' empresas criadas · '+r.reused+' reutilizações · '+r.selected+' novas seleções')];
+    for(const item of r.unchanged_values)details.push(node('p','Registro '+item.row+' · campos preservados no CRM: '+item.fields.map(k=>({name:'nome',website:'site',location:'região',size_band:'porte',segment:'segmento',business_activity:'atividade'}[k]??k)).join(', ')));
+    modal('Resultado da importação',...details);
+   }catch(error){feedback.textContent=error.message;}finally{send.disabled=false;}
+  };
+  modal('Importar empresas de fonte autorizada',form);
+ }
  function removeTarget(path,account){
   const form=node('form',undefined,'stack');
   submit(form,'Remover da lista',()=>api(path+'/targets/'+account.id,'DELETE'));
@@ -54,6 +77,7 @@ export function createProspectingPage({api,node,button,panel,empty,modal,date,vi
   picker.onchange=()=>{profileId=picker.value;mode='accounts';query='';resetPages();view(page);};
   bar.prepend(picker);
   if(manager)bar.append(button('Editar perfil',()=>edit(profile)));
+  if(user.role!=='viewer')bar.append(button('Importar empresas',()=>csvImport(base+'/'+profile.id)));
   const criteria=node('p',Object.entries(labels).filter(([k])=>profile[k]).map(([k,label])=>label+' · '+profile[k]).join(' | '));
   const filters=node('form',undefined,'toolbar'),list=node('select');list.setAttribute('aria-label','Lista de prospecção');
   list.add(new Option('Empresas com os critérios do perfil','accounts'));list.add(new Option('Empresas-alvo selecionadas','targets'));list.value=mode;
@@ -65,6 +89,8 @@ export function createProspectingPage({api,node,button,panel,empty,modal,date,vi
   for(const account of result.items){
    const details=[node('p',[account.segment,account.location,account.size_band,account.business_activity].filter(Boolean).join(' · ')),node('p','Decisores registrados: '+account.decision_makers)];
    if(account.selected_at)details.push(node('p','Fonte da seleção: '+account.source_reference),node('p','Selecionada em '+date(account.selected_at)));
+   const sources=account.recent_sources.filter(v=>v!==account.source_reference);
+   if(sources.length){const refs=node('details');refs.append(node('summary','Outras fontes registradas'));for(const ref of sources)refs.append(node('p',ref));details.push(refs);}
    details.push(button('Abrir empresa no CRM',()=>openAccount(account.id)));
    if(user.role!=='viewer'){
     if(!account.selected_at)details.push(button('Selecionar empresa',()=>selectTarget(path,account)));

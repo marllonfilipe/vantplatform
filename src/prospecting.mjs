@@ -1,3 +1,4 @@
+import {importProspectAccounts} from './prospect-import.mjs';
 import {audit} from './db.mjs';
 import {pagination,reject,textField} from './http.mjs';
 import {isUuid,mayManageTeams} from './security.mjs';
@@ -13,6 +14,8 @@ async function listAccounts(ctx,profile,selected){
  if(q.length>250)reject(400,'search','Busca muito longa.');
  const result=await db.query(`SELECT a.id,a.name,a.website,a.segment,a.location,a.size_band,a.business_activity,
    t.source_reference,t.selected_at,
+   ARRAY(SELECT s.source_reference FROM vant.prospect_account_sources s WHERE s.tenant_id=a.tenant_id AND s.account_id=a.id
+    ORDER BY s.recorded_at DESC,s.source_reference LIMIT 5) AS recent_sources,
    (SELECT count(*)::integer FROM vant.contacts c WHERE c.tenant_id=a.tenant_id AND c.account_id=a.id AND c.decision_maker) AS decision_makers
    FROM vant.accounts a LEFT JOIN vant.prospect_targets t ON t.tenant_id=a.tenant_id AND t.account_id=a.id AND t.profile_id=$2
    WHERE a.tenant_id=$1 AND ($3::uuid IS NULL OR a.id>$3) AND strpos(lower(a.name),lower($4))>0
@@ -60,6 +63,10 @@ export async function prospectingRoutes(ctx){
  if(!id)reject(405,'method','Método inválido.');
  const profile=(await db.query('SELECT * FROM vant.prospect_profiles WHERE tenant_id=$1 AND id=$2',[tenant,id])).rows[0];
  if(!profile)reject(404,'missing','Perfil não encontrado.');
+ if(parts.length===2&&resource==='import'&&method==='POST'){
+  if(member.role==='viewer')reject(403,'permission','Esta conta permite apenas consulta.');
+  return [200,await importProspectAccounts(ctx,id)];
+ }
  if(parts.length===2&&method==='GET'&&['accounts','targets'].includes(resource))return listAccounts(ctx,profile,resource==='targets');
  if(parts.length!==3||resource!=='targets'||!['PUT','DELETE'].includes(method))reject(404,'missing','Operação não encontrada.');
  if(member.role==='viewer')reject(403,'permission','Esta conta permite apenas consulta.');
