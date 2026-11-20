@@ -53,3 +53,9 @@ O worker grava o resumo de leads e oportunidades no histórico da etapa, com a a
 ## Missão 08 · Agente comercial nos fluxos
 
 O [resumo comercial](https://github.com/marllonfilipe/vantplatform/commit/062de758d1486895ed372b62621cf880608ca26c) passou nas suítes de [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44796885432) e [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44796885285). A ação seguinte gera análise e proposta interna, sujeita à supervisão e à franquia da empresa. O cenário de validação está em `tests/core/knowledge.test.mjs`. Conferir os checks da revisão e avançar na condição de comportamento do CRM. O marco de implementação integral segue pendente.
+
+## Missão 08 · Condição de comportamento
+
+O editor permite ramificar pelo último tipo de interação concluída no CRM nos últimos trinta dias. A suíte de fundação confere isolamento por registro, exclusão das atividades inelegíveis e preservação do comportamento observado em cada evento. A próxima atividade independente é tornar a sequência e as ramificações visíveis durante a edição do fluxo.
+
+O [agente supervisionado](https://github.com/marllonfilipe/vantplatform/commit/1d57f63d78352dea35ef3d85d51ed3db439c4fb5) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44797316529) e no [Core com processo real do worker](https://github.com/marllonfilipe/vantplatform/actions/runs/44797316451). A proposta ficou pendente no CRM.

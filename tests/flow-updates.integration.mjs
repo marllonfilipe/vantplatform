@@ -85,6 +85,26 @@ test('fluxo atualiza campos do CRM preservando tags, versão, histórico e valor
   await page.getByText('Sem análise registrada no Core.',{exact:true}).waitFor();
   const changesLog=(await (await call('crm/deals/'+deal+'/history')).json()).items.filter(h=>h.action==='updated');
   assert.equal(changesLog.length,1);assert.deepEqual(changesLog[0].changes.probability,{from:20,to:75});
+  const behavior={name:'Retorno após ligação',trigger_event:'deal_moved',enabled:true,task_title:'Retomar ligação',
+   conditions:{last_interaction_30d:'call'},else_kind:'task',else_title:'Revisar contexto'};
+  assert.equal((await call('automations','POST',{...behavior,conditions:{last_interaction_30d:'task'}})).status,400);
+  const result=await call('automations','POST',behavior);assert.equal(result.status,201);const behaviorId=(await result.json()).id;
+  const move=async index=>assert.equal((await call('crm/deals/'+deal,'PATCH',{stage_id:stages[index].id})).status,200);
+  const touch=async(kind,days,link)=>{
+   const body={kind,title:'Contato de teste',...link};
+   if(days!==null)body.done_at=new Date(Date.now()-days*86400000).toISOString();
+   assert.equal((await call('crm/activities','POST',body)).status,201);
+  };
+  await touch('call',31,{deal_id:deal});await touch('followup',null,{deal_id:deal});
+  await touch('call',1,{lead_id:lead});await touch('comment',0,{deal_id:deal});
+  await move(1);
+  await touch('call',2,{deal_id:deal});await move(0);
+  await touch('meeting',1,{deal_id:deal});await move(1);
+  await worker(tenant);await worker(tenant);await worker(tenant);
+  const captured=(await (await call('automations/runs')).json()).items.filter(j=>j.payload.flow===behaviorId);
+  assert.equal(captured.length,3);
+  const branches=Object.fromEntries(captured.map(j=>[j.payload.facts.last_interaction_30d,j.history[0].branch]));
+  assert.deepEqual(branches,{none:'otherwise',call:'match',meeting:'otherwise'});
  }finally{
   await browser?.close();
   if(server.listening)await new Promise(resolve=>server.close(resolve));

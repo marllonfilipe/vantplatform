@@ -167,3 +167,9 @@ O worker exige o mesmo modelo instalado e a mesma configuração de inferência 
 Com a supervisão pausada ou a ferramenta desligada, o trabalho permanece na fila e volta a verificar a liberação após um minuto. Ao atingir a franquia diária, volta a ser elegível na virada do dia em São Paulo. A espera preserva as tentativas. Uma falha ao executar a ação reverte o consumo e segue a política de retentativas do fluxo.
 
 O teste do Core aciona um processo real do worker, confere a versão do modelo, a proposta pendente, o acesso entre empresas, a pausa e a franquia. A implementação da Missão 08 permanece parcial. A próxima atividade independente é completar a condição de comportamento a partir de interações registradas no CRM.
+
+## Condição de comportamento comercial
+
+Em **Condições comerciais**, **Última interação concluída nos últimos 30 dias** permite escolher ligação, reunião, follow-up ou ausência de interação. O banco calcula o valor no enfileiramento, apenas quando a versão contém a condição. Uma oportunidade considera suas próprias atividades. Um gatilho de lead considera as atividades vinculadas ao lead. O intervalo inclui os últimos trinta dias até a captura e usa o horário de conclusão. Comentários internos, atividades abertas e datas futuras ficam fora do cálculo.
+
+A API aceita `conditions.last_interaction_30d` com `call`, `meeting`, `followup` ou `none`. A ausência de vínculo comercial produz um valor desconhecido. O worker decide o caminho com o fato registrado no evento. O cenário de oportunidades em `tests/flow-updates.integration.mjs` acumula três movimentações antes de executar os trabalhos e confere o caminho de cada uma.

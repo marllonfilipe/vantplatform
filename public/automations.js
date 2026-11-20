@@ -89,6 +89,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
    const control=input(conditions,label,'number');control.min=0;control.max=max;control.step=key==='min_cents'?'0.01':'1';fields[key]=control;
   }
   const any=[['','Sem condição']];
+  fields.last_interaction_30d=select(conditions,'Última interação concluída nos últimos 30 dias',[...any,['call','Ligação'],['meeting','Reunião'],['followup','Follow-up'],['none','Nenhuma interação concluída']],'');
   fields.intent=select(conditions,'Intenção de compra',[...any,['unknown','Não informada'],['exploring','Pesquisando'],['evaluating','Em avaliação'],['requested_proposal','Solicitou proposta']],'');
   fields.owner_id=select(conditions,'Responsável',[...any,...members.items.map(m=>[m.id,m.name])],'');
   fields.stage_id=select(conditions,'Etapa do funil',[...any,...pipelines.items.flatMap(p=>p.stages.map(s=>[s.id,p.name+' · '+s.name]))],'');

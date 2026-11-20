@@ -44,6 +44,7 @@ function parseConditions(value={}){
  for(const [key,v] of Object.entries(value)){
   if(key==='segment'||key==='tag'){result[key]=textField(v,key==='tag'?60:250);continue;}
   if(key==='stage_id'||key==='owner_id'){if(!isUuid(v))reject(400,'conditions','Identificador inválido.');result[key]=v.toLowerCase();continue;}
+  if(key==='last_interaction_30d'&&['call','meeting','followup','none'].includes(v)){result[key]=v;continue;}
   if(key==='intent'&&['unknown','exploring','evaluating','requested_proposal'].includes(v)){result[key]=v;continue;}
   const max={min_score:100,min_cents:999999999999,min_quiet_days:36500};
   if(!Object.hasOwn(max,key)||!Number.isSafeInteger(v)||v<0||v>max[key])reject(400,'conditions','Condição comercial inválida.');
