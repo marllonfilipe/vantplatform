@@ -77,3 +77,15 @@ O gestor pode publicar fluxos com **Score alterado** ou **Lead qualificado** em 
 A migration 021 usa o histórico anterior como referência sem criar trabalhos retroativos. Cada ocorrência identifica a análise, o lead e a pontuação anterior e atual. A condição de score mínimo usa a pontuação que gerou o evento. O PostgreSQL serializa a transição por empresa e lead para que duas análises concorrentes com o mesmo novo resultado não dupliquem o disparo.
 
 O teste integrado usa o modelo local, duas sessões de empresas distintas, PostgreSQL e o worker. Ele registra uma primeira análise com score 20, acrescenta uma oportunidade e um contato concluído e solicita duas análises concorrentes que chegam a 80. Confere um trabalho de cada gatilho, as duas atividades efetivamente criadas e o isolamento das ocorrências. Os checks do commit registram os resultados. Próxima atividade independente: gatilhos temporais de tarefas vencidas e leads sem interação.
+
+Na revisão [2676d4f](https://github.com/marllonfilipe/vantplatform/commit/2676d4f0ac33fad92f0ab66bb5d64b06ca54e38a), o [teste de inteligência com inferência e workers](https://github.com/marllonfilipe/vantplatform/actions/runs/44743978570) passou para a mudança de pontuação, qualificação concorrente e criação de atividades.
+
+## Gatilhos temporais no worker
+
+Em **Operação → Automações**, os eventos **Tarefa vencida** e **Lead sem interação** também alcançam registros existentes. O processo do worker varre sua empresa ao iniciar e a cada 30 segundos enquanto está ativo. Cada varredura inclui até 50 episódios ainda não registrados por fluxo. O modo `--once` varre a empresa antes de tentar consumir uma ocorrência. A espera configurada na versão começa quando o worker captura o episódio.
+
+Tarefas do tipo `task` são elegíveis quando têm prazo vencido e estão abertas. Tarefas criadas por esse motor são excluídas da varredura para evitar uma cadeia de novas tarefas vencidas. Para leads, a referência é a mais recente entre cadastro, último contato e interações comerciais concluídas. O intervalo padrão é 14 dias completos; o editor permite configurar **Dias mínimos sem contato**, com mínimo operacional de um dia para esse gatilho.
+
+O identificador da ocorrência usa fluxo, registro e instante de referência. Reinícios ou dois workers não devem duplicar o mesmo episódio. Alterar apenas a versão não recria o episódio capturado. Uma nova data de vencimento ou uma nova interação pode iniciar outro episódio. Antes de efetivar a ação, o worker confere se a tarefa continua aberta com o mesmo vencimento ou se o lead ainda tem a mesma referência de interação. O monitor registra uma tentativa ignorada quando a espera perde a validade.
+
+A suíte de fundação inicia workers reais em subprocessos, verifica isolamento, concorrência, reprocessamento e encerramento do episódio durante a espera. A fixture usa datas passadas e antecipa trabalhos no banco descartável para exercitar a passagem do tempo. A evidência é o check da revisão. A missão permanece parcial. Próxima atividade independente: etapas encadeadas e limites de execução para ações internas.

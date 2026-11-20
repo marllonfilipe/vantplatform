@@ -1,10 +1,11 @@
+import {timerTarget} from './timers.mjs';
 import {randomUUID} from 'node:crypto';
 import {audit,withTenant} from './db.mjs';
 import {createCrmActivity} from './crm.mjs';
 import {isUuid,mayManageTeams} from './security.mjs';
 import {reject,textField} from './http.mjs';
 
-const events=['lead_created','lead_updated','deal_created','deal_moved','deal_lost','meeting_scheduled','meeting_completed','score_changed','lead_qualified'];
+const events=['lead_created','lead_updated','deal_created','deal_moved','deal_lost','meeting_scheduled','meeting_completed','score_changed','lead_qualified','task_overdue','lead_inactive'];
 const jobKinds=events.map(event=>'flow.'+event);
 const activityKinds=new Set(['task','reminder','followup']);
 function parseConditions(value={}){
@@ -83,6 +84,7 @@ export async function automationRoutes({db,tenant,member,url,method,body,request
 }
 
 async function activityTarget(db,tenant,payload){
+ if(payload.event==='lead_inactive'||payload.event==='task_overdue')return timerTarget(db,tenant,payload);
  if(payload.meeting){
   return (await db.query("SELECT owner_id,lead_id,deal_id FROM vant.activities WHERE tenant_id=$1 AND id=$2 AND kind='meeting' FOR SHARE",[tenant,payload.meeting])).rows[0];
  }

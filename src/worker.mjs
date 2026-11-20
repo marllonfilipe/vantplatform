@@ -1,3 +1,4 @@
+import {enqueueTimers} from './timers.mjs';
 import {setTimeout as wait} from 'node:timers/promises';
 import {createPool,checkRuntime} from './db.mjs';
 import {isUuid} from './security.mjs';
@@ -12,7 +13,9 @@ process.once('SIGTERM',()=>{stopping=true;});
 process.once('SIGINT',()=>{stopping=true;});
 try{
  await checkRuntime(pool);
+ let nextScan=0;
  do{
+  if(Date.now()>=nextScan){await enqueueTimers(pool,tenant);nextScan=Date.now()+30000;}
   const processed=await processNext(pool,tenant);
   if(!processed&&!once&&!stopping)await wait(1000);
  }while(!once&&!stopping);
