@@ -1,3 +1,4 @@
+import {notifyOwner} from './notifications.mjs';
 import {timerTarget} from './timers.mjs';
 import {randomUUID} from 'node:crypto';
 import {audit,withTenant} from './db.mjs';
@@ -7,7 +8,7 @@ import {reject,textField} from './http.mjs';
 
 const events=['lead_created','lead_updated','deal_created','deal_moved','deal_lost','meeting_scheduled','meeting_completed','score_changed','lead_qualified','task_overdue','lead_inactive'];
 const jobKinds=events.map(event=>'flow.'+event);
-const actionKinds=new Set(['task','reminder','followup','assign_owner']);
+const actionKinds=new Set(['task','reminder','followup','assign_owner','notify_owner']);
 const assignmentEvents=new Set(['lead_created','score_changed','lead_qualified','deal_created','deal_moved','deal_lost']);
 
 function assignmentOwner(kind,id,event){
@@ -170,6 +171,9 @@ export function processNext(pool,tenant){
      if(kind==='assign_owner'){
       assignment=await assignCrmOwner(ctx,record,current.owner_id);
       outcome=assignment.previous_owner_id===assignment.owner_id?'unchanged':'assigned';
+     }else if(kind==='notify_owner'){
+      await notifyOwner(db,tenant,record.owner_id,job.id,step,title);
+      outcome='notified';
      }else{
       const task={kind,title,...record};
       if(current.due_minutes!==null)task.due_at=new Date(Date.now()+current.due_minutes*60000).toISOString();
@@ -183,7 +187,7 @@ export function processNext(pool,tenant){
    await db.query('ROLLBACK TO SAVEPOINT flow_effect');
    activity=null;assignment=null;outcome=stepAttempt>=3?'failed':'retry';
   }
-  const next=['created','assigned','unchanged'].includes(outcome)?following[step]:null;
+  const next=['created','assigned','unchanged','notified'].includes(outcome)?following[step]:null;
   const state=outcome==='retry'||next?'queued':outcome==='failed'?'failed':'done';
   const delay=next?next.wait_minutes*60:stepAttempt*30;
   const progress={step:next?step+1:step,step_attempts:next?0:stepAttempt};

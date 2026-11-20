@@ -80,7 +80,40 @@ async function view(name){
 function teamForm(){const f=node('form',undefined,'stack'),label=node('label','Nome da equipe'),input=node('input');input.required=true;input.maxLength=100;label.append(input);const note=node('p');f.append(label,node('button','Salvar','primary'),note);f.onsubmit=async e=>{e.preventDefault();try{const t=await api('/teams','POST',{name:input.value});el('team').add(new Option(t.name,t.id));el('dialog').close();await view('Equipe');}catch(err){note.textContent=err.message;}};modal('Nova equipe',f);}
 el('period').onchange=el('team').onchange=()=>view(current);
 el('profile').onclick=()=>modal(who.name,pair('E-mail',who.email),pair('Empresa',who.tenant_name),pair('Perfil',({owner:'Proprietário',manager:'Gerente',seller:'Vendedor',viewer:'Leitura'})[who.role]),button('Sair ou trocar de empresa',async()=>{await api('/auth/logout','POST');el('dialog').close();showLogin();}));
-el('notifications').onclick=async()=>{try{const d=await api('/dashboard?days=30');modal('Alertas da operação',pair('Atividades em atraso',d.totals.overdue),...taskRows(d.next.filter(x=>x.due_at && new Date(x.due_at)<new Date())));}catch(err){status.textContent=err.message;}};
+el('notifications').onclick=async()=>{
+ try{
+  const [dashboard,first]=await Promise.all([api('/dashboard?days=30'),api('/notifications')]);
+  const list=node('div',undefined,'stack');
+  function appendPage(page){
+   for(const item of page.items){
+    const row=node('div',undefined,'row'),details=node('div');
+    details.append(node('strong',item.title),node('p',date(item.created_at)));
+    row.append(details);
+    if(item.read_at)row.append(node('span','Lida'));
+    else{
+     const mark=button('Marcar como lida',async()=>{
+      mark.disabled=true;
+      try{await api('/notifications/'+item.id+'/read','POST',{});mark.replaceWith(node('span','Lida'));}
+      finally{mark.disabled=false;}
+     });
+     row.append(mark);
+    }
+    list.append(row);
+   }
+   if(page.nextCursor){
+    const more=button('Ver notificações anteriores',async()=>{
+     more.disabled=true;
+     try{const next=await api('/notifications?cursor='+encodeURIComponent(page.nextCursor));more.remove();appendPage(next);}
+     finally{more.disabled=false;}
+    });
+    list.append(more);
+   }
+  }
+  appendPage(first);
+  if(!first.items.length)list.append(empty('Nenhuma notificação para você.'));
+  modal('Alertas da operação',panel('Suas notificações',list),pair('Atividades em atraso',dashboard.totals.overdue),...taskRows(dashboard.next.filter(x=>x.due_at&&new Date(x.due_at)<new Date())));
+ }catch(err){status.textContent=err.message;}
+};
 el('search').onsubmit=async e=>{e.preventDefault();try{const result=await api('/search?q='+encodeURIComponent(new FormData(e.target).get('q')));const kinds={leads:'Lead',contacts:'Contato',accounts:'Empresa',deals:'Oportunidade',activities:'Atividade'};modal('Resultados da busca',...(result.items.length?result.items.map(x=>pair(x.name,kinds[x.kind])):[empty('Nenhum registro encontrado.')]));}catch(err){status.textContent=err.message;}};
 const extensions=document.querySelector('meta[name="crm-module"]');
 if(extensions){const {createCrm}=await import('/crm.js');extension=createCrm({api,node,button,pair,panel,empty,modal,money,date,view,getUser:()=>who});}

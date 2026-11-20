@@ -1,3 +1,4 @@
+import {notificationRoutes} from './notifications.mjs';
 import {automationRoutes} from './automation.mjs';
 import {supervisionRoutes} from './supervision.mjs';
 import {minutesRoutes} from './minutes.mjs';
@@ -9,4 +10,4 @@ import {knowledgeRoutes} from './knowledge.mjs';
 import {inboxRoutes} from './inbox.mjs';
 import {dashboardRoutes} from './dashboard.mjs';
 import {crmRoutes} from './crm.mjs';
-export async function featureRoutes(ctx){return (await automationRoutes(ctx))??(await supervisionRoutes(ctx))??(await minutesRoutes(ctx))??(await meetingRoutes(ctx))??(await copilotRoutes(ctx))??(await agentRoutes(ctx))??(await analysisRoutes(ctx))??(await knowledgeRoutes(ctx))??(await inboxRoutes(ctx))??(await crmRoutes(ctx))??(await dashboardRoutes(ctx));}
+export async function featureRoutes(ctx){return (await notificationRoutes(ctx))??(await automationRoutes(ctx))??(await supervisionRoutes(ctx))??(await minutesRoutes(ctx))??(await meetingRoutes(ctx))??(await copilotRoutes(ctx))??(await agentRoutes(ctx))??(await analysisRoutes(ctx))??(await knowledgeRoutes(ctx))??(await inboxRoutes(ctx))??(await crmRoutes(ctx))??(await dashboardRoutes(ctx));}
