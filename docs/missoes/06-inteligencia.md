@@ -22,4 +22,12 @@ A pontuação de lead soma sinais observáveis no CRM. Canal de contato, empresa
 
 O teste HTTP do Core inclui variação da pontuação após abrir uma oportunidade, classificação de risco, registro de análises sucessivas e permissões entre empresas e vendedores. Consultar a execução correspondente ao commit para o resultado.
 
-Pendências da 06 incluem interface de documentos, memória operacional e histórica completa, qualificação de necessidade, intenção e oferta com evidências, avaliação sob carga e homologação dos critérios restantes. A integração de conversas reais continua vinculada à missão 05.
+A [execução de inteligência do commit a3ee3c0](https://github.com/marllonfilipe/vantplatform/actions/runs/44657429330) passou com as análises de leads e oportunidades.
+
+## Interface de documentos e desempenho
+
+A navegação **Inteligência → Memória comercial** reúne cadastro, substituição e exclusão para gestores e busca semântica para membros. O teste de navegador usa Chromium, uma sessão autenticada, textos cadastrados pela interface e o modelo local.
+
+O teste de fila aquece o modelo antes de enviar 24 inferências em seis rodadas de quatro chamadas simultâneas. O log do job informa mediana, p95 e máximo em milissegundos, incluindo o tempo de fila. A amostra mede esse runner de CI. Capacidade com documentos e tráfego de produção precisa de medição no host correspondente.
+
+Próximos incrementos da 06 abrangem memória operacional e histórica, critérios comerciais de qualificação (necessidade, intenção, oferta e objeções com evidências) e monitoramento. O aceite integral continua pendente. A integração de conversas reais segue a dependência da missão 05.

@@ -1,0 +1,56 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import pg from 'pg';
+import {chromium} from 'playwright-core';
+import {createApp} from '../../src/app.mjs';
+import {createPool} from '../../src/db.mjs';
+import {hashPassword} from '../../src/security.mjs';
+import {featureRoutes} from '../../src/routes.mjs';
+import {servePage} from '../../src/pages.mjs';
+import {stopInference} from '../../src/inference.mjs';
+
+test('gestor indexa e consulta política comercial no Chromium',async()=>{
+  assert.equal(process.env.APP_ENV,'test');
+  const admin=new pg.Client({connectionString:process.env.ADMIN_DATABASE_URL});
+  await admin.connect();
+  const pool=createPool(process.env.DATABASE_URL);
+  const port=3193, origin='http://127.0.0.1:'+port;
+  const server=createApp({pool,origin,environment:'test',featureRoutes,servePage});
+  let browser;
+  try {
+    const tenant=randomUUID(), password=randomUUID(), email='memoria@example.invalid';
+    await admin.query("INSERT INTO vant.tenants(id,name) VALUES($1,'Memória')",[tenant]);
+    await admin.query("INSERT INTO vant.members(tenant_id,email,name,role,password_hash) VALUES($1,$2,'Gestora','owner',$3)",[tenant,email,await hashPassword(password)]);
+    await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
+    browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});
+    const page=await browser.newPage();
+    await page.goto(origin);
+    await page.getByLabel('Identificador da empresa').fill(tenant);
+    await page.getByLabel('E-mail',{exact:true}).fill(email);
+    await page.getByLabel('Senha').fill(password);
+    await page.getByRole('button',{name:'Entrar'}).click();
+    await page.getByRole('button',{name:'Memória comercial'}).click();
+    await page.getByRole('button',{name:'Adicionar documento'}).click();
+    await page.getByLabel('Título',{exact:true}).fill('Prazo padrão');
+    await page.getByLabel('Texto do documento').fill('A proposta comercial vale quinze dias.');
+    await page.getByRole('button',{name:'Indexar documento'}).click();
+    await page.getByText('Prazo padrão',{exact:true}).waitFor();
+    await page.getByLabel('Pesquisar na memória comercial').fill('Qual é a validade da proposta?');
+    await page.getByRole('button',{name:'Buscar trechos'}).click();
+    await page.getByText('A proposta comercial vale quinze dias.',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Substituir'}).click();
+    await page.getByLabel('Novo texto integral').fill('A proposta comercial vale dez dias.');
+    await page.getByRole('button',{name:'Indexar documento'}).click();
+    await page.getByRole('dialog').waitFor({state:'hidden'});
+    await page.getByRole('button',{name:'Excluir',exact:true}).click();
+    await page.getByRole('button',{name:'Confirmar exclusão'}).click();
+    await page.getByText('Nenhum documento indexado.').waitFor();
+  } finally {
+    await browser?.close();
+    stopInference();
+    if(server.listening)await new Promise(resolve=>server.close(resolve));
+    await pool.end();
+    await admin.end();
+  }
+});
