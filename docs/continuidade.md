@@ -71,3 +71,7 @@ A [condição de comportamento](https://github.com/marllonfilipe/vantplatform/co
 O fluxo pode entregar um evento assinado ao receptor configurado para a empresa. A validação técnica usa HTTPS real e um receptor descartável na suíte de fundação. A homologação de implantação requer um receptor autorizado e sua configuração no ambiente do worker. Os gatilhos de mensagens e assinatura continuam dependentes das missões 05 e 11. O próximo trabalho independente é o cadastro de perfil de cliente ideal e a seleção de empresas-alvo na Missão 09.
 
 O [mapa e a edição de ordem](https://github.com/marllonfilipe/vantplatform/commit/231ba29efee08842f8b573ee6a51490b300f106b) passaram na [fundação com Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/44797989215) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44797989195).
+
+## Missão 09 · Perfil e contas-alvo do CRM
+
+O [webhook da Missão 08](https://github.com/marllonfilipe/vantplatform/commit/c08f4e9b5cb799e158e53abd252358f343387ca4) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44798377361) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44798377358). A Missão 09 começou com perfis de cliente ideal e listas de empresas do CRM, com origem da seleção, paginação e auditoria. O [relatório da missão](missoes/09-prospeccao.md) descreve o teste e os critérios restantes. O próximo incremento é a importação CSV de contas com origem autorizada e deduplicação. A missão permanece parcial.

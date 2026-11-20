@@ -1,3 +1,4 @@
+import {createProspectingPage} from './prospecting.js';
 import {createAutomationPage} from './automations.js';
 import {createSupervisionPage} from './supervision.js';
 import {createCopilotPage} from './copilot.js';
@@ -5,12 +6,13 @@ import {createMemoryPage} from './memory.js';
 import {createInbox} from './inbox.js';
 import {entities,labels,options,related} from './crm-schema.js';
 export function createCrm({api,node,button,pair,panel,empty,modal,money,date,view,getUser}){
+ const prospectingPage=createProspectingPage({api,node,button,panel,empty,modal,date,view,getUser,openAccount:async id=>detail('accounts',await api('/crm/accounts/'+id))});
  const copilotPage=createCopilotPage({api,node,button,panel,empty,date});
  const automationPage=createAutomationPage({api,node,button,panel,empty,modal,view,date});
  const supervisionPage=createSupervisionPage({api,node,panel,empty,getUser,view});
  const memoryPage=createMemoryPage({api,node,button,panel,empty,modal,view,getUser});
  const inbox=createInbox({api,node,button,pair,panel,empty,modal,date,view,getUser});
- const groups={Inteligência:['Memória comercial','Copiloto comercial'],Comercial:['Leads','Empresas','Contatos','Oportunidades','Funil de vendas'],Relacionamento:['Caixa de entrada','WhatsApp','Conversas'],Operação:['Agenda comercial']};
+ const groups={Inteligência:['Memória comercial','Copiloto comercial'],Comercial:['Prospecção','Leads','Empresas','Contatos','Oportunidades','Funil de vendas'],Relacionamento:['Caixa de entrada','WhatsApp','Conversas'],Operação:['Agenda comercial']};
  let active='',criteria={},cursor='',previous=[];
  const path=(kind,id)=>'/crm/'+kind+(id?'/'+id:'');
  const manager=()=>['owner','manager'].includes(getUser().role);
@@ -202,6 +204,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
     const stage=select(p.stages.map(v=>[v.id,v.name]),s.id,false);stage.setAttribute('aria-label','Mover '+d.name);stage.onchange=async()=>{try{await api(path('deals',d.id),'PATCH',{stage_id:stage.value});if(active==='Funil de vendas')await view(active);}catch(e){stage.value=s.id;modal('Movimentação',empty(e.message));}};card.append(stage);}lane.append(card);}board.append(lane);}return [bar,board];
  }
  async function page(name){
+  if(name==='Prospecção'){active=name;return prospectingPage();}
   if(name==='Automações'){active=name;return automationPage();}
   if(name==='Supervisão de agentes'){active=name;return supervisionPage();}
   if(name==='Copiloto comercial'){active=name;return copilotPage();}

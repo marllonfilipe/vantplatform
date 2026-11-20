@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-const assets=new Map([['/',['index.html','text/html']],['/app.js',['app.js','text/javascript']],['/style.css',['style.css','text/css']],['/crm-schema.js',['crm-schema.js','text/javascript']],['/inbox.js',['inbox.js','text/javascript']],['/memory.js',['memory.js','text/javascript']],['/copilot.js',['copilot.js','text/javascript']],['/copilot-questions.js',['copilot-questions.js','text/javascript']],['/supervision.js',['supervision.js','text/javascript']],['/automations.js',['automations.js','text/javascript']],['/crm.js',['crm.js','text/javascript']]]);
+const assets=new Map([['/',['index.html','text/html']],['/app.js',['app.js','text/javascript']],['/style.css',['style.css','text/css']],['/crm-schema.js',['crm-schema.js','text/javascript']],['/inbox.js',['inbox.js','text/javascript']],['/memory.js',['memory.js','text/javascript']],['/copilot.js',['copilot.js','text/javascript']],['/copilot-questions.js',['copilot-questions.js','text/javascript']],['/supervision.js',['supervision.js','text/javascript']],['/automations.js',['automations.js','text/javascript']],['/prospecting.js',['prospecting.js','text/javascript']],['/crm.js',['crm.js','text/javascript']]]);
 export async function servePage(req,res,url) {
  const asset=assets.get(url.pathname);
  if (!asset || req.method!=='GET') return false;
