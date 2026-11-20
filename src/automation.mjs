@@ -2,13 +2,13 @@ import {notifyOwner} from './notifications.mjs';
 import {timerTarget} from './timers.mjs';
 import {randomUUID} from 'node:crypto';
 import {audit,withTenant} from './db.mjs';
-import {createCrmActivity,assignCrmOwner} from './crm.mjs';
+import {createCrmActivity,assignCrmOwner,recordFlowComment} from './crm.mjs';
 import {isUuid,mayManageTeams} from './security.mjs';
 import {reject,textField} from './http.mjs';
 
 const events=['lead_created','lead_updated','deal_created','deal_moved','deal_lost','meeting_scheduled','meeting_completed','score_changed','lead_qualified','task_overdue','lead_inactive'];
 const jobKinds=events.map(event=>'flow.'+event);
-const actionKinds=new Set(['task','reminder','followup','assign_owner','notify_owner']);
+const actionKinds=new Set(['task','reminder','followup','assign_owner','notify_owner','comment']);
 const assignmentEvents=new Set(['lead_created','score_changed','lead_qualified','deal_created','deal_moved','deal_lost']);
 
 function assignmentOwner(kind,id,event){
@@ -171,6 +171,9 @@ export function processNext(pool,tenant){
      if(kind==='assign_owner'){
       assignment=await assignCrmOwner(ctx,record,current.owner_id);
       outcome=assignment.previous_owner_id===assignment.owner_id?'unchanged':'assigned';
+     }else if(kind==='comment'){
+      activity=await recordFlowComment(ctx,record,title,{flow:job.payload.flow,job:job.id,step});
+      outcome='created';
      }else if(kind==='notify_owner'){
       await notifyOwner(db,tenant,record.owner_id,job.id,step,title);
       outcome='notified';

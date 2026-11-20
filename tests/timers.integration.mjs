@@ -55,7 +55,8 @@ test('worker captura episódios de inatividade e vencimento sem repetir efeitos'
   assert.equal(jobs.length,4);
   assert.deepEqual(jobs.filter(j=>j.payload.version===2).map(j=>j.history[0].outcome),['skipped','skipped']);
   const chain={name:'Acompanhamento',trigger_event:'lead_created',enabled:true,task_title:'Avaliar lead',steps:{match:[
-    {kind:'reminder',title:'Conferir proposta',wait_minutes:60,due_minutes:10},{kind:'followup',title:'Registrar retorno',wait_minutes:0}
+    {kind:'reminder',title:'Conferir proposta',wait_minutes:60,due_minutes:10},{kind:'followup',title:'Registrar retorno',wait_minutes:0},
+    {kind:'comment',title:'Triagem registrada pelo fluxo',wait_minutes:0}
   ]}};
   const invalid=await call('automations','POST',{...chain,steps:{match:Array(8).fill(chain.steps.match[1])}});
   assert.equal(invalid.status,400);
@@ -77,8 +78,16 @@ test('worker captura episódios de inatividade e vencimento sem repetir efeitos'
   await makeDue();await worker(tenant);await worker(tenant);await worker(tenant);
   current=await job();
   assert.equal(current.state,'done');assert.equal(current.payload.version,1);
-  assert.deepEqual(current.history.map(h=>[h.step_index,h.outcome]),[[0,'created'],[1,'retry'],[1,'created'],[2,'created']]);
+  assert.deepEqual(current.history.map(h=>[h.step_index,h.outcome]),[[0,'created'],[1,'retry'],[1,'created'],[2,'created'],[3,'created']]);
   const tasks=await admin.query('SELECT title,kind FROM vant.activities WHERE tenant_id=$1 AND lead_id=$2 ORDER BY title',[tenant,newLead]);
-  assert.deepEqual(tasks.rows.map(r=>[r.title,r.kind]),[['Avaliar lead','task'],['Conferir proposta','reminder'],['Registrar retorno','followup']]);
+  assert.deepEqual(tasks.rows.map(r=>[r.title,r.kind]),[['Avaliar lead','task'],['Conferir proposta','reminder'],['Registrar retorno','followup'],['Triagem registrada pelo fluxo','comment']]);
+  const commentId=current.history.at(-1).activity_id;
+  const comment=await (await call('crm/activities/'+commentId)).json();
+  assert.equal(comment.kind,'comment');assert.ok(comment.done_at);assert.equal(comment.due_at,null);
+  const record=await (await call('crm/leads/'+newLead)).json();assert.equal(record.last_contact_at,null);
+  const history=(await (await call('crm/leads/'+newLead+'/history')).json()).items;
+  const notes=history.filter(h=>h.action==='activity_recorded');
+  assert.equal(notes.length,1);
+  assert.deepEqual(notes[0].changes,{title:comment.title,activity_id:commentId,flow_id:flow,job_id:current.id,step:4});
  }finally{if(server.listening)await new Promise(resolve=>server.close(resolve));await pool.end();await admin.end();}
 });

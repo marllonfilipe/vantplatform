@@ -1,7 +1,7 @@
 export function createAutomationPage({api,node,button,panel,empty,modal,view,date}){
  const page='Automações';
  const events={lead_created:'Novo lead',lead_updated:'Lead atualizado',deal_created:'Nova oportunidade',deal_moved:'Mudança de etapa',deal_lost:'Oportunidade perdida',meeting_scheduled:'Reunião agendada',meeting_completed:'Reunião concluída',score_changed:'Score alterado',lead_qualified:'Lead qualificado',task_overdue:'Tarefa vencida',lead_inactive:'Lead sem interação'};
- const kinds={task:'Tarefa',reminder:'Lembrete',followup:'Follow-up',assign_owner:'Atribuir responsável',notify_owner:'Notificar responsável'};
+ const kinds={task:'Tarefa',reminder:'Lembrete',followup:'Follow-up',assign_owner:'Atribuir responsável',notify_owner:'Notificar responsável',comment:'Registrar comentário no CRM'};
  function select(form,label,choices,value){
   const wrapper=node('label',label),control=node('select');
   control.setAttribute('aria-label',label);
@@ -40,11 +40,11 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
    kind.onchange=()=>{
     const assigning=kind.value==='assign_owner';
     owner.show(assigning);title.disabled=assigning;title.parentElement.hidden=assigning;
-    due.disabled=assigning;due.parentElement.hidden=assigning;due.required=kind.value==='reminder';
+    due.disabled=['assign_owner','notify_owner','comment'].includes(kind.value);due.parentElement.hidden=due.disabled;due.required=kind.value==='reminder';
    };kind.onchange();
    const row=()=>kind.value==='assign_owner'
     ?{kind:kind.value,owner_id:owner.field.value,wait_minutes:Number(wait.value)}
-    :{kind:kind.value,title:title.value,wait_minutes:Number(wait.value),due_minutes:due.value===''?null:Number(due.value)};
+    :{kind:kind.value,title:title.value,wait_minutes:Number(wait.value),due_minutes:due.disabled||due.value===''?null:Number(due.value)};
    rows.push(row);addButton.disabled=rows.length>=7;
    wrapper.append(button('Remover etapa',()=>{rows.splice(rows.indexOf(row),1);wrapper.remove();addButton.disabled=false;}));
   }
@@ -100,7 +100,9 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
    primaryOwner.show(assigning);alternateOwner.show(otherAssigning);
    title.disabled=assigning;title.parentElement.hidden=assigning;
    alternateTitle.disabled=!alternate.value||otherAssigning;alternateTitle.parentElement.hidden=otherAssigning;alternateTitle.required=!alternateTitle.disabled;
-   due.required=[kind.value,alternate.value].includes('reminder');
+   const branches=[kind.value,alternate.value];
+   due.disabled=!branches.some(action=>['task','reminder','followup'].includes(action));
+   due.parentElement.hidden=due.disabled;due.required=branches.includes('reminder');
   }
   conditions.addEventListener('input',refresh);conditions.addEventListener('change',refresh);condition.oninput=refresh;kind.onchange=refresh;alternate.onchange=refresh;refresh();
   const enabled=input(form,'Ativar fluxo','checkbox');enabled.checked=existing?.enabled??false;
@@ -108,7 +110,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   form.onsubmit=async e=>{
    e.preventDefault();save.disabled=true;
    try{
-    const data={steps:{match:mainSteps.values(),otherwise:alternate.value?otherSteps.values():[]},conditions:selectedConditions(),trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),cooldown_minutes:Number(cooldown.value),task_title:title.value,action_owner_id:primaryOwner.field.value||null,else_owner_id:alternateOwner.field.value||null,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.value===''?null:Number(due.value),enabled:enabled.checked};
+    const data={steps:{match:mainSteps.values(),otherwise:alternate.value?otherSteps.values():[]},conditions:selectedConditions(),trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),cooldown_minutes:Number(cooldown.value),task_title:title.value,action_owner_id:primaryOwner.field.value||null,else_owner_id:alternateOwner.field.value||null,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.disabled||due.value===''?null:Number(due.value),enabled:enabled.checked};
     if(existing)data.expected_version=existing.version;
     await api(existing?'/automations/'+existing.id:'/automations',existing?'PUT':'POST',data);
     document.getElementById('dialog').close();await view(page);
@@ -128,7 +130,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
    const details=node('details'),summary=node('summary',(names.get(r.payload.flow)??'Fluxo')+' · v'+r.payload.version+' · '+states[r.state]);
    details.append(summary,node('p',events[r.payload.event??'lead_created']),node('p',r.payload.source_activity?'Tarefa: '+r.payload.source_activity:r.payload.meeting?'Reunião: '+r.payload.meeting:r.payload.deal?'Oportunidade: '+r.payload.deal:'Lead: '+r.payload.lead),node('p','Disponível em '+date(r.available_at)));
    if(r.payload.frequency_deferred)details.append(node('p','Aguardando o intervalo mínimo deste fluxo.'));
-   for(const attempt of r.history)details.append(node('p','Tentativa '+attempt.attempt+' · '+(attempt.outcome==='created'?({task:'Tarefa criada',reminder:'Lembrete criado',followup:'Follow-up criado'}[attempt.action_kind]??outcomes.created):outcomes[attempt.outcome])+' · etapa '+((attempt.step_index??0)+1)+(attempt.branch==='otherwise'?' · caminho alternativo':'')+(attempt.assignment?' · responsável '+attempt.assignment.owner_id:'')+(attempt.reason==='owner_unavailable'?' · responsável indisponível':'')+(attempt.activity_id?' · atividade '+attempt.activity_id:'')));
+   for(const attempt of r.history)details.append(node('p','Tentativa '+attempt.attempt+' · '+(attempt.outcome==='created'?({task:'Tarefa criada',reminder:'Lembrete criado',followup:'Follow-up criado',comment:'Comentário registrado'}[attempt.action_kind]??outcomes.created):outcomes[attempt.outcome])+' · etapa '+((attempt.step_index??0)+1)+(attempt.branch==='otherwise'?' · caminho alternativo':'')+(attempt.assignment?' · responsável '+attempt.assignment.owner_id:'')+(attempt.reason==='owner_unavailable'?' · responsável indisponível':'')+(attempt.activity_id?' · atividade '+attempt.activity_id:'')));
    return details;
   });
   return [button('Criar fluxo',()=>editor()),...(config.length?config:[empty('Nenhum fluxo publicado.')]),panel('Execuções recentes',...(history.length?history:[empty('Nenhuma execução registrada.')]))];

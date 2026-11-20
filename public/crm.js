@@ -182,7 +182,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    for(const k of kind==='accounts'?['contacts','deals']:['deals']){const links=await all(path(k)+'?'+(kind==='accounts'?'account_id':'contact_id')+'='+row.id);if(links.length)parts.push(node('h3',entities[k].label),...links.map(r=>button(r.name,()=>detail(k,r))));}
   }
   const hist=await all(path(kind,row.id)+'/history');parts.push(node('h3','Histórico'));
-  for(const h of hist){const details=node('details'),sum=node('summary',date(h.created_at)+' · '+h.actor+' · '+({created:'Cadastro',updated:'Alteração',linked:'Vínculo',attached:'Anexo'}[h.action]??h.action));details.append(sum);for(const [k,v] of Object.entries(h.changes))details.append(pair(labels[k]??k,typeof v==='object'&&v!==null&&'to'in v?String(v.from??'—')+' → '+String(v.to??'—'):String(v)));parts.push(details);}
+  for(const h of hist){const details=node('details'),sum=node('summary',date(h.created_at)+' · '+h.actor+' · '+({created:'Cadastro',updated:'Alteração',linked:'Vínculo',attached:'Anexo',activity_recorded:'Comentário do fluxo'}[h.action]??h.action));details.append(sum);for(const [k,v] of Object.entries(h.changes))details.append(pair((h.action==='activity_recorded'?{title:'Comentário',activity_id:'Atividade',flow_id:'Fluxo',job_id:'Execução',step:'Etapa'}[k]:null)??labels[k]??k,typeof v==='object'&&v!==null&&'to'in v?String(v.from??'—')+' → '+String(v.to??'—'):String(v)));parts.push(details);}
   modal(row.name??row.title,...parts);
  }
  function pipeline(p={}){

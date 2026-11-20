@@ -96,6 +96,13 @@ export async function assignCrmOwner(ctx,target,ownerId){
  if(current.owner_id!==ownerId)await save(ctx,kind,{owner_id:ownerId},current);
  return {kind,record_id:id,previous_owner_id:current.owner_id,owner_id:ownerId};
 }
+export async function recordFlowComment(ctx,target,title,execution){
+ const activity=await save(ctx,'activities',{kind:'comment',title,...target,done_at:new Date().toISOString()});
+ const changes={title,activity_id:activity.id,flow_id:execution.flow,job_id:execution.job,step:execution.step+1};
+ if(target.lead_id)await log(ctx,'leads',target.lead_id,'activity_recorded',changes);
+ if(target.deal_id)await log(ctx,'deals',target.deal_id,'activity_recorded',changes);
+ return activity.id;
+}
 export function createCrmActivity(ctx,task){return save(ctx,'activities',task);}
 async function list(ctx,kind){
  const {db,url}=ctx,fields=entities[kind].fields.split(' '),where=[],params=[];

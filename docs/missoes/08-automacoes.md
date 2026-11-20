@@ -127,3 +127,11 @@ Em **Automações**, selecione **Notificar responsável** como ação principal,
 A API de fluxos aceita `notify_owner`. O worker persiste a notificação, a posição do fluxo e a tentativa na mesma transação. Uma restrição de unicidade garante uma entrega por empresa, trabalho e etapa. `GET /api/v1/notifications` pagina os itens da sessão por `limit` e `cursor`. `POST /api/v1/notifications/{id}/read` registra a primeira leitura e preserva esse instante nas chamadas seguintes.
 
 Em `tests/notifications.integration.mjs`, subprocessos do worker entregam duas notificações de um fluxo. A API verifica ordem, paginação e restrição ao destinatário em duas empresas. O Chromium entra com a conta destinatária e marca um dos itens como lido. O estado da outra notificação é conferido na API. Consulte os checks da revisão para o resultado. A missão segue parcial. O próximo incremento independente é registrar uma atividade comercial no histórico do CRM a partir de um fluxo.
+
+As notificações foram publicadas em [6a01963](https://github.com/marllonfilipe/vantplatform/commit/6a01963e282c2820d4cb62c4f892e73c9871de4e). Passaram a [fundação com o cenário de leitura no Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/44752716088) e a [suíte de inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44752715927).
+
+## Registro de atividade no CRM
+
+**Registrar comentário no CRM** cria uma atividade concluída do tipo `comment`, com o título publicado na versão do fluxo. O responsável é o do registro no momento da execução. A agenda mostra o comentário, e o histórico dos leads e oportunidades vinculados exibe seu texto, autor, fluxo, execução e número de etapa. O registro de um comentário interno preserva a data da última interação com o cliente.
+
+A ação funciona como principal, alternativa ou etapa posterior. Em `tests/timers.integration.mjs`, o worker conclui um fluxo de quatro ações após pausa e retentativa. O teste consulta a atividade, o histórico do lead e a data de contato e verifica que a anotação foi registrada uma única vez. A suíte de fundação da revisão contém a evidência. A missão segue parcial. A próxima atividade independente é atualizar campos comerciais de um lead ou oportunidade com auditoria.
