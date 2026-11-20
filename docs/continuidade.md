@@ -85,3 +85,7 @@ Os [perfis e a seleção no CRM](https://github.com/marllonfilipe/vantplatform/c
 ## Missão 09 · Classificação de aderência
 
 A [importação CSV](https://github.com/marllonfilipe/vantplatform/commit/5aa6fc546c85a34e95e7af18b4b3068933faf326) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44799366675) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44799366656). A classificação de empresas-alvo usa o modelo local e critérios estruturados, registra a evidência por critério e ordena a lista por aderência atual. O cenário está em `tests/core/prospecting.test.mjs`. A próxima atividade é o registro assistido de decisores e a conversão em lead do CRM. A entrega permanece parcial.
+
+## Missão 09 · Decisores e conversão
+
+A [classificação por ICP](https://github.com/marllonfilipe/vantplatform/commit/868ea99ecaba34ac13eca1125cc911b7758272d9) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44799783735) e no [Core com modelo local e Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/44799783736). A ficha da conta registra dados profissionais fornecidos pelo operador, a fonte, a revisão e o vínculo com o lead. Conferir os checks da revisão. Próxima atividade independente: sugestões de contato e oportunidade baseadas na aderência e nos registros do CRM. A implementação permanece parcial.

@@ -6,7 +6,7 @@ import {createMemoryPage} from './memory.js';
 import {createInbox} from './inbox.js';
 import {entities,labels,options,related} from './crm-schema.js';
 export function createCrm({api,node,button,pair,panel,empty,modal,money,date,view,getUser}){
- const prospectingPage=createProspectingPage({api,node,button,panel,empty,modal,date,view,getUser,openAccount:async id=>detail('accounts',await api('/crm/accounts/'+id))});
+ const prospectingPage=createProspectingPage({api,node,button,panel,empty,modal,date,view,getUser,openAccount:async id=>detail('accounts',await api('/crm/accounts/'+id)),openLead:async id=>detail('leads',await api('/crm/leads/'+id)),createContact:id=>edit('contacts',{account_id:id})});
  const copilotPage=createCopilotPage({api,node,button,panel,empty,date});
  const automationPage=createAutomationPage({api,node,button,panel,empty,modal,view,date});
  const supervisionPage=createSupervisionPage({api,node,panel,empty,getUser,view});

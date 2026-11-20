@@ -1,4 +1,6 @@
-export function createProspectingPage({api,node,button,panel,empty,modal,date,view,getUser,openAccount}){
+import {createProspectPeople} from './prospect-people.js';
+export function createProspectingPage({api,node,button,panel,empty,modal,date,view,getUser,openAccount,openLead,createContact}){
+ const people=createProspectPeople({api,node,button,panel,empty,modal,date,getUser,openLead,createContact});
  const page='Prospecção',base='/prospecting/profiles';
  const labels={segment:'Segmento',region:'Região',size_band:'Porte',business_activity:'Atividade econômica'};
  let profileId='',mode='accounts',query='',cursor='',previous=[];
@@ -18,8 +20,9 @@ export function createProspectingPage({api,node,button,panel,empty,modal,date,vi
  function edit(profile){
   const form=node('form',undefined,'stack'),name=field(form,'Nome do perfil',profile?.name,120,true),inputs={};
   for(const [key,label] of Object.entries(labels))inputs[key]=field(form,label,profile?.[key],250);
+  const role=field(form,'Cargo procurado (opcional)',profile?.target_role,250);
   submit(form,'Salvar perfil',async()=>{
-   const data={name:name.value};for(const [key,input] of Object.entries(inputs))data[key]=input.value.trim()||null;
+   const data={name:name.value,target_role:role.value.trim()||null};for(const [key,input] of Object.entries(inputs))data[key]=input.value.trim()||null;
    if(profile)data.expected_revision=profile.revision;
    const saved=await api(profile?base+'/'+profile.id:base,profile?'PUT':'POST',data);
    profileId=saved.id;mode='accounts';query='';
@@ -107,6 +110,7 @@ export function createProspectingPage({api,node,button,panel,empty,modal,date,vi
       parts.push(assess);
      }
     }
+    parts.push(button('Decisores e conversão',()=>people(path,profile,account)));
     parts.push(button('Abrir empresa no CRM',()=>openAccount(account.id)));
     cards.push(panel(account.name,...parts));continue;
    }
@@ -114,6 +118,7 @@ export function createProspectingPage({api,node,button,panel,empty,modal,date,vi
    if(account.selected_at)details.push(node('p','Fonte da seleção: '+account.source_reference),node('p','Selecionada em '+date(account.selected_at)));
    const sources=account.recent_sources.filter(v=>v!==account.source_reference);
    if(sources.length){const refs=node('details');refs.append(node('summary','Outras fontes registradas'));for(const ref of sources)refs.append(node('p',ref));details.push(refs);}
+   if(account.selected_at)details.push(button('Decisores e conversão',()=>people(path,profile,account)));
    details.push(button('Abrir empresa no CRM',()=>openAccount(account.id)));
    if(user.role!=='viewer'){
     if(!account.selected_at)details.push(button('Selecionar empresa',()=>selectTarget(path,account)));

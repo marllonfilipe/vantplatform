@@ -117,6 +117,8 @@ export async function recordFlowComment(ctx,target,title,execution){
  if(target.deal_id)await log(ctx,'deals',target.deal_id,'activity_recorded',changes);
  return activity.id;
 }
+export function createCrmLead(ctx,values){return save(ctx,'leads',values);}
+export function updateContactRole(ctx,old,values){return save(ctx,'contacts',values,old);}
 export function createCrmAccount(ctx,values){return save(ctx,'accounts',values);}
 export function createCrmActivity(ctx,task){return save(ctx,'activities',task);}
 async function list(ctx,kind){

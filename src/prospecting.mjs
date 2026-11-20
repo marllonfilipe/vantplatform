@@ -1,3 +1,4 @@
+import {prospectAccountAction} from './prospect-people.mjs';
 import {assessProspect,priorities} from './prospect-fit.mjs';
 import {importProspectAccounts} from './prospect-import.mjs';
 import {audit} from './db.mjs';
@@ -33,7 +34,7 @@ export async function prospectingRoutes(ctx){
  if(url.pathname!==base&&!url.pathname.startsWith(base+'/'))return;
  const parts=url.pathname===base?[]:url.pathname.slice(base.length+1).split('/');
  const [id,resource,accountId]=parts;
- if(parts.length>4||(parts.length&&!isUuid(id))||(parts.length>=3&&!isUuid(accountId)))reject(404,'missing','Endereço de prospecção não encontrado.');
+ if(parts.length>6||(parts.length&&!isUuid(id))||(parts.length>=3&&!isUuid(accountId)))reject(404,'missing','Endereço de prospecção não encontrado.');
  if(parts.length===0&&method==='GET'){
   const limit=pagination(url.searchParams),cursor=url.searchParams.get('cursor');
   if(cursor!==null&&!isUuid(cursor))reject(400,'cursor','Cursor inválido.');
@@ -46,12 +47,13 @@ export async function prospectingRoutes(ctx){
   const name=textField(body.name,120);
   const criteria=profileFields.map(k=>body[k]==null||body[k]===''?null:textField(body[k],250));
   if(criteria.every(v=>v===null))reject(400,'criteria','Informe pelo menos um critério de seleção.');
+  const targetRole=body.target_role==null||body.target_role===''?null:textField(body.target_role,250);
   let result;
   if(!id){
-   result=await db.query('INSERT INTO vant.prospect_profiles(tenant_id,name,segment,region,size_band,business_activity) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[tenant,name,...criteria]);
+   result=await db.query('INSERT INTO vant.prospect_profiles(tenant_id,name,segment,region,size_band,business_activity,target_role) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',[tenant,name,...criteria,targetRole]);
   }else{
    if(!Number.isSafeInteger(body.expected_revision)||body.expected_revision<1)reject(400,'revision','Informe a revisão do perfil.');
-   result=await db.query('UPDATE vant.prospect_profiles SET name=$2,segment=$3,region=$4,size_band=$5,business_activity=$6,revision=revision+1 WHERE tenant_id=$1 AND id=$7 AND revision=$8 RETURNING *',[tenant,name,...criteria,id,body.expected_revision]);
+   result=await db.query('UPDATE vant.prospect_profiles SET name=$2,segment=$3,region=$4,size_band=$5,business_activity=$6,target_role=CASE WHEN $9 THEN $10 ELSE target_role END,revision=revision+1 WHERE tenant_id=$1 AND id=$7 AND revision=$8 RETURNING *',[tenant,name,...criteria,id,body.expected_revision,Object.hasOwn(body,'target_role'),targetRole]);
    if(!result.rowCount){
     const found=await db.query('SELECT id FROM vant.prospect_profiles WHERE tenant_id=$1 AND id=$2',[tenant,id]);
     if(!found.rowCount)reject(404,'missing','Perfil não encontrado.');
@@ -64,6 +66,7 @@ export async function prospectingRoutes(ctx){
  if(!id)reject(405,'method','Método inválido.');
  const profile=(await db.query('SELECT * FROM vant.prospect_profiles WHERE tenant_id=$1 AND id=$2',[tenant,id])).rows[0];
  if(!profile)reject(404,'missing','Perfil não encontrado.');
+ if(resource==='targets'&&['people','handoff'].includes(parts[3]))return prospectAccountAction(ctx,profile,accountId,parts.slice(3));
  if(parts.length===4&&resource==='targets'&&parts[3]==='assess'&&method==='POST')return assessProspect(ctx,profile,accountId);
  if(parts.length===2&&resource==='priority'&&method==='GET')return priorities(ctx,profile);
  if(parts.length===2&&resource==='import'&&method==='POST'){
