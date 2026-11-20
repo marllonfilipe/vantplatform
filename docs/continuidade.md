@@ -33,3 +33,15 @@ As entregas 01–04 têm relatórios no diretório `docs/missoes`. A [revisão d
 | 09–13 | Sem entrega integral registrada nesse ponto de retomada | Os critérios e dependências por missão constam da tabela acima e do cronograma. |
 
 A evidência de CI pertence ao commit testado. Nas próximas execuções, conferir o histórico e os checks mais recentes da main antes de retomar.
+
+## Validação dos incrementos da Missão 08 em 20/11/2026
+
+| Incremento | Commit testado | Fundação SaaS | Inteligência local |
+|---|---|---|---|
+| Frequência | [dff0bfa](https://github.com/marllonfilipe/vantplatform/commit/dff0bfaa04932098233d4f6fd6644f315d3cd02a) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44751419545) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44751419595) |
+| Atribuição | [c66dfe0](https://github.com/marllonfilipe/vantplatform/commit/c66dfe0c4d71066350df55fbbdb384c584267d2a) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44752259890) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44752259860) |
+| Notificação | [6a01963](https://github.com/marllonfilipe/vantplatform/commit/6a01963e282c2820d4cb62c4f892e73c9871de4e) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44752716088) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44752715927) |
+| Comentário | [a264d2b](https://github.com/marllonfilipe/vantplatform/commit/a264d2bb6afac0cbda12578ef8298ddc752cdf42) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44753122430) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44753122438) |
+| Alteração do CRM | [1ea0100](https://github.com/marllonfilipe/vantplatform/commit/1ea01003338841be744b0a631c161f7ebb9ecd90) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44753548026) | [Aprovada](https://github.com/marllonfilipe/vantplatform/actions/runs/44753547952) |
+
+A última execução de fundação voltou a passar pelos cinco cenários na mesma revisão. O [relatório técnico](missoes/08-automacoes.md) reúne as instruções de operação e os testes de cada incremento. A implementação da Missão 08 continua parcial. O marco que gera relatório de conclusão no ChatGPT e envio por e-mail ainda está pendente. O próximo trabalho independente é o resumo interno do lead ou da oportunidade com o CRM e o Intelligence Core.
