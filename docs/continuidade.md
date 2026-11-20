@@ -89,3 +89,9 @@ A [importação CSV](https://github.com/marllonfilipe/vantplatform/commit/5aa6fc
 ## Missão 09 · Decisores e conversão
 
 A [classificação por ICP](https://github.com/marllonfilipe/vantplatform/commit/868ea99ecaba34ac13eca1125cc911b7758272d9) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44799783735) e no [Core com modelo local e Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/44799783736). A ficha da conta registra dados profissionais fornecidos pelo operador, a fonte, a revisão e o vínculo com o lead. Conferir os checks da revisão. Próxima atividade independente: sugestões de contato e oportunidade baseadas na aderência e nos registros do CRM. A implementação permanece parcial.
+
+## Missão 09 · Sugestões para prospecção
+
+O Core combina o ICP, cargos registrados e o estado do funil para sugerir contatos e uma abordagem comercial verificável. O teste de CPU e Chromium está em `tests/core/prospecting.test.mjs`. Próxima atividade: revisão e aplicação de enriquecimentos de fontes autorizadas em campos ausentes do CRM. O aceite continua em aberto.
+
+Os [decisores e a conversão para lead](https://github.com/marllonfilipe/vantplatform/commit/8fdaf445f7b488edbbd38c7933b20a2b0f81dc2f) passaram na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44800441262) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44800441301).

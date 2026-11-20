@@ -27,7 +27,7 @@ test('Core classifica contas do ICP com inferência em CPU, evidências e priori
   const call=(path,method='GET',data)=>fetch(base+path,{method,headers:{origin,cookie,'content-type':'application/json'},body:JSON.stringify(data)});
   const login=await call('auth/login','POST',{tenantId:tenant,email,password});assert.equal(login.status,200);
   cookie=login.headers.get('set-cookie').split(';')[0];
-  const spec={name:'Operação industrial',segment:'Indústria',region:'Campinas',size_band:'Médio',business_activity:'Fabricar cerâmica'};
+  const spec={target_role:'Compras',name:'Operação industrial',segment:'Indústria',region:'Campinas',size_band:'Médio',business_activity:'Fabricar cerâmica'};
   const profiles='prospecting/profiles',publication=await call(profiles,'POST',spec);assert.equal(publication.status,201);
   const profile=(await publication.json()).id,path=profiles+'/'+profile;
   const create=async(data)=>{
@@ -57,6 +57,21 @@ test('Core classifica contas do ICP com inferência em CPU, evidências e priori
   const first=await ranking('?limit=1');assert.deepEqual(first.items.map(r=>r.id),[exact]);
   const second=await ranking('?limit=1&cursor='+encodeURIComponent(first.nextCursor));assert.equal(second.items[0].id,partial);
   const third=await ranking('?limit=1&cursor='+encodeURIComponent(second.nextCursor));assert.equal(third.items[0].id,unscored);assert.equal(third.items[0].score,null);
+  const contact=await call('crm/contacts','POST',{name:'Contato para validação',title:'Compras',decision_maker:false,account_id:exact});assert.equal(contact.status,201);
+  const contactId=(await contact.json()).id,detailPath=path+'/targets/'+exact;
+  await exactCard.getByRole('button',{name:'Decisores e conversão'}).click();
+  const dialog=page.getByRole('dialog');await dialog.getByRole('button',{name:'Analisar abordagem'}).click();
+  await dialog.getByText(/Oportunidade potencial a validar/).waitFor();
+  const saved=await call(detailPath+'/briefs','POST',{});assert.equal(saved.status,200);const brief=await saved.json();
+  assert.equal(brief.model_version,modelVersion);assert.equal(brief.result.signal,'Oportunidade potencial a validar');
+  assert.equal(brief.result.candidates[0].id,contactId);assert.equal(brief.result.candidates[0].decision_maker,false);
+  assert.ok(brief.result.candidates[0].similarity>=0.65);assert.match(brief.result.approach,/Confirmar se/);
+  const setup=await call('crm/pipelines','POST',{name:'Principal',stages:['Entrada']});assert.equal(setup.status,201);
+  const pipeline=(await setup.json()).id,stages=(await (await call('crm/pipelines')).json()).items.find(p=>p.id===pipeline).stages;
+  assert.equal((await call('crm/deals','POST',{account_id:exact,name:'Negociação real',pipeline_id:pipeline,stage_id:stages[0].id,amount_cents:10000,probability:50})).status,201);
+  const renewed=await call(detailPath+'/briefs','POST',{});assert.equal(renewed.status,201);
+  const revised=await renewed.json();assert.equal(revised.result.signal,'Oportunidade em andamento');assert.equal(revised.result.pipeline.open,1);
+  assert.equal((await (await call(detailPath+'/briefs')).json()).items.length,2);
   assert.equal((await call('crm/accounts/'+exact,'PATCH',{segment:'Serviços'})).status,200);
   assert.equal((await ranking('?q=Fábrica')).items[0].score,null);
   assert.equal((await assess(exact)).status,201);
@@ -68,7 +83,7 @@ test('Core classifica contas do ICP com inferência em CPU, evidências e priori
   const foreignHash=await hashPassword(password);
   await admin.query("INSERT INTO vant.members(tenant_id,email,name,role,password_hash) VALUES($1,$2,'Gestor','owner',$3)",[other,email,foreignHash]);
   const foreign=await call('auth/login','POST',{tenantId:other,email,password});assert.equal(foreign.status,200);cookie=foreign.headers.get('set-cookie').split(';')[0];
-  assert.equal((await call(path+'/priority')).status,404);assert.equal((await assess(exact)).status,404);
+  assert.equal((await call(path+'/priority')).status,404);assert.equal((await assess(exact)).status,404);assert.equal((await call(detailPath+'/briefs')).status,404);
  }finally{
   stopInference();await browser?.close();
   if(server.listening)await new Promise(resolve=>server.close(resolve));

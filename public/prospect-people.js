@@ -18,7 +18,7 @@ export function createProspectPeople({api,node,button,panel,empty,modal,date,get
  }
  return async function show(profilePath,profile,account){
   const base=profilePath+'/targets/'+account.id,write=getUser().role!=='viewer';
-  const [people,handoff,leads]=await Promise.all([all(base+'/people'),api(base+'/handoff'),all('/crm/leads?account_id='+account.id)]);
+  const [people,handoff,leads,briefs]=await Promise.all([all(base+'/people'),api(base+'/handoff'),all('/crm/leads?account_id='+account.id),api(base+'/briefs')]);
   people.sort((a,b)=>Number(b.decision_maker)-Number(a.decision_maker)||Number(b.role_matches)-Number(a.role_matches)||a.name.localeCompare(b.name,'pt-BR'));
   const parts=[],back=()=>show(profilePath,profile,account);
   function edit(person){
@@ -34,6 +34,20 @@ export function createProspectPeople({api,node,button,panel,empty,modal,date,get
    });
    modal(person.name,form);
   }
+  const guidance=node('div',undefined,'stack');
+  if(write){
+   const generate=button('Analisar abordagem',async()=>{
+    generate.disabled=true;
+    try{await api(base+'/briefs','POST',{});await back();}finally{generate.disabled=false;}
+   });guidance.append(generate);
+  }
+  for(const [index,brief] of briefs.items.entries()){
+   const d=node('details');d.open=index===0;const r=brief.result;
+   d.append(node('summary',r.signal+' · '+date(brief.created_at)),node('p',r.approach),node('p','Aderência: '+r.fit_score+'/100 · Oportunidades abertas: '+r.pipeline.open),node('p','Fonte da conta: '+r.source_reference));
+   for(const p of r.candidates)d.append(node('p',p.name+' · '+(p.title??'cargo não informado')+' · '+(p.decision_maker?'decisor registrado':'cargo a validar')+(p.source_reference?' · '+p.source_reference:'')));
+   d.append(node('p','Contatos avaliados: '+r.reviewed+' de '+r.total_contacts));guidance.append(d);
+  }
+  if(write||briefs.items.length)parts.push(panel('Sugestão de abordagem',guidance));
   for(const person of people){
    const info=[node('p',person.title??'Cargo não informado')];
    if(person.decision_maker)info.push(node('p','Decisor registrado no CRM'));

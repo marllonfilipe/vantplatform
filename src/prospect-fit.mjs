@@ -1,5 +1,6 @@
 import {createHash} from 'node:crypto';
-import {embed,modelVersion} from './inference.mjs';
+import {similarity,prospectVectors} from './prospect-model.mjs';
+import {modelVersion} from './inference.mjs';
 import {audit} from './db.mjs';
 import {pagination,reject} from './http.mjs';
 import {isUuid} from './security.mjs';
@@ -8,12 +9,6 @@ const ruleset='icp-v1';
 const engine=ruleset+'@'+modelVersion;
 const fields={segment:'segmento',region:'região',size_band:'porte',business_activity:'atividade econômica'};
 const accountFacts="jsonb_build_object('segment',a.segment,'region',a.location,'size_band',a.size_band,'business_activity',a.business_activity)";
-
-function similarity(left,right){
- let dot=0,aa=0,bb=0;
- for(let i=0;i<left.length;i++){dot+=left[i]*right[i];aa+=left[i]*left[i];bb+=right[i]*right[i];}
- return Math.min(1,Math.max(0,dot/(Math.sqrt(aa*bb)||1)));
-}
 
 export async function assessProspect(ctx,profile,account){
  const {db,tenant,member,requestId}=ctx;
@@ -28,9 +23,7 @@ export async function assessProspect(ctx,profile,account){
  if(existing)return [200,existing];
  const semantic=criteria.filter(c=>c.observed&&['segment','business_activity'].includes(c.key));
  if(semantic.length){
-  let vectors;
-  try{({vectors}=await embed(semantic.flatMap(c=>[c.wanted,c.observed])));}
-  catch(e){reject(e.code==='model_busy'?429:503,e.code==='model_busy'?'model_busy':'model_unavailable','Não foi possível executar a classificação local.');}
+  const vectors=await prospectVectors(semantic.flatMap(c=>[c.wanted,c.observed]));
   semantic.forEach((c,i)=>{c.similarity=similarity(vectors[2*i],vectors[2*i+1]);});
  }
  for(const criterion of criteria){
