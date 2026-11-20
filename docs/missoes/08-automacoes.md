@@ -89,3 +89,13 @@ Tarefas do tipo `task` são elegíveis quando têm prazo vencido e estão aberta
 O identificador da ocorrência usa fluxo, registro e instante de referência. Reinícios ou dois workers não devem duplicar o mesmo episódio. Alterar apenas a versão não recria o episódio capturado. Uma nova data de vencimento ou uma nova interação pode iniciar outro episódio. Antes de efetivar a ação, o worker confere se a tarefa continua aberta com o mesmo vencimento ou se o lead ainda tem a mesma referência de interação. O monitor registra uma tentativa ignorada quando a espera perde a validade.
 
 A suíte de fundação inicia workers reais em subprocessos, verifica isolamento, concorrência, reprocessamento e encerramento do episódio durante a espera. A fixture usa datas passadas e antecipa trabalhos no banco descartável para exercitar a passagem do tempo. A evidência é o check da revisão. A missão permanece parcial. Próxima atividade independente: etapas encadeadas e limites de execução para ações internas.
+
+## Etapas por caminho e retomada
+
+Os gatilhos temporais em [df0420d](https://github.com/marllonfilipe/vantplatform/commit/df0420d2217f0398776f176ea6d4fe63125632ef) passaram na [fundação com subprocessos do worker](https://github.com/marllonfilipe/vantplatform/actions/runs/44744219236) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44744219237).
+
+No editor, **Etapas após a ação principal** e **Etapas após a ação alternativa** permitem acrescentar ações em ordem. Cada etapa define tipo, título, espera antes de executar e prazo da atividade criada. Um caminho comporta até oito ações, contando a inicial. A API aceita `steps.match` e `steps.otherwise`; cada item contém `kind`, `title`, `wait_minutes` e `due_minutes`. O caminho alternativo precisa de uma ação inicial para receber etapas subsequentes.
+
+O worker confirma de forma atômica a atividade, o histórico e a posição da próxima etapa. Na pausa, o trabalho conserva a posição. Ao retomar, usa a versão que capturou o evento. Uma falha permite até três tentativas naquela etapa. O monitor apresenta a tentativa, o resultado e o número da etapa. O limite de oito ações garante que uma sequência publicada tenha fim. As versões anteriores seguem com sua ação única.
+
+O Chromium publica uma etapa adicional e confere o follow-up no monitor. Um teste com subprocessos força pausa, troca de versão e falha do autor durante a segunda etapa. Confere a retomada, a ordem e as três atividades do CRM. O CI da revisão registra o resultado. A missão continua parcial. Próximas atividades independentes: limites de frequência entre execuções do mesmo fluxo e ações internas de atribuição de responsável com rastreabilidade.

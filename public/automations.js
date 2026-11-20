@@ -12,6 +12,26 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const wrapper=node('label',label),control=node('input');
   control.type=type;wrapper.append(control);form.append(wrapper);return control;
  }
+ function stepEditor(form,label,initial=[]){
+  const section=node('details'),items=node('div'),rows=[];
+  section.append(node('summary',label),items);form.append(section);
+  const addButton=button('Adicionar etapa',()=>add({}));
+  function add(initial){
+   const wrapper=node('fieldset');
+   items.append(wrapper);
+   const kind=select(wrapper,'Atividade da etapa',Object.entries(kinds),initial.kind??'task');
+   const title=input(wrapper,'Título da etapa');title.value=initial.title??'';title.required=true;title.maxLength=240;
+   const wait=input(wrapper,'Espera antes da etapa (minutos)','number');wait.min=0;wait.max=43200;wait.value=initial.wait_minutes??0;
+   const due=input(wrapper,'Prazo da etapa (minutos)','number');due.min=0;due.max=43200;due.value=initial.due_minutes??'';
+   kind.onchange=()=>{due.required=kind.value==='reminder';};kind.onchange();
+   const row=()=>({kind:kind.value,title:title.value,wait_minutes:Number(wait.value),due_minutes:due.value===''?null:Number(due.value)});
+   rows.push(row);addButton.disabled=rows.length>=7;
+   wrapper.append(button('Remover etapa',()=>{rows.splice(rows.indexOf(row),1);wrapper.remove();addButton.disabled=false;}));
+  }
+  for(const item of initial)add(item);
+  section.append(addButton);
+  return {section,values:()=>rows.map(read=>read())};
+ }
  async function editor(existing){
   const [members,pipelines]=await Promise.all([api('/crm/members'),api('/crm/pipelines')]);
   const form=node('form',undefined,'stack');
@@ -44,8 +64,12 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const alternate=select(form,'Se as condições não forem atendidas',[['','Encerrar fluxo'],...Object.entries(kinds)],existing?.else_kind??'');
   const alternateTitle=input(form,'Título da atividade alternativa');alternateTitle.maxLength=240;alternateTitle.value=existing?.else_title??'';
   const due=input(form,'Prazo após a execução (minutos)','number');due.min=0;due.max=43200;due.value=existing?.due_minutes??'';
+  const mainSteps=stepEditor(form,'Etapas após a ação principal',existing?.steps?.match);
+  const otherSteps=stepEditor(form,'Etapas após a ação alternativa',existing?.steps?.otherwise);
   function refresh(){
    alternate.disabled=!condition.value.trim()&&!Object.keys(selectedConditions()).length;if(alternate.disabled)alternate.value='';
+   otherSteps.section.hidden=!alternate.value;
+   for(const field of otherSteps.section.querySelectorAll('fieldset'))field.disabled=!alternate.value;
    alternateTitle.disabled=!alternate.value;alternateTitle.required=Boolean(alternate.value);
    due.required=[kind.value,alternate.value].includes('reminder');
   }
@@ -55,7 +79,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   form.onsubmit=async e=>{
    e.preventDefault();save.disabled=true;
    try{
-    const data={conditions:selectedConditions(),trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),task_title:title.value,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.value===''?null:Number(due.value),enabled:enabled.checked};
+    const data={steps:{match:mainSteps.values(),otherwise:alternate.value?otherSteps.values():[]},conditions:selectedConditions(),trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),task_title:title.value,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.value===''?null:Number(due.value),enabled:enabled.checked};
     if(existing)data.expected_version=existing.version;
     await api(existing?'/automations/'+existing.id:'/automations',existing?'PUT':'POST',data);
     document.getElementById('dialog').close();await view(page);
@@ -74,7 +98,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const history=runs.items.map(r=>{
    const details=node('details'),summary=node('summary',(names.get(r.payload.flow)??'Fluxo')+' · v'+r.payload.version+' · '+states[r.state]);
    details.append(summary,node('p',events[r.payload.event??'lead_created']),node('p',r.payload.source_activity?'Tarefa: '+r.payload.source_activity:r.payload.meeting?'Reunião: '+r.payload.meeting:r.payload.deal?'Oportunidade: '+r.payload.deal:'Lead: '+r.payload.lead),node('p','Disponível em '+date(r.available_at)));
-   for(const attempt of r.history)details.append(node('p','Tentativa '+attempt.attempt+' · '+(attempt.outcome==='created'?({task:'Tarefa criada',reminder:'Lembrete criado',followup:'Follow-up criado'}[attempt.action_kind]??outcomes.created):outcomes[attempt.outcome])+(attempt.branch==='otherwise'?' · caminho alternativo':'')+(attempt.activity_id?' · atividade '+attempt.activity_id:'')));
+   for(const attempt of r.history)details.append(node('p','Tentativa '+attempt.attempt+' · '+(attempt.outcome==='created'?({task:'Tarefa criada',reminder:'Lembrete criado',followup:'Follow-up criado'}[attempt.action_kind]??outcomes.created):outcomes[attempt.outcome])+' · etapa '+((attempt.step_index??0)+1)+(attempt.branch==='otherwise'?' · caminho alternativo':'')+(attempt.activity_id?' · atividade '+attempt.activity_id:'')));
    return details;
   });
   return [button('Criar fluxo',()=>editor()),...(config.length?config:[empty('Nenhum fluxo publicado.')]),panel('Execuções recentes',...(history.length?history:[empty('Nenhuma execução registrada.')]))];

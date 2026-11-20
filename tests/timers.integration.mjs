@@ -54,5 +54,31 @@ test('worker captura episódios de inatividade e vencimento sem repetir efeitos'
   jobs=await runs();
   assert.equal(jobs.length,4);
   assert.deepEqual(jobs.filter(j=>j.payload.version===2).map(j=>j.history[0].outcome),['skipped','skipped']);
+  const chain={name:'Acompanhamento',trigger_event:'lead_created',enabled:true,task_title:'Avaliar lead',steps:{match:[
+    {kind:'reminder',title:'Conferir proposta',wait_minutes:60,due_minutes:10},{kind:'followup',title:'Registrar retorno',wait_minutes:0}
+  ]}};
+  const invalid=await call('automations','POST',{...chain,steps:{match:Array(8).fill(chain.steps.match[1])}});
+  assert.equal(invalid.status,400);
+  const createdFlow=await call('automations','POST',chain);assert.equal(createdFlow.status,201);
+  const flow=(await createdFlow.json()).id;
+  const newLead=(await (await call('crm/leads','POST',{name:'Lead encadeado'})).json()).id;
+  const job=async()=>(await runs()).find(j=>j.payload.flow===flow);
+  await worker(tenant);await worker(tenant);
+  let current=await job();
+  assert.equal(current.state,'queued');assert.equal(current.payload.step,1);assert.equal(current.attempts,1);
+  assert.equal((await call('automations/'+flow,'PUT',{...chain,expected_version:1,enabled:false,steps:{}})).status,200);
+  const makeDue=()=>admin.query('UPDATE vant.jobs SET available_at=now() WHERE tenant_id=$1 AND id=$2',[tenant,current.id]);
+  await makeDue();await worker(tenant);assert.equal((await job()).attempts,1);
+  assert.equal((await call('automations/'+flow,'PUT',{...chain,expected_version:2,steps:{}})).status,200);
+  await admin.query('UPDATE vant.members SET active=false WHERE tenant_id=$1 AND id=$2',[tenant,actor]);
+  await worker(tenant);
+  await admin.query('UPDATE vant.members SET active=true WHERE tenant_id=$1 AND id=$2',[tenant,actor]);
+  assert.deepEqual((await job()).history.map(h=>[h.step_index,h.outcome]),[[0,'created'],[1,'retry']]);
+  await makeDue();await worker(tenant);await worker(tenant);await worker(tenant);
+  current=await job();
+  assert.equal(current.state,'done');assert.equal(current.payload.version,1);
+  assert.deepEqual(current.history.map(h=>[h.step_index,h.outcome]),[[0,'created'],[1,'retry'],[1,'created'],[2,'created']]);
+  const tasks=await admin.query('SELECT title,kind FROM vant.activities WHERE tenant_id=$1 AND lead_id=$2 ORDER BY title',[tenant,newLead]);
+  assert.deepEqual(tasks.rows.map(r=>[r.title,r.kind]),[['Avaliar lead','task'],['Conferir proposta','reminder'],['Registrar retorno','followup']]);
  }finally{if(server.listening)await new Promise(resolve=>server.close(resolve));await pool.end();await admin.end();}
 });

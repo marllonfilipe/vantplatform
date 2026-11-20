@@ -30,6 +30,20 @@ function matchesConditions(filters,facts={}){
   return actual===expected;
  });
 }
+function parseSteps(value={},hasAlternative){
+ if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!['match','otherwise'].includes(k)))reject(400,'flow_steps','Etapas inválidas.');
+ const steps={};
+ for(const [branch,items] of Object.entries(value)){
+  if(!Array.isArray(items)||items.length>7||(branch==='otherwise'&&!hasAlternative&&items.length))reject(400,'flow_steps','Use até oito ações por caminho, incluindo a primeira.');
+  steps[branch]=items.map(item=>{
+   if(!item||!activityKinds.has(item.kind))reject(400,'flow_steps','Tipo de atividade inválido.');
+   const wait=item.wait_minutes??0,due=item.due_minutes??null;
+   if(!Number.isInteger(wait)||wait<0||wait>43200||(due!==null&&(!Number.isInteger(due)||due<0||due>43200))||(item.kind==='reminder'&&due===null))reject(400,'flow_steps','Espera ou prazo inválido.');
+   return {kind:item.kind,title:textField(item.title,240),wait_minutes:wait,due_minutes:due};
+  });
+ }
+ return steps;
+}
 function actions(body,source){
  const conditions=parseConditions(body.conditions);
  const event=body.trigger_event===undefined?'lead_created':body.trigger_event;
@@ -41,7 +55,7 @@ function actions(body,source){
  if(alternative===null&&body.else_title!=null)reject(400,'flow_action','Informe a ação do caminho alternativo.');
  if(due!==null&&(!Number.isInteger(due)||due<0||due>43200))reject(400,'flow_due','Prazo da atividade inválido.');
  if((primary==='reminder'||alternative==='reminder')&&due===null)reject(400,'flow_due','Lembretes exigem prazo.');
- return {conditions,event,primary,alternative,alternateTitle:alternative===null?null:textField(body.else_title,240),due};
+ return {steps:parseSteps(body.steps,alternative!==null),conditions,event,primary,alternative,alternateTitle:alternative===null?null:textField(body.else_title,240),due};
 }
 export async function automationRoutes({db,tenant,member,url,method,body,requestId}){
  const base='/api/v1/automations';
@@ -55,7 +69,7 @@ export async function automationRoutes({db,tenant,member,url,method,body,request
   return [200,{items:rows}];
  }
  if(url.pathname===base&&method==='GET'){
-  const {rows}=await db.query(`SELECT f.*,v.conditions,v.trigger_event,v.task_title,v.wait_minutes,v.source_filter,v.action_kind,v.else_kind,v.else_title,v.due_minutes FROM vant.automation_flows f
+  const {rows}=await db.query(`SELECT f.*,v.steps,v.conditions,v.trigger_event,v.task_title,v.wait_minutes,v.source_filter,v.action_kind,v.else_kind,v.else_title,v.due_minutes FROM vant.automation_flows f
     JOIN vant.automation_versions v ON (v.tenant_id,v.flow_id,v.version)=(f.tenant_id,f.id,f.version)
     WHERE f.tenant_id=$1 ORDER BY f.name,f.id`,[tenant]);
   return [200,{items:rows}];
@@ -71,14 +85,14 @@ export async function automationRoutes({db,tenant,member,url,method,body,request
   action=actions(body,source);
   await db.query('INSERT INTO vant.automation_flows(tenant_id,id,name,version,enabled) VALUES($1,$2,$3,1,$4)',[tenant,id,name,body.enabled]);
  }else{
-  const existing=(await db.query(`SELECT f.version,v.conditions,v.trigger_event,v.action_kind,v.else_kind,v.else_title,v.due_minutes FROM vant.automation_flows f JOIN vant.automation_versions v ON (v.tenant_id,v.flow_id,v.version)=(f.tenant_id,f.id,f.version) WHERE f.tenant_id=$1 AND f.id=$2 FOR UPDATE OF f`,[tenant,id])).rows[0];
+  const existing=(await db.query(`SELECT f.version,v.steps,v.conditions,v.trigger_event,v.action_kind,v.else_kind,v.else_title,v.due_minutes FROM vant.automation_flows f JOIN vant.automation_versions v ON (v.tenant_id,v.flow_id,v.version)=(f.tenant_id,f.id,f.version) WHERE f.tenant_id=$1 AND f.id=$2 FOR UPDATE OF f`,[tenant,id])).rows[0];
   if(!existing)reject(404,'missing','Fluxo não encontrado.');
   if(existing.version!==body.expected_version)reject(409,'version','A versão do fluxo mudou.');
   action=actions({...existing,...body},source);
   version=existing.version+1;
   await db.query('UPDATE vant.automation_flows SET version=$3,enabled=$4,name=$5 WHERE tenant_id=$1 AND id=$2',[tenant,id,version,body.enabled,name]);
  }
- await db.query('INSERT INTO vant.automation_versions(tenant_id,flow_id,version,author_id,task_title,wait_minutes,source_filter,action_kind,else_kind,else_title,due_minutes,trigger_event,conditions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',[tenant,id,version,member.id,title,delay,source,action.primary,action.alternative,action.alternateTitle,action.due,action.event,action.conditions]);
+ await db.query('INSERT INTO vant.automation_versions(tenant_id,flow_id,version,author_id,task_title,wait_minutes,source_filter,action_kind,else_kind,else_title,due_minutes,trigger_event,conditions,steps) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[tenant,id,version,member.id,title,delay,source,action.primary,action.alternative,action.alternateTitle,action.due,action.event,action.conditions,action.steps]);
  await audit(db,tenant,member.id,'automation.version',id,requestId);
  return [create?201:200,{id,version}];
 }
@@ -96,7 +110,7 @@ async function activityTarget(db,tenant,payload){
 
 export function processNext(pool,tenant){
  return withTenant(pool,tenant,async db=>{
-  const job=(await db.query(`SELECT j.id,j.payload,j.attempts,v.conditions,v.task_title,v.source_filter,v.author_id,v.action_kind,v.else_kind,v.else_title,v.due_minutes
+  const job=(await db.query(`SELECT j.id,j.payload,j.attempts,v.steps,v.conditions,v.task_title,v.source_filter,v.author_id,v.action_kind,v.else_kind,v.else_title,v.due_minutes
     FROM vant.jobs j JOIN vant.automation_flows f ON f.tenant_id=j.tenant_id AND f.id=(j.payload->>'flow')::uuid
     JOIN vant.automation_versions v ON (v.tenant_id,v.flow_id,v.version)=(f.tenant_id,f.id,(j.payload->>'version')::int)
     WHERE j.tenant_id=$1 AND j.kind=ANY($2::text[]) AND j.state='queued' AND j.available_at<=now() AND f.enabled
@@ -105,8 +119,11 @@ export function processNext(pool,tenant){
   let outcome='skipped',reason=null,activity=null;
   const match=(!job.source_filter || job.source_filter===job.payload.source)&&matchesConditions(job.conditions,job.payload.facts);
   const branch=match?'match':'otherwise';
-  const kind=match?job.action_kind:job.else_kind;
-  const title=match?job.task_title:job.else_title;
+  const step=job.payload.step??0;
+  const following=job.steps[branch]??[];
+  const current=step===0?{kind:match?job.action_kind:job.else_kind,title:match?job.task_title:job.else_title,due_minutes:job.due_minutes}:following[step-1];
+  const {kind,title}=current;
+  const stepAttempt=(job.payload.step_attempts??(step===0?job.attempts:0))+1;
   const attempt=job.attempts+1;
   await db.query('SAVEPOINT flow_effect');
   try{
@@ -116,7 +133,7 @@ export function processNext(pool,tenant){
      const member=(await db.query('SELECT id,role FROM vant.members WHERE tenant_id=$1 AND id=$2 AND active',[tenant,job.author_id])).rows[0];
      if(!member||!mayManageTeams(member.role))throw Object.assign(new Error('author_unavailable'),{code:'author_unavailable'});
      const task={kind,title,...record};
-     if(job.due_minutes!==null)task.due_at=new Date(Date.now()+job.due_minutes*60000).toISOString();
+     if(current.due_minutes!==null)task.due_at=new Date(Date.now()+current.due_minutes*60000).toISOString();
      activity=(await createCrmActivity({db,tenant,member,requestId:randomUUID()},task)).id;
      outcome='created';
     }
@@ -124,12 +141,15 @@ export function processNext(pool,tenant){
   }catch(error){
    reason=error.code==='author_unavailable'?'author_unavailable':'action_failed';
    await db.query('ROLLBACK TO SAVEPOINT flow_effect');
-   activity=null;outcome=attempt>=3?'failed':'retry';
+   activity=null;outcome=stepAttempt>=3?'failed':'retry';
   }
-  const state=outcome==='retry'?'queued':outcome==='failed'?'failed':'done';
-  await db.query(`UPDATE vant.jobs SET state=$3,attempts=$4,available_at=CASE WHEN $3='queued' THEN now()+make_interval(secs=>$4::int*30) ELSE available_at END
-    WHERE tenant_id=$1 AND id=$2`,[tenant,job.id,state,attempt]);
-  await db.query('INSERT INTO vant.automation_attempts(tenant_id,job_id,attempt,outcome,activity_id,reason,branch,action_kind) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[tenant,job.id,attempt,outcome,activity,reason,branch,kind]);
+  const next=outcome==='created'?following[step]:null;
+  const state=outcome==='retry'||next?'queued':outcome==='failed'?'failed':'done';
+  const delay=next?next.wait_minutes*60:stepAttempt*30;
+  const progress={step:next?step+1:step,step_attempts:next?0:stepAttempt};
+  await db.query(`UPDATE vant.jobs SET state=$3,attempts=$4,payload=payload||$6::jsonb,available_at=CASE WHEN $3='queued' THEN now()+make_interval(secs=>$5::integer) ELSE available_at END
+    WHERE tenant_id=$1 AND id=$2`,[tenant,job.id,state,attempt,delay,progress]);
+  await db.query('INSERT INTO vant.automation_attempts(tenant_id,job_id,attempt,outcome,activity_id,reason,branch,action_kind,step_index) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',[tenant,job.id,attempt,outcome,activity,reason,branch,kind,step]);
   return true;
  });
 }
