@@ -55,7 +55,7 @@ function overview(d){
  panel('Atenção da equipe',pair('Leads sem interação',t.untouched),pair('Leads prioritários',t.priority),pair('Atividades pendentes',t.pending),pair('Atividades em atraso',t.overdue)),
  panel('Origem dos leads',...ranking(d.sources)),panel('Negócios ganhos por pessoa',...ranking(d.performance)),
  panel('Próximas tarefas',...taskRows(d.next)),panel('Atividades recentes',...taskRows(d.recent,true)),
- panel('Recomendações de inteligência',...(d.recommendations?.length?d.recommendations.map(r=>pair(r.title,r.detail)):[empty('Nenhuma recomendação registrada para este contexto.')])));return [metrics(t),grid];
+ panel('Recomendações de inteligência',...(d.recommendations?.length?d.recommendations.map(r=>pair(r.title,r.detail)):[empty('Nenhuma recomendação registrada para este contexto.')])));return [metrics(t),grid,...(extension?[button('Abrir copiloto comercial',()=>view('Copiloto comercial'))]:[])];
 }
 async function view(name){
  const seq=++generation;current=name;document.body.classList.remove('mobile-open');nav();el('pageTitle').textContent=name;el('context').textContent=groupNames[name]??'Comercial';main.replaceChildren();status.textContent='Carregando…';

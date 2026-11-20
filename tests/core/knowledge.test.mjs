@@ -140,6 +140,28 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     assert.equal((await (await call(cancelled+'/cancel','POST',owner,{})).json()).status,'cancelled');
     assert.equal((await call(cancelled+'/approve','POST',owner,{})).status,409);
     assert.equal(await countTasks(),1);
+    const consult=async(cookie,question)=> {
+      const res=await call('agents/copilot','POST',cookie,{question});
+      assert.equal(res.status,200);
+      return res.json();
+    };
+    const leadsQuestion='Quais leads devo priorizar hoje?';
+    const priorities=await consult(owner,leadsQuestion);
+    assert.equal(priorities.intent,'leads');
+    assert.deepEqual(priorities.items.map(row=>[row.id,row.score]),[[lead.id,55]]);
+    assert.deepEqual((await consult(other,leadsQuestion)).items,[]);
+    assert.deepEqual((await consult(seller,leadsQuestion)).items,[]);
+    const risks=await consult(owner,'Quais oportunidades estão em risco?');
+    assert.equal(risks.intent,'risks');
+    assert.equal(risks.items[0].id,deal);
+    assert.equal(risks.items[0].risk,'Risco elevado');
+    const overdue=await call('crm/activities','POST',owner,{kind:'followup',title:'Retornar proposta',lead_id:lead.id,due_at:'2020-01-01T12:00:00Z'});
+    assert.equal(overdue.status,201);
+    const followups=await consult(owner,'Quais follow-ups estão atrasados?');
+    assert.equal(followups.intent,'followups');
+    assert.equal(followups.items[0].id,(await overdue.json()).id);
+    const unrelated=await consult(owner,'Qual é a composição química da atmosfera de Marte?');
+    assert.equal(unrelated.intent,null);
     assert.equal((await call(path+'/'+id,'DELETE',owner)).status,204);
     assert.ok((await search(owner)).every(row=>row.document_id!==id));
     assert.equal((await admin.query('SELECT count(*)::int AS n FROM vant.document_chunks WHERE document_id=$1',[id])).rows[0].n,0);

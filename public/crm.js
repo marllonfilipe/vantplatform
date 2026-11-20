@@ -1,10 +1,12 @@
+import {createCopilotPage} from './copilot.js';
 import {createMemoryPage} from './memory.js';
 import {createInbox} from './inbox.js';
 import {entities,labels,options,related} from './crm-schema.js';
 export function createCrm({api,node,button,pair,panel,empty,modal,money,date,view,getUser}){
+ const copilotPage=createCopilotPage({api,node,button,panel,empty,date});
  const memoryPage=createMemoryPage({api,node,button,panel,empty,modal,view,getUser});
  const inbox=createInbox({api,node,button,pair,panel,empty,modal,date,view,getUser});
- const groups={Inteligência:['Memória comercial'],Comercial:['Leads','Empresas','Contatos','Oportunidades','Funil de vendas'],Relacionamento:['Caixa de entrada','WhatsApp','Conversas'],Operação:['Agenda comercial']};
+ const groups={Inteligência:['Memória comercial','Copiloto comercial'],Comercial:['Leads','Empresas','Contatos','Oportunidades','Funil de vendas'],Relacionamento:['Caixa de entrada','WhatsApp','Conversas'],Operação:['Agenda comercial']};
  let active='',criteria={},cursor='',previous=[];
  const path=(kind,id)=>'/crm/'+kind+(id?'/'+id:'');
  const manager=()=>['owner','manager'].includes(getUser().role);
@@ -126,6 +128,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
     const stage=select(p.stages.map(v=>[v.id,v.name]),s.id,false);stage.setAttribute('aria-label','Mover '+d.name);stage.onchange=async()=>{try{await api(path('deals',d.id),'PATCH',{stage_id:stage.value});if(active==='Funil de vendas')await view(active);}catch(e){stage.value=s.id;modal('Movimentação',empty(e.message));}};card.append(stage);}lane.append(card);}board.append(lane);}return [bar,board];
  }
  async function page(name){
+  if(name==='Copiloto comercial'){active=name;return copilotPage();}
   if(name==='Memória comercial'){active=name;return memoryPage();}
   if(active!==name){active=name;criteria={};cursor='';previous=[];}if(name==='Funil de vendas')return board();if(['Caixa de entrada','WhatsApp'].includes(name))return inbox.page(name);
   const kind=Object.keys(entities).find(k=>entities[k].label===name),bar=node('div',undefined,'toolbar');

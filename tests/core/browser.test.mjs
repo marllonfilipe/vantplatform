@@ -61,6 +61,10 @@ test('gestor indexa e consulta política comercial no Chromium',async()=>{
     await page.getByRole('button',{name:'Fechar',exact:true}).click();
     await page.getByRole('button',{name:'Agenda comercial',exact:true}).click();
     await page.getByRole('button',{name:'Obter um canal de contato.',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Visão geral',exact:true}).click();
+    await page.getByRole('button',{name:'Abrir copiloto comercial'}).click();
+    await page.getByRole('button',{name:'Quais leads devo priorizar hoje?'}).click();
+    await page.getByRole('heading',{name:'Conta piloto',exact:true}).waitFor();
   } finally {
     await browser?.close();
     stopInference();
