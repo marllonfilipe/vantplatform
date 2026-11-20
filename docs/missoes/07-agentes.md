@@ -82,3 +82,13 @@ Na ficha de um lead elegível, a análise mostra o motivo, o tempo decorrido e u
 O teste usa duas análises do mesmo lead e aprovações concorrentes. Verifica que há exatamente um follow-up pendente, que o lead sai da fila e que a conclusão recente impede nova sugestão. Cobre também a permissão do vendedor e o isolamento por empresa.
 
 A próxima atividade independente é o SDR assistido para conferir as lacunas de qualificação e sugerir perguntas a partir da ficha. Atendimento e entrega externa de mensagens continuam vinculados à missão 05.
+
+## SDR assistido na ficha de lead
+
+O [teste do follow-up na revisão 271ee71](https://github.com/marllonfilipe/vantplatform/actions/runs/44693923637) passou, incluindo duas aprovações concorrentes para o mesmo lead.
+
+A análise de lead prepara um roteiro de perguntas para os campos de qualificação ainda desconhecidos ou com orçamento a confirmar. Na ficha, selecione **Analisar no Intelligence Core → Registrar respostas do SDR**. O responsável ou gestor pode registrar somente as respostas efetivamente fornecidas e atualizar a análise. O CRM conserva os campos restantes e registra as alterações no histórico comercial e na auditoria. O roteiro permanece associado à análise que o originou.
+
+O endpoint `POST /api/v1/agents/sdr/{runId}/answers` recebe um objeto `answers`. A atualização confere o valor que originou cada pergunta sob bloqueio do registro. Uma repetição idêntica é aceita. Se outra pessoa já registrou uma resposta diferente, a operação retorna conflito e a interface permite gerar um novo roteiro. O teste HTTP cobre respostas parciais, permissão, campos fora do roteiro, repetição e conflito. O teste de Chromium registra uma necessidade na ficha e a consulta em nova análise.
+
+Próxima atividade independente: supervisão das ferramentas internas dos agentes por empresa, com pausa operacional e limites de execução. O SDR assistido continua separado da homologação de atendimento por canal.

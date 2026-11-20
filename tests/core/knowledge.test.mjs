@@ -262,6 +262,17 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     assert.deepEqual((await consult(seller,idleQuestion)).items,[]);
     assert.equal((await call('crm/activities/'+pendingFollowups.rows[0].id,'PATCH',seller,{done_at:new Date().toISOString()})).status,200);
     assert.deepEqual((await consult(seller,idleQuestion)).items,[]);
+    const sdr='agents/sdr/'+suggested.id+'/answers';
+    assert.ok(suggested.result.sdrQuestions.some(item=>item.field==='stated_need'));
+    assert.equal((await call(sdr,'POST',other,{answers:{stated_need:'Teste'}})).status,404);
+    assert.equal((await call(sdr,'POST',seller,{answers:{score:'100'}})).status,400);
+    assert.equal((await call(sdr,'POST',seller,{answers:{stated_need:'Confirmar disponibilidade.',budget_state:'confirmed'}})).status,200);
+    assert.equal((await call(sdr,'POST',seller,{answers:{budget_state:'confirmed'}})).status,200);
+    assert.equal((await call(sdr,'POST',seller,{answers:{budget_state:'unavailable',purchase_window:'month'}})).status,409);
+    const freshSdr=await analyzeFollowup();
+    assert.equal(freshSdr.result.qualification.need,'Confirmar disponibilidade.');
+    assert.ok(!freshSdr.result.sdrQuestions.some(item=>item.field==='budget_state'));
+    assert.ok(freshSdr.result.sdrQuestions.some(item=>item.field==='purchase_window'));
     assert.equal((await call(path+'/'+id,'DELETE',owner)).status,204);
     assert.ok((await search(owner)).every(row=>row.document_id!==id));
     assert.equal((await admin.query('SELECT count(*)::int AS n FROM vant.document_chunks WHERE document_id=$1',[id])).rows[0].n,0);

@@ -1,3 +1,4 @@
+import {prepareSdr} from './sdr-questions.mjs';
 import {contactReference,maySuggestFollowup} from './followup.mjs';
 import { lastDealTouch } from './deal-context.mjs';
 import { options } from '../public/crm-schema.js';
@@ -102,6 +103,7 @@ export async function analysisRoutes({db, tenant, member, requestId, url, method
     reject(403,'permission','A análise exige gestão ou responsabilidade pelo registro.');
   }
   const result = lead ? qualify(row) : assess(row);
+  if(lead)result.sdrQuestions=prepareSdr(row);
   if(lead && row.followup_due){
     const prompt=row.stated_need ? 'A necessidade registrada continua sendo uma prioridade?'
       : 'Qual é a sua prioridade comercial neste momento?';

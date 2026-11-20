@@ -1,3 +1,4 @@
+import {sdrQuestions} from './sdr-questions.mjs';
 import {entities,options} from '../public/crm-schema.js';
 import {leadCsv} from './csv.mjs';
 import {pagination,reject,textField} from './http.mjs';
@@ -60,6 +61,28 @@ async function save(ctx,kind,body,old){
  if(kind==='activities'&&row.lead_id&&row.done_at&&['call','meeting','followup'].includes(row.kind))
   await db.query('UPDATE vant.leads SET last_contact_at=greatest(last_contact_at,$1) WHERE id=$2',[row.done_at,row.lead_id]);
  return row;
+}
+export async function recordSdrAnswers(ctx,runId,answers){
+ if(!answers || typeof answers!=='object' || Array.isArray(answers) || !Object.keys(answers).length)reject(400,'answers','Informe pelo menos uma resposta.');
+ const run=(await ctx.db.query("SELECT subject_id,result FROM vant.core_runs WHERE tenant_id=$1 AND id=$2 AND subject_kind='lead'",[ctx.tenant,runId])).rows[0];
+ if(!run)reject(404,'missing','Análise não encontrada.');
+ const lead=await record(ctx.db,'leads',run.subject_id,true);
+ writable(ctx.member,lead);
+ const changes={};
+ for(const [field,answer] of Object.entries(answers)){
+  const prompt=run.result.sdrQuestions?.find(item=>item.field===field);
+  if(!Object.hasOwn(sdrQuestions,field)||!prompt)reject(400,'field','Campo ausente no roteiro.');
+  if(typeof answer!=='string'||!answer.trim()||answer==='unknown')reject(400,'answer','Informe uma resposta confirmada.');
+  const normalized=value(field,answer);
+  if(lead[field]===normalized)continue;
+  if((lead[field]??null)!==prompt.previous)reject(409,'outdated','O CRM já recebeu outra resposta. Gere um novo roteiro.');
+  changes[field]=normalized;
+ }
+ if(Object.keys(changes).length){
+  await save(ctx,'leads',changes,lead);
+  await audit(ctx.db,ctx.tenant,ctx.member.id,'agent.sdr.answered',runId,ctx.requestId);
+ }
+ return [200,{lead_id:lead.id}];
 }
 export function createCrmActivity(ctx,task){return save(ctx,'activities',task);}
 async function list(ctx,kind){

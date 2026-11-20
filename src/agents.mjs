@@ -1,11 +1,13 @@
 import {maySuggestFollowup} from './followup.mjs';
 import {audit} from './db.mjs';
-import {createCrmActivity} from './crm.mjs';
+import {createCrmActivity,recordSdrAnswers} from './crm.mjs';
 import {reject} from './http.mjs';
 import {isUuid,mayManageTeams} from './security.mjs';
 
 export async function agentRoutes(ctx) {
   const {db,tenant,member,requestId,url,method,body}=ctx;
+  const sdr=/^\/api\/v1\/agents\/sdr\/([^/]+)\/answers$/.exec(url.pathname);
+  if(sdr && method==='POST' && isUuid(sdr[1]))return recordSdrAnswers(ctx,sdr[1],body.answers);
   const match=/^\/api\/v1\/agents\/proposals\/([^/]+)(?:\/(approve|cancel))?$/.exec(url.pathname);
   if(!match || !isUuid(match[1]))return;
   const [,runId,decision]=match;

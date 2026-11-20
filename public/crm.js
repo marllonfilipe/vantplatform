@@ -46,6 +46,26 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
  }
  function csv(){const f=node('form',undefined,'stack');f.append(empty('Até 500 linhas. Colunas: nome, email, telefone, origem, segmento, tags e observações. Apenas nome é obrigatória.'));
   const c=field(f,'Arquivo CSV',node('input'));c.type='file';c.accept='.csv';c.required=true;submit(f,async()=>api(path('leads','import'),'POST',{csv:await c.files[0].text()}));modal('Importar leads',f);}
+ function sdrForm(run){
+  const form=node('form',undefined,'stack'),controls={};
+  for(const item of run.result.sdrQuestions){
+   const choices=options[item.field];
+   const input=choices ? select(Object.entries(choices).filter(([key])=>key!=='unknown'),null) : node('textarea');
+   if(!choices)input.maxLength=250;
+   controls[item.field]=field(form,item.question,input);
+  }
+  const save=node('button','Salvar respostas','primary'),feedback=node('p');
+  feedback.setAttribute('role','alert');form.append(save,feedback);
+  form.onsubmit=async event=>{
+   event.preventDefault();save.disabled=true;
+   try{
+    const answers=Object.fromEntries(Object.entries(controls).map(([key,input])=>[key,input.value.trim()]).filter(([,value])=>value));
+    const updated=await api('/agents/sdr/'+run.id+'/answers','POST',{answers});
+    modal('Respostas registradas',button('Atualizar análise',async()=>showAnalysis(await api('/core/leads/'+updated.lead_id+'/analyses','POST',{}))));
+   }catch(error){feedback.textContent=error.message;}finally{save.disabled=false;}
+  };
+  modal('Roteiro de qualificação SDR',form);
+ }
  async function showAnalysis(run){
   const result=run.result,parts=[pair('Classificação',result.classification)];
   if(result.score!=null)parts.push(pair('Pontuação de qualificação',result.score+' / 100'));
@@ -75,6 +95,10 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   parts.push(pair('Inferência local',run.latency_ms+' ms'),pair('Regra',result.ruleset));
   const endpoint='/agents/proposals/'+run.id;
   const {proposal,canDecide}=await api(endpoint);
+  if(result.sdrQuestions?.length){
+   parts.push(panel('Perguntas de qualificação',...result.sdrQuestions.map(item=>node('p',item.question))));
+   if(canDecide)parts.push(button('Registrar respostas do SDR',()=>sdrForm(run)));
+  }
   if(proposal)parts.push(pair('Proposta de tarefa',{pending:'Aguardando decisão',approved:'Aprovada',cancelled:'Cancelada'}[proposal.status]));
   if(canDecide && !proposal)parts.push(button('Preparar tarefa sugerida',async()=>{
     await api(endpoint,'POST',{});await showAnalysis(run);

@@ -54,6 +54,11 @@ test('gestor indexa e consulta política comercial no Chromium',async()=>{
     await page.getByRole('button',{name:'Leads',exact:true}).click();
     await page.getByRole('button',{name:'Conta piloto',exact:true}).click();
     await page.getByRole('button',{name:'Analisar no Intelligence Core'}).click();
+    await page.getByRole('button',{name:'Registrar respostas do SDR'}).click();
+    await page.getByLabel('Que problema você precisa resolver e qual resultado espera?').fill('Reduzir prazo da proposta.');
+    await page.getByRole('button',{name:'Salvar respostas'}).click();
+    await page.getByRole('button',{name:'Atualizar análise'}).click();
+    await page.getByText('Reduzir prazo da proposta.',{exact:true}).waitFor();
     await page.getByRole('button',{name:'Preparar tarefa sugerida'}).click();
     await page.getByText('Aguardando decisão',{exact:true}).waitFor();
     await page.getByRole('button',{name:'Aprovar e criar tarefa'}).click();
