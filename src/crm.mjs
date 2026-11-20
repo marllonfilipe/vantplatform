@@ -96,6 +96,20 @@ export async function assignCrmOwner(ctx,target,ownerId){
  if(current.owner_id!==ownerId)await save(ctx,kind,{owner_id:ownerId},current);
  return {kind,record_id:id,previous_owner_id:current.owner_id,owner_id:ownerId};
 }
+export async function updateCrmFromFlow(ctx,target,changes){
+ if(!mayManageTeams(ctx.member.role))reject(403,'permission','Atualização pelo fluxo exige gestão.');
+ const kind=target.deal_id?'deals':'leads',id=target.deal_id??target.lead_id;
+ const current=await record(ctx.db,kind,id,true),patch={};
+ if(kind==='deals'){
+  if(changes.probability!==current.probability)patch.probability=changes.probability;
+ }else{
+  if(changes.segment!==undefined&&changes.segment!==current.segment)patch.segment=changes.segment;
+  if(changes.add_tag&&!current.tags.includes(changes.add_tag))patch.tags=[...current.tags,changes.add_tag];
+ }
+ const fields=Object.keys(patch);
+ if(fields.length)await save(ctx,kind,patch,current);
+ return {kind,record_id:id,fields};
+}
 export async function recordFlowComment(ctx,target,title,execution){
  const activity=await save(ctx,'activities',{kind:'comment',title,...target,done_at:new Date().toISOString()});
  const changes={title,activity_id:activity.id,flow_id:execution.flow,job_id:execution.job,step:execution.step+1};

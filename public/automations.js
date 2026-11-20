@@ -1,7 +1,7 @@
 export function createAutomationPage({api,node,button,panel,empty,modal,view,date}){
  const page='Automações';
  const events={lead_created:'Novo lead',lead_updated:'Lead atualizado',deal_created:'Nova oportunidade',deal_moved:'Mudança de etapa',deal_lost:'Oportunidade perdida',meeting_scheduled:'Reunião agendada',meeting_completed:'Reunião concluída',score_changed:'Score alterado',lead_qualified:'Lead qualificado',task_overdue:'Tarefa vencida',lead_inactive:'Lead sem interação'};
- const kinds={task:'Tarefa',reminder:'Lembrete',followup:'Follow-up',assign_owner:'Atribuir responsável',notify_owner:'Notificar responsável',comment:'Registrar comentário no CRM'};
+ const kinds={task:'Tarefa',reminder:'Lembrete',followup:'Follow-up',assign_owner:'Atribuir responsável',notify_owner:'Notificar responsável',comment:'Registrar comentário no CRM',update_record:'Atualizar registro do CRM'};
  function select(form,label,choices,value){
   const wrapper=node('label',label),control=node('select');
   control.setAttribute('aria-label',label);
@@ -16,13 +16,31 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const field=select(form,label,[['','Selecione uma pessoa'],...choices],initial??'');
   return {field,show(visible){field.parentElement.hidden=!visible;field.disabled=!visible;field.required=visible;}};
  }
- function bindAssignmentEvent(kind,trigger){
-  const option=[...kind.options].find(item=>item.value==='assign_owner');
-  const refresh=()=>{
-   option.disabled=!['lead_created','score_changed','lead_qualified','deal_created','deal_moved','deal_lost'].includes(trigger.value);
-   kind.setCustomValidity(option.disabled&&kind.value==='assign_owner'?'Este evento não permite atribuir responsável.':'');
+ function changeEditor(form,label,kind,trigger,initial={}){
+  const group=node('fieldset');group.append(node('legend',label));form.append(group);
+  const segment=input(group,'Definir segmento'),tag=input(group,'Adicionar tag'),probability=input(group,'Definir probabilidade (%)','number');
+  segment.maxLength=250;tag.maxLength=60;probability.min=0;probability.max=100;probability.step=1;
+  segment.value=initial?.segment??'';tag.value=initial?.add_tag??'';probability.value=initial?.probability??'';
+  const guarded=[...kind.options].filter(o=>['assign_owner','update_record'].includes(o.value));
+  function refresh(){
+   const supported=['lead_created','score_changed','lead_qualified','deal_created','deal_moved','deal_lost'].includes(trigger.value);
+   for(const option of guarded)option.disabled=!supported;
+   kind.setCustomValidity(guarded.some(o=>o.selected&&o.disabled)?'Escolha uma ação disponível para este evento.':'');
+   const updating=kind.value==='update_record',deal=trigger.value.startsWith('deal_');
+   group.hidden=!updating;
+   for(const field of [segment,tag,probability]){
+    field.disabled=!updating||(field===probability?!deal:deal);
+    field.parentElement.hidden=field.disabled;
+   }
+   probability.required=updating&&deal;
+   segment.setCustomValidity(updating&&!deal&&!tag.value.trim()&&!segment.value.trim()?'Informe um segmento ou uma tag.':'');
+  }
+  group.addEventListener('input',refresh);kind.addEventListener('change',refresh);trigger.addEventListener('change',refresh);refresh();
+  return ()=>{
+   if(kind.value!=='update_record')return null;
+   if(trigger.value.startsWith('deal_'))return {probability:Number(probability.value)};
+   return {...(segment.value.trim()?{segment:segment.value.trim()}:{}),...(tag.value.trim()?{add_tag:tag.value.trim()}:{})};
   };
-  trigger.addEventListener('change',refresh);kind.addEventListener('change',refresh);refresh();
  }
  function stepEditor(form,label,initial=[],choices,trigger){
   const section=node('details'),items=node('div'),rows=[];
@@ -32,18 +50,19 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
    const wrapper=node('fieldset');
    items.append(wrapper);
    const kind=select(wrapper,'Atividade da etapa',Object.entries(kinds),initial.kind??'task');
-   bindAssignmentEvent(kind,trigger);
+   const changes=changeEditor(wrapper,'Alterações da etapa',kind,trigger,initial.changes);
    const title=input(wrapper,'Título da etapa');title.value=initial.title??'';title.required=true;title.maxLength=240;
    const wait=input(wrapper,'Espera antes da etapa (minutos)','number');wait.min=0;wait.max=43200;wait.value=initial.wait_minutes??0;
    const due=input(wrapper,'Prazo da etapa (minutos)','number');due.min=0;due.max=43200;due.value=initial.due_minutes??'';
    const owner=ownerPicker(wrapper,'Novo responsável da etapa',choices,initial.owner_id);
    kind.onchange=()=>{
     const assigning=kind.value==='assign_owner';
-    owner.show(assigning);title.disabled=assigning;title.parentElement.hidden=assigning;
-    due.disabled=['assign_owner','notify_owner','comment'].includes(kind.value);due.parentElement.hidden=due.disabled;due.required=kind.value==='reminder';
+    owner.show(assigning);title.disabled=assigning||kind.value==='update_record';title.parentElement.hidden=title.disabled;
+    due.disabled=['assign_owner','notify_owner','comment','update_record'].includes(kind.value);due.parentElement.hidden=due.disabled;due.required=kind.value==='reminder';
    };kind.onchange();
    const row=()=>kind.value==='assign_owner'
     ?{kind:kind.value,owner_id:owner.field.value,wait_minutes:Number(wait.value)}
+    :kind.value==='update_record'?{kind:kind.value,changes:changes(),wait_minutes:Number(wait.value)}
     :{kind:kind.value,title:title.value,wait_minutes:Number(wait.value),due_minutes:due.disabled||due.value===''?null:Number(due.value)};
    rows.push(row);addButton.disabled=rows.length>=7;
    wrapper.append(button('Remover etapa',()=>{rows.splice(rows.indexOf(row),1);wrapper.remove();addButton.disabled=false;}));
@@ -86,20 +105,21 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const title=input(form,'Título da atividade principal');title.required=true;title.maxLength=240;title.value=existing?.task_title??'';
   const primaryOwner=ownerPicker(form,'Novo responsável principal',choices,existing?.action_owner_id);
   const alternate=select(form,'Se as condições não forem atendidas',[['','Encerrar fluxo'],...Object.entries(kinds)],existing?.else_kind??'');
-  bindAssignmentEvent(kind,trigger);bindAssignmentEvent(alternate,trigger);
+  const mainChanges=changeEditor(form,'Alterações da ação principal',kind,trigger,existing?.action_changes);
+  const otherChanges=changeEditor(form,'Alterações da ação alternativa',alternate,trigger,existing?.else_changes);
   const alternateTitle=input(form,'Título da atividade alternativa');alternateTitle.maxLength=240;alternateTitle.value=existing?.else_title??'';
   const alternateOwner=ownerPicker(form,'Novo responsável alternativo',choices,existing?.else_owner_id);
   const due=input(form,'Prazo após a execução (minutos)','number');due.min=0;due.max=43200;due.value=existing?.due_minutes??'';
   const mainSteps=stepEditor(form,'Etapas após a ação principal',existing?.steps?.match,choices,trigger);
   const otherSteps=stepEditor(form,'Etapas após a ação alternativa',existing?.steps?.otherwise,choices,trigger);
   function refresh(){
-   alternate.disabled=!condition.value.trim()&&!Object.keys(selectedConditions()).length;if(alternate.disabled)alternate.value='';
+   alternate.disabled=!condition.value.trim()&&!Object.keys(selectedConditions()).length;if(alternate.disabled&&alternate.value){alternate.value='';alternate.dispatchEvent(new Event('change'));}
    otherSteps.section.hidden=!alternate.value;
    for(const field of otherSteps.section.querySelectorAll('fieldset'))field.disabled=!alternate.value;
    const assigning=kind.value==='assign_owner',otherAssigning=alternate.value==='assign_owner';
    primaryOwner.show(assigning);alternateOwner.show(otherAssigning);
-   title.disabled=assigning;title.parentElement.hidden=assigning;
-   alternateTitle.disabled=!alternate.value||otherAssigning;alternateTitle.parentElement.hidden=otherAssigning;alternateTitle.required=!alternateTitle.disabled;
+   title.disabled=assigning||kind.value==='update_record';title.parentElement.hidden=title.disabled;
+   alternateTitle.disabled=!alternate.value||otherAssigning||alternate.value==='update_record';alternateTitle.parentElement.hidden=otherAssigning||alternate.value==='update_record';alternateTitle.required=!alternateTitle.disabled;
    const branches=[kind.value,alternate.value];
    due.disabled=!branches.some(action=>['task','reminder','followup'].includes(action));
    due.parentElement.hidden=due.disabled;due.required=branches.includes('reminder');
@@ -110,7 +130,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   form.onsubmit=async e=>{
    e.preventDefault();save.disabled=true;
    try{
-    const data={steps:{match:mainSteps.values(),otherwise:alternate.value?otherSteps.values():[]},conditions:selectedConditions(),trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),cooldown_minutes:Number(cooldown.value),task_title:title.value,action_owner_id:primaryOwner.field.value||null,else_owner_id:alternateOwner.field.value||null,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.disabled||due.value===''?null:Number(due.value),enabled:enabled.checked};
+    const data={steps:{match:mainSteps.values(),otherwise:alternate.value?otherSteps.values():[]},conditions:selectedConditions(),trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),cooldown_minutes:Number(cooldown.value),task_title:title.value,action_changes:mainChanges(),else_changes:otherChanges(),action_owner_id:primaryOwner.field.value||null,else_owner_id:alternateOwner.field.value||null,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.disabled||due.value===''?null:Number(due.value),enabled:enabled.checked};
     if(existing)data.expected_version=existing.version;
     await api(existing?'/automations/'+existing.id:'/automations',existing?'PUT':'POST',data);
     document.getElementById('dialog').close();await view(page);
@@ -122,15 +142,15 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const [flows,runs]=await Promise.all([api('/automations'),api('/automations/runs')]);
   const names=new Map(flows.items.map(f=>[f.id,f.name]));
   const config=flows.items.map(f=>panel(f.name,node('p','Versão '+f.version+' · '+(f.enabled?'Ativo':'Pausado')),
-    node('p',events[f.trigger_event]+' · '+(f.source_filter??'Todas as origens')+' · espera de '+f.wait_minutes+' min'+(f.cooldown_minutes?' · intervalo mínimo de '+f.cooldown_minutes+' min':'')),node('p',f.action_kind==='assign_owner'?kinds.assign_owner:kinds[f.action_kind]+': '+f.task_title),...(f.else_kind?[node('p','Caminho alternativo · '+kinds[f.else_kind]+(f.else_kind==='assign_owner'?'':': '+f.else_title))]:[]),
+    node('p',events[f.trigger_event]+' · '+(f.source_filter??'Todas as origens')+' · espera de '+f.wait_minutes+' min'+(f.cooldown_minutes?' · intervalo mínimo de '+f.cooldown_minutes+' min':'')),node('p',['assign_owner','update_record'].includes(f.action_kind)?kinds[f.action_kind]:kinds[f.action_kind]+': '+f.task_title),...(f.else_kind?[node('p','Caminho alternativo · '+kinds[f.else_kind]+(['assign_owner','update_record'].includes(f.else_kind)?'':': '+f.else_title))]:[]),
     button('Editar fluxo',()=>editor(f))));
   const states={queued:'Na fila',done:'Concluído',running:'Em execução',failed:'Falhou'};
-  const outcomes={created:'Tarefa criada',skipped:'Ignorado',retry:'Nova tentativa agendada',failed:'Falha final',assigned:'Responsável atribuído',notified:'Notificação interna criada',unchanged:'Responsável já atribuído'};
+  const outcomes={created:'Tarefa criada',skipped:'Ignorado',retry:'Nova tentativa agendada',failed:'Falha final',assigned:'Responsável atribuído',updated:'Registro atualizado',notified:'Notificação interna criada',unchanged:'Responsável já atribuído'};
   const history=runs.items.map(r=>{
    const details=node('details'),summary=node('summary',(names.get(r.payload.flow)??'Fluxo')+' · v'+r.payload.version+' · '+states[r.state]);
    details.append(summary,node('p',events[r.payload.event??'lead_created']),node('p',r.payload.source_activity?'Tarefa: '+r.payload.source_activity:r.payload.meeting?'Reunião: '+r.payload.meeting:r.payload.deal?'Oportunidade: '+r.payload.deal:'Lead: '+r.payload.lead),node('p','Disponível em '+date(r.available_at)));
    if(r.payload.frequency_deferred)details.append(node('p','Aguardando o intervalo mínimo deste fluxo.'));
-   for(const attempt of r.history)details.append(node('p','Tentativa '+attempt.attempt+' · '+(attempt.outcome==='created'?({task:'Tarefa criada',reminder:'Lembrete criado',followup:'Follow-up criado',comment:'Comentário registrado'}[attempt.action_kind]??outcomes.created):outcomes[attempt.outcome])+' · etapa '+((attempt.step_index??0)+1)+(attempt.branch==='otherwise'?' · caminho alternativo':'')+(attempt.assignment?' · responsável '+attempt.assignment.owner_id:'')+(attempt.reason==='owner_unavailable'?' · responsável indisponível':'')+(attempt.activity_id?' · atividade '+attempt.activity_id:'')));
+   for(const attempt of r.history)details.append(node('p','Tentativa '+attempt.attempt+' · '+(attempt.outcome==='created'?({task:'Tarefa criada',reminder:'Lembrete criado',followup:'Follow-up criado',comment:'Comentário registrado'}[attempt.action_kind]??outcomes.created):attempt.action_kind==='update_record'&&attempt.outcome==='unchanged'?'Registro já atualizado':outcomes[attempt.outcome])+' · etapa '+((attempt.step_index??0)+1)+(attempt.branch==='otherwise'?' · caminho alternativo':'')+(attempt.assignment?' · responsável '+attempt.assignment.owner_id:'')+(attempt.reason==='owner_unavailable'?' · responsável indisponível':'')+(attempt.activity_id?' · atividade '+attempt.activity_id:'')));
    return details;
   });
   return [button('Criar fluxo',()=>editor()),...(config.length?config:[empty('Nenhum fluxo publicado.')]),panel('Execuções recentes',...(history.length?history:[empty('Nenhuma execução registrada.')]))];
