@@ -30,3 +30,13 @@ O resultado contém até dez registros. As listas de prioridade e riscos usam a 
 O teste HTTP cobre as três consultas, limite de acesso do vendedor, isolamento entre empresas e uma pergunta fora de escopo. O teste de navegador parte do dashboard e consulta um lead realmente cadastrado e analisado.
 
 Próxima atividade independente: preparar contexto de reunião com fatos do CRM, atividades e perguntas que faltam na qualificação. Continuam em aberto os demais agentes, cobertura do copiloto, validação comercial e funcionalidades de canal previstas na missão.
+
+## Preparação de reuniões
+
+O [teste do copiloto na revisão 69c8219](https://github.com/marllonfilipe/vantplatform/actions/runs/44659300931) passou para as três intenções, isolamento, consulta fora do escopo e navegação pelo dashboard.
+
+Em **Agenda comercial**, selecione uma atividade de reunião e clique em **Preparar reunião**. O agente recupera a necessidade e a objeção do lead, a oportunidade vinculada, até cinco atividades concluídas e referências da memória comercial via inferência local. Ele propõe perguntas sobre informações ausentes. Se os principais dados estiverem registrados, sugere confirmar o responsável pelo próximo passo. O histórico armazena o contexto e a versão do modelo usados em cada preparação.
+
+As rotas são `POST /api/v1/agents/meetings/{id}/briefs` e `GET /api/v1/agents/meetings/{id}/briefs`. O vendedor precisa ser responsável pela reunião. Os vínculos de CRM e as atividades consultadas também respeitam sua carteira. O perfil de leitura pode consultar preparações, e o histórico do vendedor limita-se às suas preparações daquela reunião. O teste de integração usa uma reunião real do banco de CI e verifica ações recusadas, histórico, fatos e perguntas.
+
+Próxima atividade independente: registrar o resultado de uma reunião a partir de notas fornecidas pelo responsável e vinculá-lo ao histórico. Também permanecem abertas as demais capacidades do SDR, recuperação e agente executivo, além dos critérios de homologação da missão.

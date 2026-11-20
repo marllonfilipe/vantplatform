@@ -78,6 +78,17 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   }
   modal('Análise comercial',...parts);
  }
+ function showBrief(brief){
+  const data=brief.result,parts=[pair('Reunião',data.meeting.title),pair('Data prevista',date(data.meeting.due_at))];
+  if(data.lead)parts.push(pair('Lead',data.lead.name));
+  if(data.lead?.stated_need)parts.push(pair('Necessidade declarada',data.lead.stated_need));
+  if(data.lead?.stated_objection)parts.push(pair('Objeção registrada',data.lead.stated_objection));
+  if(data.deal)parts.push(pair('Oportunidade',data.deal.name),pair('Valor',money(data.deal.amount_cents)));
+  if(data.history.length)parts.push(panel('Interações registradas',...data.history.map(item=>pair(item.title,date(item.done_at)))));
+  parts.push(panel('Perguntas para a reunião',...data.questions.map(question=>node('p',question))));
+  if(data.sources.length)parts.push(panel('Referências comerciais',...data.sources.map(source=>pair(source.title,'Revisão '+source.revision))));
+  modal('Preparação da reunião',...parts);
+ }
  async function detail(kind,row){
   const parts=[],keys=entities[kind].fields.split(' ');
   for(const key of keys){let v=row[key];if(v==null||v===''||Array.isArray(v)&&!v.length)continue;
@@ -96,6 +107,14 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    if(canWrite(row))parts.push(button('Analisar no Intelligence Core',async()=>showAnalysis(await api(analyses,'POST',{}))));
   }
   if(kind==='conversations'&&canWrite(row))parts.push(button(row.lead_id?'Abrir lead':'Criar lead da conversa',async()=>detail('leads',await api(path(kind,row.id)+'/lead','POST',{}))));
+  if(kind==='activities'&&row.kind==='meeting'&&(getUser().role!=='seller'||row.owner_id===getUser().id)){
+   const briefs='/agents/meetings/'+row.id+'/briefs';
+   parts.push(button('Histórico de preparação',async()=>{
+    const versions=(await api(briefs)).items;
+    modal('Histórico de preparação',...(versions.length?versions.map(b=>button(date(b.created_at),()=>showBrief(b))):[empty('Nenhuma preparação registrada.')]));
+   }));
+   if(canWrite(row))parts.push(button('Preparar reunião',async()=>showBrief(await api(briefs,'POST',{}))));
+  }
   if(kind==='activities'&&!row.done_at&&canWrite(row))parts.push(button('Concluir atividade',async()=>detail(kind,await api(path(kind,row.id),'PATCH',{done_at:new Date().toISOString()}))));
   if(kind==='leads'){
    const url=path(kind,row.id)+'/files',files=await api(url);parts.push(node('h3','Anexos'));
