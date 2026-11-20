@@ -60,3 +60,13 @@ No dashboard, o copiloto aceita a pergunta **Quais oportunidades estão paradas?
 Em **Oportunidades**, abra a ficha e selecione **Analisar no Intelligence Core**. Para registros que exigem atenção, a análise apresenta motivo, intervalo desde o último movimento e perguntas para preparar a abordagem. Em uma perda, registra o motivo disponível no CRM. O responsável decide se prepara uma tarefa interna e se a aprova. A aprovação exige uma nova análise caso a oportunidade tenha mudado de situação entre a sugestão e a decisão.
 
 O teste HTTP cobre contato recente em uma ficha antiga, inatividade de 18 dias, carteiras e empresas diferentes, exclusão das oportunidades fechadas da lista, motivo de perda e conflito de aprovação. Os checks do commit registram o resultado. Próxima atividade independente: agente executivo com indicadores conciliados e consulta de conversão por vendedor. A Missão 07 continua parcial.
+
+## Indicadores do agente executivo
+
+A recuperação de oportunidades em [9400277](https://github.com/marllonfilipe/vantplatform/commit/9400277b5854faacb712a3800841133b70ba24ad) passou no [teste com dados de atividade e mudança de situação](https://github.com/marllonfilipe/vantplatform/actions/runs/44693456204).
+
+No **Copiloto comercial**, as consultas de resultado e conversão por responsável usam os últimos 30 dias de calendário em São Paulo. O resumo mostra a receita de oportunidades ganhas, a conversão de fechamentos, o valor aberto e o valor ponderado pela probabilidade cadastrada. Os dois valores do funil representam a posição atual. O ranking informa ganhos e total encerrado para cada percentual, incluindo responsáveis com pelo menos um fechamento no período. Empates são ordenados pelo número de fechamentos e pelo nome. A ausência de fechamentos deixa a taxa indefinida. Gestores consultam a empresa. As consultas executivas de vendedores e perfis de leitura restringem os números à própria carteira.
+
+O teste HTTP compara o resumo com o dashboard, inclui perdas, ganhos, um ganho anterior à janela e um valor com arredondamento em centavos. Também verifica o ranking, a separação de carteiras, o isolamento entre empresas e o período sem fechamento. O check do commit registra o resultado real.
+
+A próxima atividade independente é o agente de follow-up com priorização de leads sem contato recente, justificativa e preparação de tarefa interna. O aceite integral da missão 07 segue pendente.

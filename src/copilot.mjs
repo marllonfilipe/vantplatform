@@ -20,7 +20,22 @@ async function classify(question){
   return score>=0.60 && score-second>=0.04 ? intent : null;
 }
 
+// O painel usa o início do dia em São Paulo e inclui o dia atual no período.
+const periodStart = "((now() AT TIME ZONE 'America/Sao_Paulo')::date-29)::timestamp AT TIME ZONE 'America/Sao_Paulo'";
 const reads={
+ conversion:`SELECT m.id,m.name,count(*)::int AS closed_count,count(*) FILTER (WHERE d.status='won')::int AS won_count,
+     round(100.0*count(*) FILTER(WHERE d.status='won')/count(*),1) AS conversion
+   FROM vant.deals d JOIN vant.members m ON (m.tenant_id,m.id)=(d.tenant_id,d.owner_id)
+   WHERE d.tenant_id=$1 AND ($2::uuid IS NULL OR d.owner_id=$2) AND d.status IN ('won','lost') AND d.closed_at>=${periodStart}
+   GROUP BY m.id,m.name ORDER BY count(*) FILTER (WHERE d.status='won')::numeric/count(*),count(*) DESC,m.name,m.id LIMIT 10`,
+ executive:`SELECT count(*) FILTER (WHERE status='open')::int AS open_count,
+     coalesce(sum(amount_cents) FILTER (WHERE status='open'),0)::text AS pipeline_cents,
+     coalesce(round(sum(amount_cents*probability/100.0) FILTER (WHERE status='open')),0)::text AS weighted_cents,
+     coalesce(sum(amount_cents) FILTER (WHERE status='won' AND closed_at>=${periodStart}),0)::text AS won_cents,
+     count(*) FILTER (WHERE status IN ('won','lost') AND closed_at>=${periodStart})::int AS closed_count,
+     round(100.0*count(*) FILTER (WHERE status='won' AND closed_at>=${periodStart})/
+       nullif(count(*) FILTER (WHERE status IN ('won','lost') AND closed_at>=${periodStart}),0),1) AS conversion
+   FROM vant.deals WHERE tenant_id=$1 AND ($2::uuid IS NULL OR owner_id=$2)`,
  leads:`SELECT l.id,l.name,r.created_at AS analyzed_at,(r.result->>'score')::integer AS score,r.result->>'nextAction' AS detail
    FROM vant.leads l JOIN LATERAL (
      SELECT result,created_at FROM vant.core_runs WHERE tenant_id=l.tenant_id AND subject_kind='lead' AND subject_id=l.id ORDER BY created_at DESC,id DESC LIMIT 1
@@ -50,7 +65,8 @@ export async function copilotRoutes({db,tenant,member,requestId,url,method,body}
     reject(503,'model_unavailable','Inferência local indisponível.');
   }
   if(!intent)return [200,{intent:null,items:[],model:modelVersion}];
-  const owner=member.role==='seller'?member.id:null;
+  const personal=member.role==='seller'||(member.role==='viewer'&&['conversion','executive'].includes(intent));
+  const owner=personal?member.id:null;
   const {rows}=await db.query(reads[intent],[tenant,owner]);
   await audit(db,tenant,member.id,'copilot.query.'+intent,null,requestId);
   return [200,{intent,items:rows,model:modelVersion}];

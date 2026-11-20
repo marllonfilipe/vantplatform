@@ -219,6 +219,25 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     assert.equal(lostRun.result.recovery.status,'lost');
     assert.equal(lostRun.result.recovery.reason,'Orçamento indisponível.');
     assert.deepEqual((await consult(owner,stalledQuestion)).items,[]);
+    const sellerId=(await admin.query("SELECT id FROM vant.members WHERE tenant_id=$1 AND role='seller'",[tenants[0]])).rows[0].id;
+    await admin.query(`INSERT INTO vant.deals(tenant_id,owner_id,pipeline_id,stage_id,name,amount_cents,probability,status,closed_at)
+      VALUES($1,$2,$4,$5,'Venda recente',10001,100,'won',now()),($1,$3,$4,$5,'Venda da carteira',40000,100,'won',now()),
+      ($1,$3,$4,$5,'Fora do período',50000,100,'won',now()-interval '40 days'),($1,$2,$4,$5,'Em negociação',16001,50,'open',null)`,[tenants[0],member.id,sellerId,pipeline,stage]);
+    const rankingQuestion='Qual vendedor está com menor conversão?';
+    const ranking=await consult(owner,rankingQuestion);
+    assert.equal(ranking.intent,'conversion');
+    assert.deepEqual(ranking.items.map(row=>[row.id,row.closed_count,row.won_count,Number(row.conversion)]),[[member.id,2,1,50],[sellerId,1,1,100]]);
+    assert.deepEqual((await consult(seller,rankingQuestion)).items.map(row=>row.id),[sellerId]);
+    assert.deepEqual((await consult(other,rankingQuestion)).items,[]);
+    const summaryQuestion='Resuma os indicadores comerciais do mês móvel.';
+    const summary=await consult(owner,summaryQuestion);
+    assert.equal(summary.intent,'executive');
+    const stats=summary.items[0];
+    const dashboard=await (await call('dashboard?days=30','GET',owner)).json();
+    assert.deepEqual([stats.won_cents,stats.pipeline_cents,stats.weighted_cents,stats.conversion],[dashboard.totals.won,dashboard.totals.pipeline,dashboard.totals.weighted,dashboard.totals.conversion]);
+    assert.equal(stats.won_cents,'50001');
+    assert.equal(stats.weighted_cents,'8001');
+    assert.equal((await consult(other,summaryQuestion)).items[0].conversion,null);
     assert.equal((await call(path+'/'+id,'DELETE',owner)).status,204);
     assert.ok((await search(owner)).every(row=>row.document_id!==id));
     assert.equal((await admin.query('SELECT count(*)::int AS n FROM vant.document_chunks WHERE document_id=$1',[id])).rows[0].n,0);
