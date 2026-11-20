@@ -86,6 +86,16 @@ export async function recordSdrAnswers(ctx,runId,answers){
  }
  return [200,{lead_id:lead.id}];
 }
+export async function assignCrmOwner(ctx,target,ownerId){
+ const {db,tenant,member}=ctx;
+ if(!mayManageTeams(member.role))reject(403,'permission','Reatribuição exige gestão.');
+ const available=await db.query('SELECT id FROM vant.members WHERE tenant_id=$1 AND id=$2 AND active',[tenant,ownerId]);
+ if(!available.rowCount)throw Object.assign(new Error('owner_unavailable'),{code:'owner_unavailable'});
+ const kind=target.deal_id?'deals':'leads',id=target.deal_id??target.lead_id;
+ const current=await record(db,kind,id,true);
+ if(current.owner_id!==ownerId)await save(ctx,kind,{owner_id:ownerId},current);
+ return {kind,record_id:id,previous_owner_id:current.owner_id,owner_id:ownerId};
+}
 export function createCrmActivity(ctx,task){return save(ctx,'activities',task);}
 async function list(ctx,kind){
  const {db,url}=ctx,fields=entities[kind].fields.split(' '),where=[],params=[];
