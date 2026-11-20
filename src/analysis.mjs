@@ -1,13 +1,15 @@
+import { options } from '../public/crm-schema.js';
 import { audit } from './db.mjs';
 import { reject } from './http.mjs';
 import { isUuid, mayManageTeams } from './security.mjs';
 import { retrieveKnowledge } from './knowledge.mjs';
 
-const leadQuery = `SELECT l.*, a.name AS account_name,
+const leadQuery = `SELECT l.*, a.name AS account_name, ct.title AS contact_title, ct.decision_maker,
   EXISTS(SELECT FROM vant.deals d WHERE d.tenant_id=l.tenant_id AND d.lead_id=l.id AND d.status='open') AS open_deal,
   EXISTS(SELECT FROM vant.activities t WHERE t.tenant_id=l.tenant_id AND t.lead_id=l.id AND t.kind IN ('meeting','call') AND t.done_at BETWEEN now()-interval '30 days' AND now()) AS recent_interaction,
   (l.last_contact_at BETWEEN now()-interval '30 days' AND now()) AS recent_contact
   FROM vant.leads l LEFT JOIN vant.accounts a ON (a.tenant_id,a.id)=(l.tenant_id,l.account_id)
+  LEFT JOIN vant.contacts ct ON (ct.tenant_id,ct.id)=(l.tenant_id,l.contact_id)
   WHERE l.tenant_id=$1 AND l.id=$2`;
 const dealQuery = `SELECT d.*, current_date-d.updated_at::date AS days_unchanged,
   d.close_on < current_date AS late_close,
@@ -26,7 +28,15 @@ function qualify(lead) {
   const evidence = rules.filter(([present]) => present).map(([,points,detail])=>({points,detail}));
   const score = evidence.reduce((total,item)=>total+item.points,0);
   return { score, classification: score >= 70 ? 'Prioridade alta' : score >= 35 ? 'Prioridade média' : 'Prioridade baixa',
-    evidence, nextAction: !lead.email && !lead.phone ? 'Obter um canal de contato.'
+    qualification: {
+      need:lead.stated_need, objection:lead.stated_objection, role:lead.contact_title,
+      decisionMaker:lead.decision_maker, interest:options.purchase_intent[lead.purchase_intent],
+      budget:options.budget_state[lead.budget_state], timing:options.purchase_window[lead.purchase_window]
+    },
+    evidence, nextAction: lead.stated_objection ? 'Tratar a objeção registrada e documentar a resposta do cliente.'
+      : lead.budget_state==='unavailable' ? 'Confirmar quando o orçamento poderá ser reavaliado.'
+      : lead.purchase_intent==='requested_proposal' && lead.budget_state==='confirmed' ? 'Preparar proposta conforme a necessidade e o prazo informados.'
+      : !lead.email && !lead.phone ? 'Obter um canal de contato.'
       : !lead.recent_interaction && !lead.recent_contact ? 'Registrar contato e confirmar a necessidade.'
       : !lead.open_deal ? 'Verificar orçamento e prazo antes de abrir oportunidade.' : 'Revisar o próximo marco da oportunidade.' };
 }
@@ -78,9 +88,9 @@ export async function analysisRoutes({db, tenant, member, requestId, url, method
     reject(403,'permission','A análise exige gestão ou responsabilidade pelo registro.');
   }
   const result = lead ? qualify(row) : assess(row);
-  const query = (lead ? [row.segment,row.notes,row.account_name,row.name] : [row.products,row.loss_reason,row.name]).filter(Boolean).join(' ').slice(0,320) || subject;
+  const query = (lead ? [row.stated_need,row.stated_objection,row.segment,row.notes,row.account_name,row.name] : [row.products,row.loss_reason,row.name]).filter(Boolean).join(' ').slice(0,320) || subject;
   const memory = await retrieveKnowledge(db,tenant,query,3);
-  result.ruleset = 'crm-v1';
+  result.ruleset = lead ? 'crm-v2' : 'crm-v1';
   result.sources = memory.items.map(({document_id,chunk_index,similarity})=>({document_id,chunk_index,similarity}));
   const {rows} = await db.query(`INSERT INTO vant.core_runs(tenant_id,actor_id,subject_kind,subject_id,model_version,latency_ms,result)
     VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,result,model_version,latency_ms,created_at`,

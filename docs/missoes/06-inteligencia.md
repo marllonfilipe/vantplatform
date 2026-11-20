@@ -34,4 +34,12 @@ O [teste de navegador e carga do commit d9e24e7](https://github.com/marllonfilip
 
 Gestores consultam o volume de análises de leads e oportunidades por revisão de modelo, a mediana e o p95 de latência de inferência na página de memória. O endpoint `GET /api/v1/core/metrics?days=30` aceita janelas de 7, 30 e 90 dias. Os dados vêm das análises concluídas da empresa. Consultas avulsas de busca, falhas e tempo total da requisição não entram nesse indicador. A suíte HTTP verifica contagens, ordenação dos percentis, papel de acesso e isolamento entre empresas.
 
-Próximos incrementos da 06 abrangem memória operacional e histórica, critérios comerciais de qualificação (necessidade, intenção, oferta e objeções com evidências) e monitoramento. O aceite integral continua pendente. A integração de conversas reais segue a dependência da missão 05.
+O commit `355fb29` passou nas suítes de [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44657966564) e [regressão SaaS](https://github.com/marllonfilipe/vantplatform/actions/runs/44657966520).
+
+## Qualificação a partir de informações declaradas
+
+A ficha de lead conserva necessidade, intenção de compra, orçamento, janela de compra e objeção. A edição segue as permissões e o histórico do CRM. Na migration 007, registros existentes recebem o estado “Não informado” para as opções de escolha. A análise usa os dados disponíveis no momento da solicitação, junto com o cargo e o indicador de decisor do contato vinculado. O histórico mantém cada avaliação e a versão de regras correspondente.
+
+O núcleo prioriza o tratamento de uma objeção registrada. Uma solicitação de proposta com orçamento confirmado gera a recomendação de preparar a proposta. Na recuperação semântica, a necessidade e a objeção precedem o segmento e as notas. A pontuação de atividade conserva a fórmula documentada. O teste via HTTP confirma rejeição de opções inválidas, nova análise após alteração pelo CRM e preservação da avaliação anterior.
+
+Próxima atividade: recomendação de oferta a partir do catálogo da própria empresa e rastreabilidade das fontes após reindexação. Permanecem abertas a memória operacional de tarefas, a avaliação comercial das regras e a homologação do conjunto dos critérios da 06. A integração de conversas reais segue a dependência da missão 05.

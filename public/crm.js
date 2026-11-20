@@ -48,6 +48,12 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   const result=run.result,parts=[pair('Classificação',result.classification)];
   if(result.score!=null)parts.push(pair('Pontuação de qualificação',result.score+' / 100'));
   if(result.probability!=null)parts.push(pair('Probabilidade registrada no CRM',result.probability+'%'));
+  if(result.qualification){
+   const q=result.qualification;
+   for(const [label,value] of [['Necessidade declarada',q.need],['Cargo do contato',q.role],['Intenção de compra',q.interest],['Orçamento',q.budget],['Prazo de compra',q.timing],['Objeção registrada',q.objection]]){
+    if(value)parts.push(pair(label,value));
+   }
+  }
   for(const item of result.evidence)parts.push(node('p',item.detail+(item.points?' (+'+item.points+')':'')));
   parts.push(pair('Próxima ação',result.nextAction));
   for(const source of run.context??[])parts.push(panel(source.title,node('p',source.content)));
