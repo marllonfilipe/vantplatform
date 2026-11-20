@@ -20,8 +20,10 @@ export function createCopilotPage({api,node,button,panel,empty,date}){
     const answer=await api('/agents/copilot','POST',{question:input.value});
     if(current!==generation)return;
     if(!answer.intent){output.replaceChildren(empty('Reformule a pergunta sobre prioridades, riscos, inatividade, follow-ups, conversão ou resultado comercial.'));return;}
-    const titles={inactive_leads:'Leads sem contato recente e sem retorno agendado',executive:'Resultado comercial · últimos 30 dias',conversion:'Conversão por responsável · últimos 30 dias',stalled:'Oportunidades abertas sem movimento há pelo menos 14 dias',leads:'Prioridade dos leads analisados',risks:'Riscos nas últimas análises de oportunidades abertas',followups:'Follow-ups vencidos'};
+    const titles={accounts:'Interesse declarado nos leads por empresa',bottlenecks:'Etapas com oportunidades paradas ou vencidas',inactive_leads:'Leads sem contato recente e sem retorno agendado',executive:'Resultado comercial · últimos 30 dias',conversion:'Conversão por responsável · últimos 30 dias',stalled:'Oportunidades abertas sem movimento há pelo menos 14 dias',leads:'Prioridade dos leads analisados',risks:'Riscos nas últimas análises de oportunidades abertas',followups:'Follow-ups vencidos'};
     const items=answer.items.map(item=>{
+     if(answer.intent==='accounts')return panel(item.name,node('p',item.proposals+' leads com proposta solicitada · '+item.evaluating+' em avaliação'));
+     if(answer.intent==='bottlenecks')return panel(item.pipeline+' · '+item.name,node('p',item.affected_count+' de '+item.open_count+' abertas exigem atenção'),node('p',item.stalled_count+' sem movimento · '+item.overdue_count+' com previsão vencida'));
      if(answer.intent==='executive'){
       const rate=item.conversion==null?'Sem fechamentos':item.conversion+'% em '+item.closed_count+' fechamentos';
       return panel('Desempenho comercial',node('p','Receita ganha: '+amount(item.won_cents)),node('p','Conversão: '+rate),

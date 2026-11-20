@@ -104,3 +104,13 @@ Os controles atuam na transação que modifica o CRM. Uma falha reverte a reserv
 O teste HTTP verifica bloqueio por pausa, ferramenta desligada, cota esgotada, reversão da reserva, repetição, acesso por perfil e isolamento de empresas. O Chromium configura a pausa pela interface. Os checks associados ao commit são a evidência da execução.
 
 Continuam abertas na 07 as perguntas do copiloto sobre empresas interessadas e gargalos, o contexto de registros específicos e as funções de atendimento ligadas à 05. A próxima atividade independente é consultar interesse por empresa e gargalos por etapa com base nos registros existentes.
+
+## Empresas interessadas e gargalos do funil
+
+A [suíte de supervisão em cba17da](https://github.com/marllonfilipe/vantplatform/actions/runs/44694493108) passou, incluindo consumo, bloqueios e a tela de configuração.
+
+A consulta **Quais empresas demonstraram maior interesse?** conta os leads vinculados por empresa que solicitaram proposta ou declararam estar avaliando a solução. A ordenação considera primeiro pedidos de proposta e depois avaliações. **Quais são os principais gargalos comerciais?** mostra etapas com oportunidades abertas sem movimento há 14 dias ou com previsão de fechamento vencida. Uma oportunidade que atende aos dois critérios entra apenas uma vez no total afetado. As contagens por motivo permanecem visíveis.
+
+As duas consultas usam os registros atuais do CRM e o escopo da carteira do vendedor. O teste HTTP verifica o ordenamento por interesse declarado, filtragem de carteira, isolamento entre empresas e contagem de uma oportunidade com dois sinais simultâneos.
+
+A missão segue parcial, inclusive no atendimento por canal. A automação interna da missão 08 pode avançar sobre eventos do CRM. A próxima atividade independente é executar o fluxo versionado de novo lead para tarefa interna com fila persistente.

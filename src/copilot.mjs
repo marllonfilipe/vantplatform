@@ -24,6 +24,22 @@ async function classify(question){
 // O painel usa o início do dia em São Paulo e inclui o dia atual no período.
 const periodStart = "((now() AT TIME ZONE 'America/Sao_Paulo')::date-29)::timestamp AT TIME ZONE 'America/Sao_Paulo'";
 const reads={
+ accounts:`SELECT a.id,a.name,count(*) FILTER(WHERE l.purchase_intent='requested_proposal')::int AS proposals,
+     count(*) FILTER(WHERE l.purchase_intent='evaluating')::int AS evaluating
+   FROM vant.accounts a JOIN vant.leads l ON (l.tenant_id,l.account_id)=(a.tenant_id,a.id)
+   WHERE a.tenant_id=$1 AND ($2::uuid IS NULL OR l.owner_id=$2) AND l.purchase_intent IN ('evaluating','requested_proposal')
+   GROUP BY a.id,a.name ORDER BY proposals DESC,evaluating DESC,a.name,a.id LIMIT 10`,
+ bottlenecks:`WITH observations AS (
+     SELECT d.stage_id,d.pipeline_id,(${lastDealTouch})::date AS touched,d.close_on
+     FROM vant.deals d WHERE d.tenant_id=$1 AND ($2::uuid IS NULL OR d.owner_id=$2) AND d.status='open'
+   ) SELECT s.id,p.name AS pipeline,s.name,count(*)::int AS open_count,
+       count(*) FILTER(WHERE current_date-o.touched>=14)::int AS stalled_count,
+       count(*) FILTER(WHERE o.close_on<current_date)::int AS overdue_count,
+       count(*) FILTER(WHERE current_date-o.touched>=14 OR o.close_on<current_date)::int AS affected_count
+     FROM observations o JOIN vant.stages s ON s.tenant_id=$1 AND (s.pipeline_id,s.id)=(o.pipeline_id,o.stage_id)
+       JOIN vant.pipelines p ON p.tenant_id=s.tenant_id AND p.id=s.pipeline_id
+     GROUP BY p.id,p.name,s.id,s.name HAVING bool_or(current_date-o.touched>=14 OR o.close_on<current_date)
+     ORDER BY affected_count DESC,open_count DESC,p.name,s.name,s.id LIMIT 10`,
  inactive_leads:`SELECT l.id,l.name,${contactReference} AS reference_at,
    floor(extract(epoch FROM now()-(${contactReference}))/86400)::integer AS quiet_days
    FROM vant.leads l WHERE l.tenant_id=$1 AND ($2::uuid IS NULL OR l.owner_id=$2)
