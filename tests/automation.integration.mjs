@@ -57,6 +57,7 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   await admin.query('UPDATE vant.members SET active=true WHERE tenant_id=$1 AND id=$2',[tenant,actor]);
   const retry=(await runs()).find(r=>r.state==='queued');
   assert.equal(retry.history[0].outcome,'retry');
+  assert.equal(retry.history[0].reason,'author_unavailable');
   await admin.query("UPDATE vant.jobs SET available_at=now() WHERE tenant_id=$1 AND id=$2",[tenant,retry.id]);
   await worker(tenant);
   assert.deepEqual((await runs()).find(r=>r.id===retry.id).history.map(h=>h.outcome),['retry','created']);

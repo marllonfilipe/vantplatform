@@ -50,27 +50,28 @@ export function processNext(pool,tenant){
     WHERE j.tenant_id=$1 AND j.kind='flow.lead_created' AND j.state='queued' AND j.available_at<=now() AND f.enabled
     ORDER BY j.available_at,j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED FOR SHARE OF f`,[tenant])).rows[0];
   if(!job)return false;
-  let outcome='skipped',activity=null;
+  let outcome='skipped',reason=null,activity=null;
   const attempt=job.attempts+1;
   await db.query('SAVEPOINT flow_effect');
   try{
    if(!job.source_filter || job.source_filter===job.payload.source){
     const lead=(await db.query('SELECT owner_id FROM vant.leads WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenant,job.payload.lead])).rows[0];
     if(lead){
-     const member=(await db.query('SELECT id,role FROM vant.members WHERE tenant_id=$1 AND id=$2 AND active FOR SHARE',[tenant,job.author_id])).rows[0];
-     if(!member||!mayManageTeams(member.role))throw Error('author_unavailable');
+     const member=(await db.query('SELECT id,role FROM vant.members WHERE tenant_id=$1 AND id=$2 AND active',[tenant,job.author_id])).rows[0];
+     if(!member||!mayManageTeams(member.role))throw Object.assign(new Error('author_unavailable'),{code:'author_unavailable'});
      activity=(await createCrmActivity({db,tenant,member,requestId:randomUUID()},{kind:'task',title:job.task_title,lead_id:job.payload.lead,owner_id:lead.owner_id})).id;
      outcome='created';
     }
    }
-  }catch{
+  }catch(error){
+   reason=error.code==='author_unavailable'?'author_unavailable':'action_failed';
    await db.query('ROLLBACK TO SAVEPOINT flow_effect');
    activity=null;outcome=attempt>=3?'failed':'retry';
   }
   const state=outcome==='retry'?'queued':outcome==='failed'?'failed':'done';
   await db.query(`UPDATE vant.jobs SET state=$3,attempts=$4,available_at=CASE WHEN $3='queued' THEN now()+make_interval(secs=>$4::int*30) ELSE available_at END
     WHERE tenant_id=$1 AND id=$2`,[tenant,job.id,state,attempt]);
-  await db.query('INSERT INTO vant.automation_attempts(tenant_id,job_id,attempt,outcome,activity_id) VALUES($1,$2,$3,$4,$5)',[tenant,job.id,attempt,outcome,activity]);
+  await db.query('INSERT INTO vant.automation_attempts(tenant_id,job_id,attempt,outcome,activity_id,reason) VALUES($1,$2,$3,$4,$5,$6)',[tenant,job.id,attempt,outcome,activity,reason]);
   return true;
  });
 }
