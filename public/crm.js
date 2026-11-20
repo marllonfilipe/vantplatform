@@ -1,3 +1,4 @@
+import {createAutomationPage} from './automations.js';
 import {createSupervisionPage} from './supervision.js';
 import {createCopilotPage} from './copilot.js';
 import {createMemoryPage} from './memory.js';
@@ -5,6 +6,7 @@ import {createInbox} from './inbox.js';
 import {entities,labels,options,related} from './crm-schema.js';
 export function createCrm({api,node,button,pair,panel,empty,modal,money,date,view,getUser}){
  const copilotPage=createCopilotPage({api,node,button,panel,empty,date});
+ const automationPage=createAutomationPage({api,node,button,panel,empty,modal,view,date});
  const supervisionPage=createSupervisionPage({api,node,panel,empty,getUser,view});
  const memoryPage=createMemoryPage({api,node,button,panel,empty,modal,view,getUser});
  const inbox=createInbox({api,node,button,pair,panel,empty,modal,date,view,getUser});
@@ -200,6 +202,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
     const stage=select(p.stages.map(v=>[v.id,v.name]),s.id,false);stage.setAttribute('aria-label','Mover '+d.name);stage.onchange=async()=>{try{await api(path('deals',d.id),'PATCH',{stage_id:stage.value});if(active==='Funil de vendas')await view(active);}catch(e){stage.value=s.id;modal('Movimentação',empty(e.message));}};card.append(stage);}lane.append(card);}board.append(lane);}return [bar,board];
  }
  async function page(name){
+  if(name==='Automações'){active=name;return automationPage();}
   if(name==='Supervisão de agentes'){active=name;return supervisionPage();}
   if(name==='Copiloto comercial'){active=name;return copilotPage();}
   if(name==='Memória comercial'){active=name;return memoryPage();}
@@ -217,5 +220,5 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   if(previous.length)pager.append(button('Página anterior',()=>{cursor=previous.pop();return view(active);}));if(result.nextCursor)pager.append(button('Próxima página',()=>{previous.push(cursor);cursor=result.nextCursor;return view(active);}));
   return [bar,filter,wrap,pager];
  }
- return {get groups(){return manager()?{...groups,Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
+ return {get groups(){return manager()?{...groups,Operação:[...groups.Operação,'Automações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
 }

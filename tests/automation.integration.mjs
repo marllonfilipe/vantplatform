@@ -4,6 +4,8 @@ import {randomUUID} from 'node:crypto';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import pg from 'pg';
+import {chromium} from 'playwright-core';
+import {servePage} from '../src/pages.mjs';
 import {createApp} from '../src/app.mjs';
 import {createPool,checkRuntime} from '../src/db.mjs';
 import {featureRoutes} from '../src/routes.mjs';
@@ -12,14 +14,15 @@ import {hashPassword} from '../src/security.mjs';
 test('evento real do CRM executa versão publicada no worker, com pausa, condição e retomada',async()=>{
  assert.equal(process.env.APP_ENV,'test');
  const admin=new pg.Client({connectionString:process.env.ADMIN_DATABASE_URL});await admin.connect();
- const pool=createPool(process.env.DATABASE_URL),origin='http://localhost';
- const server=createApp({pool,origin,featureRoutes,environment:'test'});
+ const pool=createPool(process.env.DATABASE_URL),origin='http://127.0.0.1:3197';
+ const server=createApp({pool,origin,featureRoutes,servePage,environment:'test'});
+ let browser;
  const tenant=randomUUID(),other=randomUUID(),actor=randomUUID(),password=randomUUID(),email='gestor@example.invalid';
  try{
   await checkRuntime(pool);
   await admin.query("INSERT INTO vant.tenants(id,name) VALUES($1,'Fluxos'),($2,'Isolada')",[tenant,other]);
   await admin.query("INSERT INTO vant.members(tenant_id,id,email,name,role,password_hash) VALUES($1,$2,$3,'Gestor','owner',$4)",[tenant,actor,email,await hashPassword(password)]);
-  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  await new Promise(resolve=>server.listen(3197,'127.0.0.1',resolve));
   const base='http://127.0.0.1:'+server.address().port+'/api/v1/';
   let cookie='';
   const call=(path,method='GET',data)=>fetch(base+path,{method,headers:{origin,cookie,'content-type':'application/json'},body:JSON.stringify(data)});
@@ -61,7 +64,28 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   await admin.query("UPDATE vant.jobs SET available_at=now() WHERE tenant_id=$1 AND id=$2",[tenant,retry.id]);
   await worker(tenant);
   assert.deepEqual((await runs()).find(r=>r.id===retry.id).history.map(h=>h.outcome),['retry','created']);
+  browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});
+  const page=await browser.newPage();
+  await page.goto(origin);
+  await page.getByLabel('Identificador da empresa').fill(tenant);
+  await page.getByLabel('E-mail',{exact:true}).fill(email);
+  await page.getByLabel('Senha').fill(password);
+  await page.getByRole('button',{name:'Entrar'}).click();
+  await page.getByRole('button',{name:'Automações',exact:true}).click();
+  await page.getByRole('button',{name:'Criar fluxo'}).click();
+  await page.getByLabel('Nome do fluxo').fill('Retorno de evento');
+  await page.getByLabel('Origem do lead (opcional)').fill('Congresso');
+  await page.getByLabel('Tarefa a criar').fill('Retornar ao participante');
+  await page.getByLabel('Ativar fluxo').check();
+  await page.getByRole('button',{name:'Publicar versão'}).click();
+  await page.getByRole('heading',{name:'Retorno de evento',exact:true}).waitFor();
+  assert.equal((await call('crm/leads','POST',{name:'Visitante',source:'Congresso'})).status,201);
+  await worker(tenant);
+  await page.getByRole('button',{name:'Automações',exact:true}).click();
+  await page.getByText('Retorno de evento · v1 · Concluído',{exact:true}).click();
+  await page.getByText(/Tentativa 1 · Tarefa criada/).filter({visible:true}).first().waitFor();
  }finally{
+  await browser?.close();
   if(server.listening)await new Promise(resolve=>server.close(resolve));
   await pool.end();await admin.end();
  }
