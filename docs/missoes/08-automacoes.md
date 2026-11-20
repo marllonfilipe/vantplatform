@@ -99,3 +99,11 @@ No editor, **Etapas após a ação principal** e **Etapas após a ação alterna
 O worker confirma de forma atômica a atividade, o histórico e a posição da próxima etapa. Na pausa, o trabalho conserva a posição. Ao retomar, usa a versão que capturou o evento. Uma falha permite até três tentativas naquela etapa. O monitor apresenta a tentativa, o resultado e o número da etapa. O limite de oito ações garante que uma sequência publicada tenha fim. As versões anteriores seguem com sua ação única.
 
 O Chromium publica uma etapa adicional e confere o follow-up no monitor. Um teste com subprocessos força pausa, troca de versão e falha do autor durante a segunda etapa. Confere a retomada, a ordem e as três atividades do CRM. O CI da revisão registra o resultado. A missão continua parcial. Próximas atividades independentes: limites de frequência entre execuções do mesmo fluxo e ações internas de atribuição de responsável com rastreabilidade.
+
+## Intervalo mínimo por fluxo
+
+O gestor define o intervalo em **Automações → Criar fluxo** ou **Editar fluxo**. O campo aceita de 0 a 43.200 minutos. Zero permite iniciar imediatamente. A API recebe `cooldown_minutes` em cada versão. Trabalhos já enfileirados usam o intervalo da versão que capturou o evento.
+
+Após a primeira ação bem-sucedida, o banco guarda o instante do início por empresa e fluxo. Dois workers que disputam o mesmo fluxo consultam e atualizam esse registro atomicamente. Quando o intervalo ainda está em vigor, o trabalho fica na fila com a próxima data elegível, sem consumir tentativa. O monitor mostra a espera. Etapas seguintes obedecem à espera configurada na etapa. Uma falha na primeira ação reverte a reserva na mesma transação.
+
+A suíte de fundação executa `tests/frequency.integration.mjs` com PostgreSQL, API e dois subprocessos do worker. A suíte verifica concorrência, isolamento entre empresas, alteração de versão, continuação da sequência e contagem das atividades. O banco descartável permite antecipar a elegibilidade para verificar a retomada. Consulte os checks do commit deste incremento para o resultado. A missão segue parcial. A atribuição de responsável no CRM é a próxima ação interna prevista.

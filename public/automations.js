@@ -59,6 +59,8 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
    return Object.fromEntries(Object.entries(fields).filter(([,el])=>el.value.trim()!=='').map(([key,el])=>[key,key==='min_cents'?Math.round(Number(el.value)*100):key.startsWith('min_')?Number(el.value):el.value.trim()]));
   }
   const delay=input(form,'Espera em minutos','number');delay.min=0;delay.max=43200;delay.required=true;delay.value=existing?.wait_minutes??0;
+  const cooldown=input(form,'Intervalo mínimo entre execuções (minutos)','number');
+  cooldown.min=0;cooldown.max=43200;cooldown.required=true;cooldown.value=existing?.cooldown_minutes??0;
   const kind=select(form,'Ação principal',Object.entries(kinds),existing?.action_kind??'task');
   const title=input(form,'Título da atividade principal');title.required=true;title.maxLength=240;title.value=existing?.task_title??'';
   const alternate=select(form,'Se as condições não forem atendidas',[['','Encerrar fluxo'],...Object.entries(kinds)],existing?.else_kind??'');
@@ -79,7 +81,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   form.onsubmit=async e=>{
    e.preventDefault();save.disabled=true;
    try{
-    const data={steps:{match:mainSteps.values(),otherwise:alternate.value?otherSteps.values():[]},conditions:selectedConditions(),trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),task_title:title.value,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.value===''?null:Number(due.value),enabled:enabled.checked};
+    const data={steps:{match:mainSteps.values(),otherwise:alternate.value?otherSteps.values():[]},conditions:selectedConditions(),trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),cooldown_minutes:Number(cooldown.value),task_title:title.value,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.value===''?null:Number(due.value),enabled:enabled.checked};
     if(existing)data.expected_version=existing.version;
     await api(existing?'/automations/'+existing.id:'/automations',existing?'PUT':'POST',data);
     document.getElementById('dialog').close();await view(page);
@@ -91,13 +93,14 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const [flows,runs]=await Promise.all([api('/automations'),api('/automations/runs')]);
   const names=new Map(flows.items.map(f=>[f.id,f.name]));
   const config=flows.items.map(f=>panel(f.name,node('p','Versão '+f.version+' · '+(f.enabled?'Ativo':'Pausado')),
-    node('p',events[f.trigger_event]+' · '+(f.source_filter??'Todas as origens')+' · espera de '+f.wait_minutes+' min'),node('p',kinds[f.action_kind]+': '+f.task_title),...(f.else_kind?[node('p','Caminho alternativo · '+kinds[f.else_kind]+': '+f.else_title)]:[]),
+    node('p',events[f.trigger_event]+' · '+(f.source_filter??'Todas as origens')+' · espera de '+f.wait_minutes+' min'+(f.cooldown_minutes?' · intervalo mínimo de '+f.cooldown_minutes+' min':'')),node('p',kinds[f.action_kind]+': '+f.task_title),...(f.else_kind?[node('p','Caminho alternativo · '+kinds[f.else_kind]+': '+f.else_title)]:[]),
     button('Editar fluxo',()=>editor(f))));
   const states={queued:'Na fila',done:'Concluído',running:'Em execução',failed:'Falhou'};
   const outcomes={created:'Tarefa criada',skipped:'Ignorado',retry:'Nova tentativa agendada',failed:'Falha final'};
   const history=runs.items.map(r=>{
    const details=node('details'),summary=node('summary',(names.get(r.payload.flow)??'Fluxo')+' · v'+r.payload.version+' · '+states[r.state]);
    details.append(summary,node('p',events[r.payload.event??'lead_created']),node('p',r.payload.source_activity?'Tarefa: '+r.payload.source_activity:r.payload.meeting?'Reunião: '+r.payload.meeting:r.payload.deal?'Oportunidade: '+r.payload.deal:'Lead: '+r.payload.lead),node('p','Disponível em '+date(r.available_at)));
+   if(r.payload.frequency_deferred)details.append(node('p','Aguardando o intervalo mínimo deste fluxo.'));
    for(const attempt of r.history)details.append(node('p','Tentativa '+attempt.attempt+' · '+(attempt.outcome==='created'?({task:'Tarefa criada',reminder:'Lembrete criado',followup:'Follow-up criado'}[attempt.action_kind]??outcomes.created):outcomes[attempt.outcome])+' · etapa '+((attempt.step_index??0)+1)+(attempt.branch==='otherwise'?' · caminho alternativo':'')+(attempt.activity_id?' · atividade '+attempt.activity_id:'')));
    return details;
   });

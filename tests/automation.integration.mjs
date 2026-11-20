@@ -74,6 +74,7 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   await page.getByRole('button',{name:'Automações',exact:true}).click();
   await page.getByRole('button',{name:'Criar fluxo'}).click();
   await page.getByLabel('Nome do fluxo').fill('Retorno de evento');
+  assert.equal(await page.getByLabel('Intervalo mínimo entre execuções (minutos)').inputValue(),'0');
   await page.getByLabel('Origem no CRM (opcional)').fill('Congresso');
   await page.getByText('Condições comerciais',{exact:true}).click();
   await page.getByRole('dialog').getByLabel('Responsável',{exact:true}).selectOption(actor);
