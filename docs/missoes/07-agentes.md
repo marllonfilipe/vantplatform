@@ -40,3 +40,13 @@ Em **Agenda comercial**, selecione uma atividade de reunião e clique em **Prepa
 As rotas são `POST /api/v1/agents/meetings/{id}/briefs` e `GET /api/v1/agents/meetings/{id}/briefs`. O vendedor precisa ser responsável pela reunião. Os vínculos de CRM e as atividades consultadas também respeitam sua carteira. O perfil de leitura pode consultar preparações, e o histórico do vendedor limita-se às suas preparações daquela reunião. O teste de integração usa uma reunião real do banco de CI e verifica ações recusadas, histórico, fatos e perguntas.
 
 Próxima atividade independente: registrar o resultado de uma reunião a partir de notas fornecidas pelo responsável e vinculá-lo ao histórico. Também permanecem abertas as demais capacidades do SDR, recuperação e agente executivo, além dos critérios de homologação da missão.
+
+## Resultado após a reunião
+
+Na revisão 9eac26e, passaram a [suíte de inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44659547917) e a [regressão da fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44659547933).
+
+Depois de concluir a atividade na agenda, o responsável ou gestor abre **Resultado da reunião**, registra as notas e salva a versão. O modelo local seleciona até três frases das notas, considerando decisões, próximos passos e necessidades. O resumo preserva o texto de cada trecho, sua posição e as notas originais.
+
+A rota `/api/v1/agents/meetings/{id}/minutes` oferece as últimas dez revisões por GET e registro por POST com `notes` e `expectedRevision`. A primeira revisão parte de zero. Reenviar notas idênticas retorna a última versão. Uma edição com conteúdo diferente e revisão vencida retorna conflito. A aplicação conserva as revisões anteriores e audita o ator.
+
+A suíte HTTP verifica conclusão da atividade, extração literal, autorização, isolamento, revisão e histórico no PostgreSQL. O teste em Chromium cobre preparação, conclusão da atividade e leitura do resultado. Os checks associados ao commit registram o resultado da execução. O incremento é parcial. A próxima atividade independente da missão é a recuperação de oportunidades do CRM com acompanhamento sujeito à decisão humana.

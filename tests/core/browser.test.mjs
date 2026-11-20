@@ -65,6 +65,23 @@ test('gestor indexa e consulta política comercial no Chromium',async()=>{
     await page.getByRole('button',{name:'Abrir copiloto comercial'}).click();
     await page.getByRole('button',{name:'Quais leads devo priorizar hoje?'}).click();
     await page.getByRole('heading',{name:'Conta piloto',exact:true}).waitFor();
+    const scheduled=await page.evaluate(async()=>{
+      const res=await fetch('/api/v1/crm/activities',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Revisão de escopo',kind:'meeting'})});
+      return res.status;
+    });
+    assert.equal(scheduled,201);
+    await page.getByRole('button',{name:'Agenda comercial',exact:true}).click();
+    await page.getByRole('button',{name:'Revisão de escopo',exact:true}).click();
+    await page.getByRole('button',{name:'Preparar reunião',exact:true}).click();
+    await page.getByRole('heading',{name:'Perguntas para a reunião'}).waitFor();
+    await page.getByRole('button',{name:'Fechar',exact:true}).click();
+    await page.getByRole('button',{name:'Revisão de escopo',exact:true}).click();
+    await page.getByRole('button',{name:'Concluir atividade',exact:true}).click();
+    await page.getByRole('button',{name:'Resultado da reunião',exact:true}).click();
+    await page.getByRole('button',{name:'Registrar notas',exact:true}).click();
+    await page.getByLabel('Notas da reunião',{exact:true}).fill('O cliente confirmou o prazo.');
+    await page.getByRole('button',{name:'Salvar resultado',exact:true}).click();
+    await page.getByText('O cliente confirmou o prazo.',{exact:true}).first().waitFor();
   } finally {
     await browser?.close();
     stopInference();
