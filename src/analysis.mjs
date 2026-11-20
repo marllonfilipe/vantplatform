@@ -90,15 +90,20 @@ export async function analysisRoutes({db, tenant, member, requestId, url, method
   const match = /^\/api\/v1\/core\/(leads|deals)\/([^/]+)\/analyses$/.exec(url.pathname);
   if (!match || !['GET','POST'].includes(method) || !isUuid(match[2])) return;
   const [, collection, id] = match;
-  const lead = collection === 'leads';
-  const subject = lead ? 'lead' : 'deal';
-  const row = (await db.query(lead ? leadQuery : dealQuery,[tenant,id])).rows[0];
-  if (!row) reject(404,'missing','Registro não encontrado.');
-  if (method === 'GET') {
+  const subject=collection==='leads'?'lead':'deal';
+  if(method==='POST')return [201,await analyzeRecord({db,tenant,member,requestId},subject,id)];
+  const table=subject==='lead'?'leads':'deals';
+  const exists=await db.query('SELECT id FROM vant.'+table+' WHERE tenant_id=$1 AND id=$2',[tenant,id]);
+  if(!exists.rowCount)reject(404,'missing','Registro não encontrado.');
     const {rows} = await db.query(`SELECT id, result, model_version, latency_ms, created_at FROM vant.core_runs
       WHERE tenant_id=$1 AND subject_kind=$2 AND subject_id=$3 ORDER BY created_at DESC,id DESC LIMIT 20`,[tenant,subject,id]);
     return [200,{items:rows}];
-  }
+}
+
+export async function analyzeRecord({db,tenant,member,requestId},subject,id){
+  const lead=subject==='lead';
+  const row=(await db.query(lead?leadQuery:dealQuery,[tenant,id])).rows[0];
+  if(!row)reject(404,'missing','Registro não encontrado.');
   if (!mayManageTeams(member.role) && !(member.role==='seller' && row.owner_id===member.id)) {
     reject(403,'permission','A análise exige gestão ou responsabilidade pelo registro.');
   }
@@ -129,5 +134,5 @@ export async function analysisRoutes({db, tenant, member, requestId, url, method
     VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,result,model_version,latency_ms,created_at`,
     [tenant,member.id,subject,id,memory.model,memory.latencyMs,result]);
   await audit(db,tenant,member.id,'core.'+subject+'.analyzed',id,requestId);
-  return [201,{...rows[0],context:memory.items}];
+  return {...rows[0],context:memory.items};
 }

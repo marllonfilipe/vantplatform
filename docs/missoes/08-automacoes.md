@@ -155,3 +155,15 @@ Em **Automações**, escolha **Gerar resumo comercial** como ação principal, a
 A API aceita a ação `summarize`. O worker lê os dados do CRM e a análise mais recente já concluída pelo Intelligence Core em uma única consulta. A tentativa persiste o retrato, a classificação, a próxima ação recomendada e a referência à análise e à revisão do modelo. Quando ainda não existe análise, o monitor informa essa condição. A leitura do resumo preserva o retrato mesmo após novas edições no CRM.
 
 O cenário de fundação abre no Chromium o resumo de uma oportunidade sem análise. O cenário do Core executa inferência local sobre um lead, consulta o resumo produzido na etapa seguinte à tarefa e verifica a análise de origem e o isolamento entre empresas. A missão segue parcial. A próxima ação independente é a execução supervisionada do agente comercial pelo fluxo.
+
+O [resumo comercial](https://github.com/marllonfilipe/vantplatform/commit/062de758d1486895ed372b62621cf880608ca26c) passou na [fundação com Chromium e PostgreSQL](https://github.com/marllonfilipe/vantplatform/actions/runs/44796885432) e no [Core com inferência local](https://github.com/marllonfilipe/vantplatform/actions/runs/44796885285).
+
+## Análise com proposta de tarefa
+
+O proprietário pode habilitar **Permitir análise e proposta de tarefa por fluxo** em **Supervisão de agentes**. O gestor escolhe **Analisar e propor tarefa** em um fluxo de criação ou atualização de lead, criação ou movimentação de oportunidade ou perda da oportunidade. A API aceita `run_agent` na ação principal, alternativa e etapas. Os gatilhos emitidos por uma análise ficam fora dessa seleção para impedir realimentação.
+
+O worker exige o mesmo modelo instalado e a mesma configuração de inferência local usados pelo Core da API. Ele executa a análise do registro, usa a memória comercial da empresa e grava a proposta pendente na mesma transação da tentativa. A execução registra o identificador da análise. Na ficha do registro, o gestor ou vendedor responsável consulta a análise e pode aprovar ou cancelar a proposta pelo procedimento existente. A criação efetiva da tarefa exige aprovação e obedece aos controles dessa ferramenta.
+
+Com a supervisão pausada ou a ferramenta desligada, o trabalho permanece na fila e volta a verificar a liberação após um minuto. Ao atingir a franquia diária, volta a ser elegível na virada do dia em São Paulo. A espera preserva as tentativas. Uma falha ao executar a ação reverte o consumo e segue a política de retentativas do fluxo.
+
+O teste do Core aciona um processo real do worker, confere a versão do modelo, a proposta pendente, o acesso entre empresas, a pausa e a franquia. A implementação da Missão 08 permanece parcial. A próxima atividade independente é completar a condição de comportamento a partir de interações registradas no CRM.

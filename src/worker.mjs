@@ -1,3 +1,4 @@
+import {stopInference} from './inference.mjs';
 import {enqueueTimers} from './timers.mjs';
 import {setTimeout as wait} from 'node:timers/promises';
 import {createPool,checkRuntime} from './db.mjs';
@@ -19,4 +20,4 @@ try{
   const processed=await processNext(pool,tenant);
   if(!processed&&!once&&!stopping)await wait(1000);
  }while(!once&&!stopping);
-}finally{await pool.end();}
+}finally{stopInference();await pool.end();}

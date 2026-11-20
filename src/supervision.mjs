@@ -2,9 +2,9 @@ import {audit} from './db.mjs';
 import {reject} from './http.mjs';
 import {mayManageTeams} from './security.mjs';
 
-const defaults={revision:0,paused:false,tasks_enabled:true,sdr_enabled:true,daily_limit:100,used_today:0};
+const defaults={revision:0,paused:false,flow_agent_enabled:false,tasks_enabled:true,sdr_enabled:true,daily_limit:100,used_today:0};
 const day="(statement_timestamp() AT TIME ZONE 'America/Sao_Paulo')::date";
-const read=`SELECT revision,paused,tasks_enabled,sdr_enabled,daily_limit,
+const read=`SELECT revision,paused,flow_agent_enabled,tasks_enabled,sdr_enabled,daily_limit,
   CASE WHEN usage_day=${day} THEN used ELSE 0 END AS used_today
   FROM vant.agent_controls WHERE tenant_id=$1`;
 
@@ -35,11 +35,13 @@ export async function supervisionRoutes({db,tenant,member,requestId,url,method,b
  if(!Number.isSafeInteger(revision)||revision<0||[paused,tasks_enabled,sdr_enabled].some(v=>typeof v!=='boolean')
     ||!Number.isInteger(daily_limit)||daily_limit<1||daily_limit>10000)reject(400,'controls','Configuração inválida.');
  const current=await lock(db,tenant);
- const settings={paused,tasks_enabled,sdr_enabled,daily_limit};
+ const flow_agent_enabled=body.flow_agent_enabled===undefined?current.flow_agent_enabled:body.flow_agent_enabled;
+ if(typeof flow_agent_enabled!=='boolean')reject(400,'controls','Configuração inválida para o agente dos fluxos.');
+ const settings={paused,tasks_enabled,sdr_enabled,daily_limit,flow_agent_enabled};
  if(Object.entries(settings).every(([k,v])=>current[k]===v))return [200,current];
  if(current.revision!==revision)reject(409,'revision','Configuração atualizada por outra pessoa. Recarregue a página.');
- const {rows:[next]}=await db.query(`UPDATE vant.agent_controls SET revision=revision+1,paused=$2,tasks_enabled=$3,sdr_enabled=$4,daily_limit=$5
-   WHERE tenant_id=$1 RETURNING revision`,[tenant,paused,tasks_enabled,sdr_enabled,daily_limit]);
+ const {rows:[next]}=await db.query(`UPDATE vant.agent_controls SET revision=revision+1,paused=$2,tasks_enabled=$3,sdr_enabled=$4,daily_limit=$5,flow_agent_enabled=$6
+   WHERE tenant_id=$1 RETURNING revision`,[tenant,paused,tasks_enabled,sdr_enabled,daily_limit,flow_agent_enabled]);
  await db.query('INSERT INTO vant.agent_control_history(tenant_id,revision,actor_id,settings) VALUES($1,$2,$3,$4)',[tenant,next.revision,member.id,settings]);
  await audit(db,tenant,member.id,'agent.controls.updated',null,requestId);
  return [200,{...current,...settings,...next}];

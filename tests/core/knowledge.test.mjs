@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { createApp } from '../../src/app.mjs';
@@ -352,6 +354,41 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
       assert.equal(snapshot.analysis.next_action,measured.result.nextAction);
     }
     assert.ok(!(await (await call('automations/runs','GET',other)).json()).items.some(r=>r.payload.lead===scored));
+    {
+      const agentFlow={name:'Propor tarefa',enabled:true,action_kind:'run_agent'};
+      assert.equal((await call('automations','POST',owner,{...agentFlow,trigger_event:'score_changed'})).status,400);
+      assert.equal((await call('automations','POST',owner,{...agentFlow,trigger_event:'lead_qualified',action_kind:'task',task_title:'Teste',steps:{match:[{kind:'run_agent'}]}})).status,400);
+      const publication=await call('automations','POST',owner,agentFlow);
+      assert.equal(publication.status,201);const agentFlowId=(await publication.json()).id;
+      const agentJobs=async()=>(await (await call('automations/runs','GET',owner)).json()).items.filter(j=>j.payload.flow===agentFlowId);
+      const addSubject=async name=>{
+        const result=await call('crm/leads','POST',owner,{name});assert.equal(result.status,201);return (await result.json()).id;
+      };
+      const subject=await addSubject('Proposta de ação interna');
+      await processNext(pool,tenants[0]);
+      const [held]=await agentJobs();
+      assert.equal(held.attempts,0);assert.equal(held.payload.agent_wait,'agent_paused');
+      const config=(await readControls(owner)).config;
+      assert.equal((await call(controls,'PUT',owner,{...config,flow_agent_enabled:true,daily_limit:config.used_today+1})).status,200);
+      await admin.query('UPDATE vant.jobs SET available_at=now() WHERE tenant_id=$1 AND id=$2',[tenants[0],held.id]);
+      await promisify(execFile)(process.execPath,['src/worker.mjs','--once'],{env:{...process.env,VANT_WORKER_TENANT:tenants[0]},timeout:60000});
+      const [executed]=await agentJobs();
+      assert.equal(executed.state,'done');assert.equal(executed.history.length,1);
+      const attempt=executed.history[0];
+      assert.equal(attempt.outcome,'proposed');assert.equal(attempt.activity_id,null);
+      const proposalPath='agents/proposals/'+attempt.agent_run_id;
+      const proposed=await (await call(proposalPath,'GET',owner)).json();
+      assert.equal(proposed.proposal.status,'pending');assert.equal(proposed.proposal.activity_id,null);
+      assert.equal((await call(proposalPath,'GET',other)).status,404);
+      const snapshots=(await (await call('core/leads/'+subject+'/analyses','GET',owner)).json()).items;
+      assert.equal(snapshots.length,1);assert.equal(snapshots[0].id,attempt.agent_run_id);
+      assert.ok(snapshots[0].model_version);assert.ok(snapshots[0].result.nextAction);
+      const secondSubject=await addSubject('Aguardar franquia');
+      await processNext(pool,tenants[0]);
+      const limited=(await agentJobs()).find(j=>j.payload.lead===secondSubject);
+      assert.equal(limited.attempts,0);assert.equal(limited.payload.agent_wait,'agent_daily_limit');
+      assert.equal((await readControls(owner)).config.used_today,config.used_today+1);
+    }
     assert.equal((await call(path+'/'+id,'DELETE',owner)).status,204);
     assert.ok((await search(owner)).every(row=>row.document_id!==id));
     assert.equal((await admin.query('SELECT count(*)::int AS n FROM vant.document_chunks WHERE document_id=$1',[id])).rows[0].n,0);

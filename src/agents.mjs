@@ -26,9 +26,7 @@ export async function agentRoutes(ctx) {
   if(!writable)reject(403,'permission','A decisão exige o responsável ou um gestor.');
   if(!decision){
     if(existing)return [200,existing];
-    const {rows}=await db.query('INSERT INTO vant.agent_proposals(tenant_id,run_id,proposed_by) VALUES($1,$2,$3) RETURNING *',[tenant,runId,member.id]);
-    await audit(db,tenant,member.id,'agent.proposed',runId,requestId);
-    return [201,rows[0]];
+    return [201,await createAgentProposal(ctx,runId)];
   }
   if(!existing)reject(404,'missing','Proposta não encontrada.');
   const status=decision==='approve'?'approved':'cancelled';
@@ -50,4 +48,10 @@ export async function agentRoutes(ctx) {
     WHERE tenant_id=$1 AND run_id=$2 RETURNING *`,[tenant,runId,status,activityId,member.id]);
   await audit(db,tenant,member.id,'agent.'+status,runId,requestId);
   return [200,rows[0]];
+}
+
+export async function createAgentProposal({db,tenant,member,requestId},runId){
+ const {rows}=await db.query('INSERT INTO vant.agent_proposals(tenant_id,run_id,proposed_by) VALUES($1,$2,$3) RETURNING *',[tenant,runId,member.id]);
+ await audit(db,tenant,member.id,'agent.proposed',runId,requestId);
+ return rows[0];
 }
