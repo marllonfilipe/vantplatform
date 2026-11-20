@@ -75,7 +75,10 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   await page.getByRole('button',{name:'Criar fluxo'}).click();
   await page.getByLabel('Nome do fluxo').fill('Retorno de evento');
   await page.getByLabel('Origem do lead (opcional)').fill('Congresso');
-  await page.getByLabel('Tarefa a criar').fill('Retornar ao participante');
+  await page.getByLabel('Título da atividade principal').fill('Retornar ao participante');
+  await page.getByLabel('Se a origem for diferente').selectOption('reminder');
+  await page.getByLabel('Título da atividade alternativa').fill('Revisar outro canal');
+  await page.getByLabel('Prazo após a execução (minutos)').fill('45');
   await page.getByLabel('Ativar fluxo').check();
   await page.getByRole('button',{name:'Publicar versão'}).click();
   await page.getByRole('heading',{name:'Retorno de evento',exact:true}).waitFor();
@@ -84,6 +87,16 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   await page.getByRole('button',{name:'Automações',exact:true}).click();
   await page.getByText('Retorno de evento · v1 · Concluído',{exact:true}).click();
   await page.getByText(/Tentativa 1 · Tarefa criada/).filter({visible:true}).first().waitFor();
+  const alternateLead=await (await call('crm/leads','POST',{name:'Outra indicação',source:'Indicação'})).json();
+  await worker(tenant);
+  const alt=(await runs()).find(r=>r.payload.lead===alternateLead.id&&r.state==='done');
+  assert.equal(alt.history[0].branch,'otherwise');
+  assert.equal(alt.history[0].action_kind,'reminder');
+  const {rows:[reminder]}=await admin.query("SELECT kind,title,round(extract(epoch FROM (due_at-created_at))/60)::int AS minutes FROM vant.activities WHERE tenant_id=$1 AND id=$2",[tenant,alt.history[0].activity_id]);
+  assert.deepEqual(reminder,{kind:'reminder',title:'Revisar outro canal',minutes:45});
+  const invalid=await call('automations','POST',{...spec,action_kind:'reminder'});
+  assert.equal(invalid.status,400);
+  assert.equal((await call('automations','POST',{...spec,source_filter:null,else_kind:'task',else_title:'Outro'})).status,400);
  }finally{
   await browser?.close();
   if(server.listening)await new Promise(resolve=>server.close(resolve));

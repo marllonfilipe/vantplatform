@@ -25,3 +25,13 @@ Em **Operação → Automações**, o gestor cria ou edita o fluxo de novo lead,
 A [primeira execução da fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44695010510) mostrou uma retentativa indevida ao tentar criar a atividade. O [ajuste do worker](https://github.com/marllonfilipe/vantplatform/commit/0e25c9016416120f8e3c41322a5140dcdab96dcd) corrigiu a leitura do autor com o papel restrito. A [execução correspondente](https://github.com/marllonfilipe/vantplatform/actions/runs/44695154037) verifica a criação da atividade e a recuperação controlada após reativar o autor.
 
 O teste de navegador abre a tela com login, publica o fluxo, cadastra um lead pela API, executa o worker em outro processo e confere a tarefa pelo monitor. A evidência de CI da revisão identifica o resultado desse percurso. Esta versão do editor representa um único gatilho e uma ação de tarefa. Próxima atividade: ampliar as ramificações e as ações internas versionadas, com testes de histórico e retomada. A execução em produção depende de instalar o worker no host de aplicação da empresa.
+
+## Ramificações por origem e ações na agenda
+
+O incremento de editor e monitor em [cf9aee9](https://github.com/marllonfilipe/vantplatform/commit/cf9aee99715150d3e008a431e96c35dbb2df4226) passou nas suítes de [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44695428084) e [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44695428065).
+
+Em **Operação → Automações**, o gestor escolhe a ação principal e o que acontece quando a origem difere. Cada caminho pode criar tarefa, lembrete ou follow-up interno. O caminho alternativo também pode encerrar o fluxo. A origem usada é a registrada na criação do lead. O prazo opcional conta a partir da execução da ação. Lembretes exigem prazo explícito. A espera anterior à execução continua independente do prazo da atividade.
+
+A API recebe `action_kind`, `else_kind`, `else_title` e `due_minutes` junto à configuração existente. A migration 016 preserva as versões precedentes com ação principal de tarefa. Cada tentativa nova guarda o caminho e a ação selecionados. O monitor apresenta o resultado com o tipo de atividade criado.
+
+O teste em Chromium publica um fluxo com dois caminhos. O teste de integração executa o worker com origens distintas e confere o lembrete alternativo, seu prazo de 45 minutos e o registro no histórico. O CI da revisão confirma o resultado. Próxima atividade independente: eventos de alteração de lead com captura de estado e deduplicação por ocorrência.
