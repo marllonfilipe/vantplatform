@@ -4,7 +4,7 @@ import {createCrmActivity} from './crm.mjs';
 import {isUuid,mayManageTeams} from './security.mjs';
 import {reject,textField} from './http.mjs';
 
-const events=['lead_created','lead_updated','deal_created','deal_moved','deal_lost','meeting_scheduled','meeting_completed'];
+const events=['lead_created','lead_updated','deal_created','deal_moved','deal_lost','meeting_scheduled','meeting_completed','score_changed','lead_qualified'];
 const jobKinds=events.map(event=>'flow.'+event);
 const activityKinds=new Set(['task','reminder','followup']);
 function parseConditions(value={}){

@@ -1,6 +1,6 @@
 export function createAutomationPage({api,node,button,panel,empty,modal,view,date}){
  const page='Automações';
- const events={lead_created:'Novo lead',lead_updated:'Lead atualizado',deal_created:'Nova oportunidade',deal_moved:'Mudança de etapa',deal_lost:'Oportunidade perdida',meeting_scheduled:'Reunião agendada',meeting_completed:'Reunião concluída'};
+ const events={lead_created:'Novo lead',lead_updated:'Lead atualizado',deal_created:'Nova oportunidade',deal_moved:'Mudança de etapa',deal_lost:'Oportunidade perdida',meeting_scheduled:'Reunião agendada',meeting_completed:'Reunião concluída',score_changed:'Score alterado',lead_qualified:'Lead qualificado'};
  const kinds={task:'Tarefa',reminder:'Lembrete',followup:'Follow-up'};
  function select(form,label,choices,value){
   const wrapper=node('label',label),control=node('select');

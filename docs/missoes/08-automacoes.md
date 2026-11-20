@@ -67,3 +67,13 @@ O Chromium configura uma condição por responsável. O teste de integração al
 A [execução de fundação em 4e0d5fd](https://github.com/marllonfilipe/vantplatform/actions/runs/44706846274) parou no Chromium ao localizar o campo Responsável por nome exato. O editor passou a definir explicitamente o nome acessível de cada seletor, usando o mesmo rótulo exibido no formulário. O teste continua exigindo o campo correto dentro do diálogo e executando o worker real.
 
 O [teste seguinte](https://github.com/marllonfilipe/vantplatform/actions/runs/44743353508) passou pelo formulário e revelou uma restrição antiga no PostgreSQL: a criação de um fluxo com ramo alternativo e apenas condições comerciais retornava HTTP 400. A migration 020 aceita o ramo quando a versão possui origem ou ao menos uma condição, e continua exigindo uma ação e título válidos. O teste preserva os casos de configuração inválida.
+
+O [commit 4f375c4](https://github.com/marllonfilipe/vantplatform/commit/4f375c4350ecd9069e637cbb871651e42390778d) passou na [fundação com Chromium e PostgreSQL](https://github.com/marllonfilipe/vantplatform/actions/runs/44743622471) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44743622515).
+
+## Automações por qualificação do Intelligence Core
+
+O gestor pode publicar fluxos com **Score alterado** ou **Lead qualificado** em **Operação → Automações**. O primeiro score estabelece uma referência. Uma mudança posterior de valor gera um evento; a entrada na classificação **Prioridade alta** gera o de qualificação. A primeira análise já classificada como alta também qualifica o lead. A origem é uma análise persistida pelo Core daquela empresa.
+
+A migration 021 usa o histórico anterior como referência sem criar trabalhos retroativos. Cada ocorrência identifica a análise, o lead e a pontuação anterior e atual. A condição de score mínimo usa a pontuação que gerou o evento. O PostgreSQL serializa a transição por empresa e lead para que duas análises concorrentes com o mesmo novo resultado não dupliquem o disparo.
+
+O teste integrado usa o modelo local, duas sessões de empresas distintas, PostgreSQL e o worker. Ele registra uma primeira análise com score 20, acrescenta uma oportunidade e um contato concluído e solicita duas análises concorrentes que chegam a 80. Confere um trabalho de cada gatilho, as duas atividades efetivamente criadas e o isolamento das ocorrências. Os checks do commit registram os resultados. Próxima atividade independente: gatilhos temporais de tarefas vencidas e leads sem interação.

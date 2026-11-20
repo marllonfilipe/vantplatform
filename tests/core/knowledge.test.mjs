@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { createApp } from '../../src/app.mjs';
 import { createPool, checkRuntime } from '../../src/db.mjs';
+import { processNext } from '../../src/automation.mjs';
 import { featureRoutes } from '../../src/routes.mjs';
 import { stopInference } from '../../src/inference.mjs';
 import { hashPassword } from '../../src/security.mjs';
@@ -321,6 +322,25 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     assert.deepEqual(bottlenecks.items.map(x=>[x.id,x.open_count,x.stalled_count,x.overdue_count,x.affected_count]),[[stage,1,1,1,1]]);
     assert.deepEqual((await consult(seller,bottleneckQuestion)).items,[]);
     assert.deepEqual((await consult(other,bottleneckQuestion)).items,[]);
+    for(const trigger_event of ['score_changed','lead_qualified']){
+      const configured=await call('automations','POST',owner,{name:trigger_event,enabled:true,trigger_event,task_title:'Revisar qualificação',conditions:{min_score:70}});
+      assert.equal(configured.status,201);
+    }
+    const scored=(await (await call('crm/leads','POST',owner,{name:'Qualificação',phone:'000',segment:'Indústria'})).json()).id;
+    const analyses='core/leads/'+scored+'/analyses';
+    const runScore=async()=>{const res=await call(analyses,'POST',owner,{});assert.equal(res.status,201);return res.json();};
+    assert.equal((await runScore()).result.score,20);
+    await admin.query("INSERT INTO vant.deals(tenant_id,owner_id,lead_id,pipeline_id,stage_id,name,amount_cents,probability) VALUES($1,$2,$3,$4,$5,'Piloto',9000,40)",[tenants[0],member.id,scored,pipeline,stage]);
+    assert.equal((await call('crm/activities','POST',owner,{kind:'call',lead_id:scored,title:'Conversa registrada',done_at:new Date().toISOString()})).status,201);
+    const measuredRuns=await Promise.all([runScore(),runScore()]);
+    assert.ok(measuredRuns.every(r=>r.result.score===80));
+    await Promise.all([processNext(pool,tenants[0]),processNext(pool,tenants[0])]);
+    const scoreJobs=(await (await call('automations/runs','GET',owner)).json()).items.filter(r=>r.payload.lead===scored);
+    assert.deepEqual(scoreJobs.map(r=>r.payload.event).sort(),['lead_qualified','score_changed']);
+    assert.ok(scoreJobs.every(r=>r.payload.score===80&&r.payload.previous_score===20&&r.payload.facts.min_score===80));
+    assert.ok(scoreJobs.every(r=>measuredRuns.some(m=>m.id===r.payload.occurrence)));
+    assert.ok(scoreJobs.every(r=>r.state==='done'&&r.history[0].activity_id));
+    assert.ok(!(await (await call('automations/runs','GET',other)).json()).items.some(r=>r.payload.lead===scored));
     assert.equal((await call(path+'/'+id,'DELETE',owner)).status,204);
     assert.ok((await search(owner)).every(row=>row.document_id!==id));
     assert.equal((await admin.query('SELECT count(*)::int AS n FROM vant.document_chunks WHERE document_id=$1',[id])).rows[0].n,0);
