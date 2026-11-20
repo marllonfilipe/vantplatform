@@ -1,3 +1,4 @@
+import {enrichmentRoutes} from './prospect-enrichment.mjs';
 import {prospectBriefs} from './prospect-brief.mjs';
 import {prospectAccountAction} from './prospect-people.mjs';
 import {assessProspect,priorities} from './prospect-fit.mjs';
@@ -15,7 +16,7 @@ async function listAccounts(ctx,profile,selected){
  if(cursor!==null&&!isUuid(cursor))reject(400,'cursor','Cursor inválido.');
  const q=(url.searchParams.get('q')??'').trim();
  if(q.length>250)reject(400,'search','Busca muito longa.');
- const result=await db.query(`SELECT a.id,a.name,a.website,a.segment,a.location,a.size_band,a.business_activity,
+ const result=await db.query(`SELECT a.id,a.name,a.website,a.updated_at,a.segment,a.location,a.size_band,a.business_activity,
    t.source_reference,t.selected_at,
    ARRAY(SELECT s.source_reference FROM vant.prospect_account_sources s WHERE s.tenant_id=a.tenant_id AND s.account_id=a.id
     ORDER BY s.recorded_at DESC,s.source_reference LIMIT 5) AS recent_sources,
@@ -67,6 +68,7 @@ export async function prospectingRoutes(ctx){
  if(!id)reject(405,'method','Método inválido.');
  const profile=(await db.query('SELECT * FROM vant.prospect_profiles WHERE tenant_id=$1 AND id=$2',[tenant,id])).rows[0];
  if(!profile)reject(404,'missing','Perfil não encontrado.');
+ if(resource==='targets'&&parts[3]==='enrichments')return enrichmentRoutes(ctx,profile,accountId,parts.slice(4));
  if(parts.length===4&&resource==='targets'&&parts[3]==='briefs')return prospectBriefs(ctx,profile,accountId);
  if(resource==='targets'&&['people','handoff'].includes(parts[3]))return prospectAccountAction(ctx,profile,accountId,parts.slice(3));
  if(parts.length===4&&resource==='targets'&&parts[3]==='assess'&&method==='POST')return assessProspect(ctx,profile,accountId);

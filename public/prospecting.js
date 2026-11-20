@@ -52,10 +52,27 @@ export function createProspectingPage({api,node,button,panel,empty,modal,date,vi
     mode='targets';query='';resetPages();await view(page);
     const details=[node('p',r.processed+' registros · '+r.created+' empresas criadas · '+r.reused+' reutilizações · '+r.selected+' novas seleções')];
     for(const item of r.unchanged_values)details.push(node('p','Registro '+item.row+' · campos preservados no CRM: '+item.fields.map(k=>({name:'nome',website:'site',location:'região',size_band:'porte',segment:'segmento',business_activity:'atividade'}[k]??k)).join(', ')));
+    if(r.suggestions)details.push(node('p',r.suggestions+' sugestões para revisão nas fichas das empresas-alvo.'));
     modal('Resultado da importação',...details);
    }catch(error){feedback.textContent=error.message;}finally{send.disabled=false;}
   };
   modal('Importar empresas de fonte autorizada',form);
+ }
+ async function enrich(path,account){
+  const endpoint=path+'/targets/'+account.id+'/enrichments',entries=[];let after='';
+  do{const result=await api(endpoint+'?limit=100'+(after?'&cursor='+after:''));entries.push(...result.items);after=result.nextCursor;}while(after);
+  const states={pending:'Aguardando revisão',applied:'Aplicada',already_present:'Valor já presente',obsolete:'Campo alterado no CRM',dismissed:'Descartada'};
+  const names={segment:'Segmento',website:'Site',size_band:'Porte',location:'Região',business_activity:'Atividade econômica'};
+  entries.sort((a,b)=>Number(b.state==='pending')-Number(a.state==='pending')||b.created_at.localeCompare(a.created_at));
+  const panels=entries.map(item=>{
+   const info=[node('p',item.proposed_value),node('p',item.source_reference+' · '+date(item.created_at)),node('p',states[item.state])];
+   if(item.state==='pending'&&getUser().role!=='viewer'){
+    const decide=async action=>{await api(endpoint+'/'+item.id+'/'+action,'POST',{});await view(page);await enrich(path,account);};
+    info.push(button('Aplicar valor no CRM',()=>decide('apply')),button('Descartar sugestão',()=>decide('dismiss')));
+   }
+   return panel(names[item.field],...info);
+  });
+  modal('Enriquecimento de '+account.name,...(panels.length?panels:[empty('Nenhuma sugestão de fonte importada para esta conta.')]));
  }
  function removeTarget(path,account){
   const form=node('form',undefined,'stack');
@@ -118,6 +135,8 @@ export function createProspectingPage({api,node,button,panel,empty,modal,date,vi
    if(account.selected_at)details.push(node('p','Fonte da seleção: '+account.source_reference),node('p','Selecionada em '+date(account.selected_at)));
    const sources=account.recent_sources.filter(v=>v!==account.source_reference);
    if(sources.length){const refs=node('details');refs.append(node('summary','Outras fontes registradas'));for(const ref of sources)refs.append(node('p',ref));details.push(refs);}
+   if(account.updated_at)details.push(node('p','Dados do CRM atualizados em '+date(account.updated_at)));
+   if(account.selected_at)details.push(button('Revisar enriquecimento',()=>enrich(path,account)));
    if(account.selected_at)details.push(button('Decisores e conversão',()=>people(path,profile,account)));
    details.push(button('Abrir empresa no CRM',()=>openAccount(account.id)));
    if(user.role!=='viewer'){

@@ -28,6 +28,22 @@ export function createProspectPeople({api,node,button,panel,empty,modal,date,get
    const link=input(form,'Perfil profissional no LinkedIn (opcional)','url',person.linkedin_url,false);
    const source=input(form,'Fonte das informações','text',person.source_reference,true);source.maxLength=500;
    const verified=input(form,'Data da informação','date',person.observed_on,true);
+   const paste=node('details'),pasteLabel=node('label','Texto fornecido pela fonte'),raw=node('textarea'),notice=node('p');
+   notice.setAttribute('role','status');pasteLabel.append(raw);
+   paste.append(node('summary','Preencher a partir de texto autorizado'),node('p','Cole linhas com Cargo, Perfil, Fonte ou Data, seguidas de dois-pontos. Revise os campos antes de registrar.'),pasteLabel);
+   const controls={cargo:title,perfil:link,fonte:source,data:verified};
+   paste.append(button('Preencher campos para revisão',()=>{
+    let count=0;
+    for(const line of raw.value.split(/\r?\n/)){
+     const split=line.indexOf(':');if(split<1)continue;
+     const key=line.slice(0,split).trim().toLocaleLowerCase('pt-BR'),value=line.slice(split+1).trim();
+     if(!Object.hasOwn(controls,key)||!value)continue;
+     if(key==='data'&&!/^\d{4}-\d{2}-\d{2}$/.test(value))continue;
+     controls[key].value=value;count++;
+    }
+    notice.textContent=count?'Campos preenchidos para revisão: '+count+'.':'Nenhum campo reconhecido.';
+   }),notice);
+   form.append(paste);
    formAction(form,'Registrar informações',async()=>{
     await api(base+'/people/'+person.id,'PUT',{expected_revision:person.revision,title:title.value,decision_maker:maker.checked,linkedin_url:link.value,source_reference:source.value,observed_on:verified.value});
     await back();

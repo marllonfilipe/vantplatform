@@ -51,3 +51,20 @@ Na ficha **Decisores e conversão**, use **Analisar abordagem**. A análise reú
 Até três contatos aparecem como decisores registrados ou candidatos cujo cargo deve ser confirmado. A similaridade mínima para sugerir um cargo não confirmado é 0,65. A sugestão preserva o papel cadastrado no CRM. Uma conta com alta aderência, contato relevante e nenhuma negociação aberta pode gerar indicação de oportunidade a validar. Negócios abertos direcionam o usuário ao responsável pela negociação existente. A recomendação não cria negócio nem envia mensagem.
 
 O endpoint `POST .../targets/{accountId}/briefs` grava os dados e a revisão do modelo usada para selecionar os cargos. Uma análise com as mesmas entradas é reutilizada. `GET` retorna as dez revisões mais recentes. A suíte do Core verifica a sugestão em CPU, a distinção entre candidato e decisor, a mudança de recomendação ao abrir uma oportunidade real e o histórico. A próxima entrega é a revisão de enriquecimentos fornecidos por fontes autorizadas.
+
+## Revisão de enriquecimentos e captura assistida
+
+Para complementar uma empresa existente, importe uma fonte autorizada com seu CNPJ e os campos disponíveis. Campos vazios do CRM podem receber sugestões de site, região, segmento, porte e atividade. Cada sugestão conserva fonte, valor, autor e data. Duplicar a importação preserva a sugestão original. Abra **Revisar enriquecimento** na conta selecionada para aplicar ou descartar cada valor. Ao aplicar, o servidor relê o campo sob bloqueio. Um valor diferente registrado desde a importação é preservado, e a sugestão recebe o estado **Campo alterado no CRM**. A auditoria registra a decisão e o CRM registra a alteração. A ficha exibe a data de atualização da empresa.
+
+No contato, **Registrar fonte e perfil → Preencher a partir de texto autorizado** reconhece linhas com Cargo, Perfil, Fonte e Data. A prévia preenche o formulário para revisão do operador. Somente **Registrar informações** grava a nova revisão. A indicação de decisor fica a cargo do usuário. As fontes de prospecção desta implementação são os registros da empresa, arquivos importados e informações profissionais fornecidas com origem. O operador responde pela autorização para utilizá-las.
+
+| Critério original | Funcionalidade e cenário de verificação |
+|---|---|
+| Pesquisa e organização de empresas | Perfil de cliente ideal, quatro critérios de mercado, busca por nome, seleção e listas paginadas |
+| Importação funcional | CSV com fonte, validação atômica e deduplicação de lotes concorrentes |
+| Integração com CRM | Conta e contatos compartilhados, conversão ou vinculação a lead com auditoria |
+| Classificação inteligente | Modelo local, evidência de aderência, lista priorizada, sugestões de decisores e sinais do funil |
+| Rastreabilidade das fontes | Referências por conta, data da informação profissional, histórico de revisões e origem da conversão |
+| Controle de qualidade | Papéis e isolamento por empresa, validação de revisão, preservação de valores existentes e aprovação de enriquecimentos |
+
+A suíte de fundação exercita a revisão de fonte e aplicação de campo no navegador, além da preservação de uma alteração concorrente. A suíte de inteligência exercita a classificação e a abordagem com o modelo instalado em CPU. O aceite pelo proprietário deve ser registrado separadamente.

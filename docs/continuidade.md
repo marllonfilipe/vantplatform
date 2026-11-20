@@ -95,3 +95,9 @@ A [classificação por ICP](https://github.com/marllonfilipe/vantplatform/commit
 O Core combina o ICP, cargos registrados e o estado do funil para sugerir contatos e uma abordagem comercial verificável. O teste de CPU e Chromium está em `tests/core/prospecting.test.mjs`. Próxima atividade: revisão e aplicação de enriquecimentos de fontes autorizadas em campos ausentes do CRM. O aceite continua em aberto.
 
 Os [decisores e a conversão para lead](https://github.com/marllonfilipe/vantplatform/commit/8fdaf445f7b488edbbd38c7933b20a2b0f81dc2f) passaram na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44800441262) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44800441301).
+
+## Missão 09 · Revisão de enriquecimentos
+
+O fluxo de importação agora propõe valores para campos vazios. A equipe pode revisar a origem e aplicar ou descartar o enriquecimento. A ficha profissional admite preenchimento assistido a partir de texto fornecido e salva somente após revisão. A matriz dos seis critérios originais está no [relatório](missoes/09-prospeccao.md). Confirmar as duas suítes desta revisão antes de registrar o marco de implementação e os canais de relatório. O aceite do proprietário está pendente.
+
+A [sugestão de abordagem e oportunidades](https://github.com/marllonfilipe/vantplatform/commit/7023d36b5de578cd5cc0fd435ea70af88b35831d) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44800800557) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44800800478).

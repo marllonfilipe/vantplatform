@@ -1,3 +1,4 @@
+import {suggestMissing} from './prospect-enrichment.mjs';
 import {csvRecords} from './csv.mjs';
 import {createCrmAccount} from './crm.mjs';
 import {audit} from './db.mjs';
@@ -25,13 +26,14 @@ export async function importProspectAccounts(ctx,profile){
  for(const code of [...new Set(rows.map(r=>r.account.cnpj))].sort()){
   await db.query("SELECT pg_advisory_xact_lock(hashtextextended($1::text||':'||$2::text,0))",[tenant,code]);
  }
- const result={processed:rows.length,created:0,reused:0,selected:0,unchanged_values:[]};
+ const result={processed:rows.length,created:0,reused:0,selected:0,suggestions:0,unchanged_values:[]};
  for(const [index,{account,source}] of rows.entries()){
   const found=await db.query('SELECT * FROM vant.accounts WHERE tenant_id=$1 AND cnpj IS NOT NULL AND vant.prospect_identifier(cnpj)=$2 ORDER BY id LIMIT 2',[tenant,account.cnpj]);
   if(found.rowCount>1)reject(409,'ambiguous','Mais de uma empresa existente corresponde ao identificador no registro '+(index+1)+'.');
   let current=found.rows[0];
   if(current){
    result.reused++;
+   result.suggestions+=await suggestMissing(ctx,current,account,source);
    const fields=Object.keys(account).filter(k=>k!=='cnpj'&&account[k]!==current[k]);
    if(fields.length)result.unchanged_values.push({row:index+1,fields});
   }else{current=await createCrmAccount(ctx,account);result.created++;}

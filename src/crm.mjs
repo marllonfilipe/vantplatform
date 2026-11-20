@@ -119,6 +119,7 @@ export async function recordFlowComment(ctx,target,title,execution){
 }
 export function createCrmLead(ctx,values){return save(ctx,'leads',values);}
 export function updateContactRole(ctx,old,values){return save(ctx,'contacts',values,old);}
+export function updateProspectAccount(ctx,current,fields){return save(ctx,'accounts',fields,current);}
 export function createCrmAccount(ctx,values){return save(ctx,'accounts',values);}
 export function createCrmActivity(ctx,task){return save(ctx,'activities',task);}
 async function list(ctx,kind){
