@@ -35,3 +35,13 @@ Em **Operação → Automações**, o gestor escolhe a ação principal e o que 
 A API recebe `action_kind`, `else_kind`, `else_title` e `due_minutes` junto à configuração existente. A migration 016 preserva as versões precedentes com ação principal de tarefa. Cada tentativa nova guarda o caminho e a ação selecionados. O monitor apresenta o resultado com o tipo de atividade criado.
 
 O teste em Chromium publica um fluxo com dois caminhos. O teste de integração executa o worker com origens distintas e confere o lembrete alternativo, seu prazo de 45 minutos e o registro no histórico. O CI da revisão confirma o resultado. Próxima atividade independente: eventos de alteração de lead com captura de estado e deduplicação por ocorrência.
+
+## Eventos de leads e oportunidades
+
+Na revisão [e90fa44](https://github.com/marllonfilipe/vantplatform/commit/e90fa44f7a9b5330efc78fd2d8b0633e18da93e5), a ramificação por origem e a criação de lembretes passaram nos checks de [fundação e navegador](https://github.com/marllonfilipe/vantplatform/actions/runs/44705933502) e [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44705933457).
+
+No editor, **Evento no CRM** seleciona novo lead, lead atualizado, nova oportunidade, mudança de etapa ou perda. A API aceita `trigger_event`. A migration 017 preserva fluxos e trabalhos anteriores. Os eventos compartilham a transação da alteração comercial. Uma edição de lead que conserva os valores não cria nova ocorrência. Uma negociação que muda de etapa e passa a perdida no mesmo salvamento gera os dois eventos correspondentes. Editar o motivo de uma perda já registrada não dispara outra transição para perdida.
+
+O trabalho guarda ocorrência, versão, origem e identificador do registro. Eventos de mudança de oportunidade incluem etapa e situação anteriores. A atividade é vinculada ao lead ou à oportunidade que originou a execução. Os gatilhos acompanham alterações no PostgreSQL e mantêm o filtro por empresa.
+
+O teste de integração usa as rotas reais do CRM para cadastrar e editar os registros e executa o worker para conferir cinco ocorrências, incluindo uma mudança simultânea de etapa e situação. O check da revisão documenta o resultado. Próxima atividade: eventos de reuniões agendadas e concluídas e condições adicionais ligadas ao registro.

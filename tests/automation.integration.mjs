@@ -97,6 +97,33 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   const invalid=await call('automations','POST',{...spec,action_kind:'reminder'});
   assert.equal(invalid.status,400);
   assert.equal((await call('automations','POST',{...spec,source_filter:null,else_kind:'task',else_title:'Outro'})).status,400);
+  const eventNames=['lead_updated','deal_created','deal_moved','deal_lost'];
+  for(const trigger_event of eventNames){
+   const response=await call('automations','POST',{...spec,name:trigger_event,trigger_event,source_filter:null,task_title:trigger_event});
+   assert.equal(response.status,201);
+  }
+  assert.equal((await call('crm/leads/'+lead,'PATCH',{segment:'Industrial'})).status,200);
+  assert.equal((await call('crm/leads/'+lead,'PATCH',{segment:'Industrial'})).status,200);
+  assert.equal((await call('crm/leads/'+lead,'PATCH',{segment:'Comercial'})).status,200);
+  const setup=await call('crm/pipelines','POST',{name:'Comercial',stages:['Entrada','Negociação']});
+  assert.equal(setup.status,201);
+  const pipeline=(await setup.json()).id;
+  const {stages}= (await (await call('crm/pipelines')).json()).items.find(p=>p.id===pipeline);
+  const createDeal=await call('crm/deals','POST',{name:'Contrato',pipeline_id:pipeline,stage_id:stages[0].id,amount_cents:35000,probability:50});
+  assert.equal(createDeal.status,201);
+  const deal=(await createDeal.json()).id;
+  assert.equal((await call('crm/deals/'+deal,'PATCH',{stage_id:stages[1].id,status:'lost',loss_reason:'Sem orçamento'})).status,200);
+  assert.equal((await call('crm/deals/'+deal,'PATCH',{loss_reason:'Sem orçamento disponível'})).status,200);
+  for(let i=0;i<5;i++)await worker(tenant);
+  const triggered=(await runs()).filter(r=>eventNames.includes(r.payload.event));
+  assert.deepEqual(triggered.map(r=>r.payload.event).sort(),['deal_created','deal_lost','deal_moved','lead_updated','lead_updated']);
+  assert.equal(new Set(triggered.map(r=>r.payload.occurrence)).size,5);
+  assert.ok(triggered.every(r=>r.state==='done'&&r.history.length===1));
+  const moved=triggered.find(r=>r.payload.event==='deal_moved');
+  assert.equal(moved.payload.previous_stage,stages[0].id);
+  assert.equal(moved.payload.stage,stages[1].id);
+  const linked=await admin.query('SELECT deal_id,lead_id,owner_id FROM vant.activities WHERE tenant_id=$1 AND id=$2',[tenant,moved.history[0].activity_id]);
+  assert.deepEqual(linked.rows,[{deal_id:deal,lead_id:null,owner_id:actor}]);
  }finally{
   await browser?.close();
   if(server.listening)await new Promise(resolve=>server.close(resolve));
