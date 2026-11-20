@@ -46,6 +46,21 @@ test('gestor indexa e consulta política comercial no Chromium',async()=>{
     await page.getByRole('button',{name:'Excluir',exact:true}).click();
     await page.getByRole('button',{name:'Confirmar exclusão'}).click();
     await page.getByText('Nenhum documento indexado.').waitFor();
+    const created=await page.evaluate(async()=> {
+      const response=await fetch('/api/v1/crm/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Conta piloto'})});
+      return response.status;
+    });
+    assert.equal(created,201);
+    await page.getByRole('button',{name:'Leads',exact:true}).click();
+    await page.getByRole('button',{name:'Conta piloto',exact:true}).click();
+    await page.getByRole('button',{name:'Analisar no Intelligence Core'}).click();
+    await page.getByRole('button',{name:'Preparar tarefa sugerida'}).click();
+    await page.getByText('Aguardando decisão',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Aprovar e criar tarefa'}).click();
+    await page.getByText('Aprovada',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'Fechar',exact:true}).click();
+    await page.getByRole('button',{name:'Agenda comercial',exact:true}).click();
+    await page.getByRole('button',{name:'Obter um canal de contato.',exact:true}).waitFor();
   } finally {
     await browser?.close();
     stopInference();

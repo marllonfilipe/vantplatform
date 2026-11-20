@@ -61,6 +61,7 @@ async function save(ctx,kind,body,old){
   await db.query('UPDATE vant.leads SET last_contact_at=greatest(last_contact_at,$1) WHERE id=$2',[row.done_at,row.lead_id]);
  return row;
 }
+export function createCrmActivity(ctx,task){return save(ctx,'activities',task);}
 async function list(ctx,kind){
  const {db,url}=ctx,fields=entities[kind].fields.split(' '),where=[],params=[];
  const add=(clause,v)=>{params.push(v);where.push(clause.replace('?', '$'+params.length));};

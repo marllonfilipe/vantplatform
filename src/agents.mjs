@@ -1,0 +1,42 @@
+import {audit} from './db.mjs';
+import {createCrmActivity} from './crm.mjs';
+import {reject} from './http.mjs';
+import {isUuid,mayManageTeams} from './security.mjs';
+
+export async function agentRoutes(ctx) {
+  const {db,tenant,member,requestId,url,method,body}=ctx;
+  const match=/^\/api\/v1\/agents\/proposals\/([^/]+)(?:\/(approve|cancel))?$/.exec(url.pathname);
+  if(!match || !isUuid(match[1]))return;
+  const [,runId,decision]=match;
+  if(method!=='POST' && !(method==='GET' && !decision))reject(405,'method','Método inválido.');
+  const run=(await db.query('SELECT subject_kind,subject_id,result FROM vant.core_runs WHERE tenant_id=$1 AND id=$2',[tenant,runId])).rows[0];
+  if(!run)reject(404,'missing','Análise não encontrada.');
+  const table=run.subject_kind==='lead'?'leads':'deals';
+  // Serializa decisões e reatribuições do mesmo registro no CRM.
+  const record=(await db.query('SELECT owner_id FROM vant.'+table+' WHERE tenant_id=$1 AND id=$2'+(method==='POST'?' FOR UPDATE':''),[tenant,run.subject_id])).rows[0];
+  if(!record)reject(404,'missing','Registro não encontrado.');
+  const writable=mayManageTeams(member.role)||(member.role==='seller'&&record.owner_id===member.id);
+  const existing=(await db.query('SELECT * FROM vant.agent_proposals WHERE tenant_id=$1 AND run_id=$2',[tenant,runId])).rows[0];
+  if(method==='GET')return [200,{proposal:existing??null,canDecide:writable}];
+  if(!writable)reject(403,'permission','A decisão exige o responsável ou um gestor.');
+  if(!decision){
+    if(existing)return [200,existing];
+    const {rows}=await db.query('INSERT INTO vant.agent_proposals(tenant_id,run_id,proposed_by) VALUES($1,$2,$3) RETURNING *',[tenant,runId,member.id]);
+    await audit(db,tenant,member.id,'agent.proposed',runId,requestId);
+    return [201,rows[0]];
+  }
+  if(!existing)reject(404,'missing','Proposta não encontrada.');
+  const status=decision==='approve'?'approved':'cancelled';
+  if(existing.status===status)return [200,existing];
+  if(existing.status!=='pending')reject(409,'decided','A proposta já recebeu outra decisão.');
+  let activityId=null;
+  if(decision==='approve'){
+    const task={kind:'task',title:run.result.nextAction,owner_id:record.owner_id,[run.subject_kind+'_id']:run.subject_id};
+    if(body.due_at)task.due_at=body.due_at;
+    activityId=(await createCrmActivity(ctx,task)).id;
+  }
+  const {rows}=await db.query(`UPDATE vant.agent_proposals SET status=$3,activity_id=$4,decided_by=$5,decided_at=now()
+    WHERE tenant_id=$1 AND run_id=$2 RETURNING *`,[tenant,runId,status,activityId,member.id]);
+  await audit(db,tenant,member.id,'agent.'+status,runId,requestId);
+  return [200,rows[0]];
+}

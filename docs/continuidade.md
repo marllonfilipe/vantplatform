@@ -20,3 +20,15 @@ A Missão 05 permanece pendente do pareamento e da troca de mensagens entre apar
 Publicar cada incremento com seu relatório e evidência de teste. Manter em aberto os critérios ainda sem evidência. Se uma parte depender de serviço indisponível, seguir para o próximo item tecnicamente executável. Ao esgotar o trabalho independente, a tarefa existente aguarda a execução programada seguinte.
 
 O último relatório numerado pode representar trabalho parcial. Consulte as pendências de cada missão antes de fechar a etapa ou escolher o próximo incremento.
+
+## Ponto de retomada da execução
+
+As entregas 01–04 têm relatórios no diretório `docs/missoes`. A [revisão de regressões 01–05](https://github.com/marllonfilipe/vantplatform/pull/1) foi incorporada à main. A missão 05 continua em homologação.
+
+| Missão | Entrega mais recente | Evidência e próxima atividade |
+|---|---|---|
+| 06 | Inferência, documentos, catálogo, análise de leads e oportunidades, histórico de tarefas e métricas | [Relatório e testes](missoes/06-inteligencia.md). Avaliar recomendações com dados representativos e capacidade no host de implantação. |
+| 07 | Proposta de tarefa interna com decisão humana, criada a partir de análise persistida | [Relatório](missoes/07-agentes.md). Verificar os checks do commit e continuar o copiloto de consulta ao CRM. |
+| 08–13 | Sem entrega integral registrada nesse ponto de retomada | Os critérios e dependências por missão constam da tabela acima e do cronograma. |
+
+A evidência de CI pertence ao commit testado. Nas próximas execuções, conferir o histórico e os checks mais recentes da main antes de retomar.

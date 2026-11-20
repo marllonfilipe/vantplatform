@@ -44,7 +44,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
  }
  function csv(){const f=node('form',undefined,'stack');f.append(empty('Até 500 linhas. Colunas: nome, email, telefone, origem, segmento, tags e observações. Apenas nome é obrigatória.'));
   const c=field(f,'Arquivo CSV',node('input'));c.type='file';c.accept='.csv';c.required=true;submit(f,async()=>api(path('leads','import'),'POST',{csv:await c.files[0].text()}));modal('Importar leads',f);}
- function showAnalysis(run){
+ async function showAnalysis(run){
   const result=run.result,parts=[pair('Classificação',result.classification)];
   if(result.score!=null)parts.push(pair('Pontuação de qualificação',result.score+' / 100'));
   if(result.probability!=null)parts.push(pair('Probabilidade registrada no CRM',result.probability+'%'));
@@ -64,6 +64,16 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   parts.push(pair('Próxima ação',result.nextAction));
   for(const source of run.context??[])parts.push(panel(source.title,node('p',source.content)));
   parts.push(pair('Inferência local',run.latency_ms+' ms'),pair('Regra',result.ruleset));
+  const endpoint='/agents/proposals/'+run.id;
+  const {proposal,canDecide}=await api(endpoint);
+  if(proposal)parts.push(pair('Proposta de tarefa',{pending:'Aguardando decisão',approved:'Aprovada',cancelled:'Cancelada'}[proposal.status]));
+  if(canDecide && !proposal)parts.push(button('Preparar tarefa sugerida',async()=>{
+    await api(endpoint,'POST',{});await showAnalysis(run);
+  }));
+  if(canDecide && proposal?.status==='pending'){
+   parts.push(button('Aprovar e criar tarefa',async()=>{await api(endpoint+'/approve','POST',{});await showAnalysis(run);}));
+   parts.push(button('Cancelar proposta',async()=>{await api(endpoint+'/cancel','POST',{});await showAnalysis(run);}));
+  }
   modal('Análise comercial',...parts);
  }
  async function detail(kind,row){
