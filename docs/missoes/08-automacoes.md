@@ -181,3 +181,13 @@ Durante a criação ou edição, **Mapa do fluxo** mostra o evento, a espera ini
 Em **Etapas após a ação principal** ou **Etapas após a ação alternativa**, use **Mover para cima** e **Mover para baixo** para mudar a ordem das etapas adicionais. As esperas e demais parâmetros acompanham a etapa. A prévia, os campos do formulário e o conteúdo publicado usam a mesma sequência. A versão vigente continua em uso até a publicação.
 
 O teste de automações usa Chromium para editar duas etapas, inverter a ordem, conferir a espera de quinze minutos e o caminho alternativo, verificar o mapa a 390 pixels e recuperar a sequência publicada pela API. O aceite integral da missão segue pendente. A entrega de webhooks de saída e os gatilhos externos continuam no planejamento original.
+
+## Webhook de saída
+
+A ação **Enviar webhook** envia um evento técnico para o receptor HTTPS configurado pelo operador da empresa. O editor e o evento não fornecem uma URL. No processo dedicado do worker, configure `VANT_FLOW_WEBHOOK_TENANT` para a empresa do worker, `VANT_FLOW_WEBHOOK_URL` para o receptor autorizado e `VANT_FLOW_WEBHOOK_KEY` com uma chave de pelo menos 32 bytes. Distribua a chave pelo gerenciador de segredos do ambiente. A URL deve ter HTTPS, sem credenciais, query ou fragmento. A API aceita `webhook` na ação principal, alternativa e nas etapas.
+
+O worker persiste a identificação, o corpo e a impressão digital do destino antes da primeira chamada. O corpo JSON contém identificadores da entrega, empresa, fluxo, versão, evento, etapa e registros envolvidos. O receptor recebe `Idempotency-Key`, `X-V4NT-Timestamp` e `X-V4NT-Signature`. A assinatura é `sha256=` seguida do HMAC-SHA256 hexadecimal de timestamp, ponto e corpo original. O receptor deve validar a assinatura e a atualidade do timestamp, persistir a chave de idempotência junto com o efeito e reconhecer repetições da mesma entrega.
+
+O monitor mostra o código HTTP quando disponível. A etapa seguinte só é liberada após uma resposta 2xx. Falhas de rede, timeout de cinco segundos, 408, 429 e 5xx entram na política de até três tentativas. O POST pode ter chegado ao receptor quando a resposta se perde. Nessas tentativas o corpo e o identificador são preservados. Redirecionamentos, outras respostas permanentes e mudança de destino de uma entrega preparada encerram aquela execução.
+
+O cenário `tests/webhooks.integration.mjs` inicia um receptor HTTPS descartável com certificado de teste e vários processos do worker. Ele verifica assinatura, repetição com a mesma chave, avanço após 204, recusa de redirecionamento, alteração de URL e escopo da empresa. A homologação no receptor de implantação depende de configurá-lo e conferir seu registro da entrega.

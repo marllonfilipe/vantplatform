@@ -65,3 +65,9 @@ O [agente supervisionado](https://github.com/marllonfilipe/vantplatform/commit/1
 O editor exibe gatilho, condições, esperas, caminhos e encerramento e permite reordenar as etapas antes de publicar a versão. O teste da interface está em `tests/automation.integration.mjs`. A próxima atividade independente é a entrega de webhook de saída com destino configurado pelo operador, histórico e retentativas.
 
 A [condição de comportamento](https://github.com/marllonfilipe/vantplatform/commit/5c33845fb53bf494c34920151c33f7c66c7162d8) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44797651317) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44797651315).
+
+## Missão 08 · Webhook de saída
+
+O fluxo pode entregar um evento assinado ao receptor configurado para a empresa. A validação técnica usa HTTPS real e um receptor descartável na suíte de fundação. A homologação de implantação requer um receptor autorizado e sua configuração no ambiente do worker. Os gatilhos de mensagens e assinatura continuam dependentes das missões 05 e 11. O próximo trabalho independente é o cadastro de perfil de cliente ideal e a seleção de empresas-alvo na Missão 09.
+
+O [mapa e a edição de ordem](https://github.com/marllonfilipe/vantplatform/commit/231ba29efee08842f8b573ee6a51490b300f106b) passaram na [fundação com Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/44797989215) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44797989195).
