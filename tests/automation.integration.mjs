@@ -1,0 +1,67 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import pg from 'pg';
+import {createApp} from '../src/app.mjs';
+import {createPool,checkRuntime} from '../src/db.mjs';
+import {featureRoutes} from '../src/routes.mjs';
+import {hashPassword} from '../src/security.mjs';
+
+test('evento real do CRM executa versão publicada no worker, com pausa, condição e retomada',async()=>{
+ assert.equal(process.env.APP_ENV,'test');
+ const admin=new pg.Client({connectionString:process.env.ADMIN_DATABASE_URL});await admin.connect();
+ const pool=createPool(process.env.DATABASE_URL),origin='http://localhost';
+ const server=createApp({pool,origin,featureRoutes,environment:'test'});
+ const tenant=randomUUID(),other=randomUUID(),actor=randomUUID(),password=randomUUID(),email='gestor@example.invalid';
+ try{
+  await checkRuntime(pool);
+  await admin.query("INSERT INTO vant.tenants(id,name) VALUES($1,'Fluxos'),($2,'Isolada')",[tenant,other]);
+  await admin.query("INSERT INTO vant.members(tenant_id,id,email,name,role,password_hash) VALUES($1,$2,$3,'Gestor','owner',$4)",[tenant,actor,email,await hashPassword(password)]);
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const base='http://127.0.0.1:'+server.address().port+'/api/v1/';
+  let cookie='';
+  const call=(path,method='GET',data)=>fetch(base+path,{method,headers:{origin,cookie,'content-type':'application/json'},body:JSON.stringify(data)});
+  const login=await call('auth/login','POST',{tenantId:tenant,email,password});assert.equal(login.status,200);
+  cookie=login.headers.get('set-cookie').split(';')[0];
+  const worker=t=>promisify(execFile)(process.execPath,['src/worker.mjs','--once'],{env:{...process.env,VANT_WORKER_TENANT:t},timeout:30000});
+  const spec={name:'Recepção',enabled:true,task_title:'Contato inicial',wait_minutes:0,source_filter:'Feira'};
+  const published=await call('automations','POST',spec);assert.equal(published.status,201);
+  const flow=(await published.json()).id,path='automations/'+flow;
+  const leadResponse=await call('crm/leads','POST',{name:'Conta participante',source:'Feira'});assert.equal(leadResponse.status,201);
+  const lead=(await leadResponse.json()).id;
+  assert.equal((await call('crm/leads','POST',{name:'Outra origem',source:'Site'})).status,201);
+  assert.equal((await call(path,'PUT',{...spec,enabled:false,expected_version:1})).status,200);
+  await worker(tenant);
+  const runs=async()=>(await (await call('automations/runs')).json()).items;
+  assert.ok((await runs()).every(r=>r.state==='queued'));
+  assert.equal((await call(path,'PUT',{...spec,expected_version:1})).status,409);
+  assert.equal((await call(path,'PUT',{...spec,task_title:'Texto da revisão três',expected_version:2})).status,200);
+  await worker(other);
+  assert.deepEqual((await runs()).map(r=>r.attempts),[0,0]);
+  await Promise.all([worker(tenant),worker(tenant)]);
+  await worker(tenant);
+  const processed=await runs();
+  assert.deepEqual(processed.map(r=>r.history[0].outcome).sort(),['created','skipped']);
+  assert.ok(processed.every(r=>r.state==='done'&&r.attempts===1&&r.payload.version===1));
+  const tasks=await admin.query('SELECT title,owner_id FROM vant.activities WHERE tenant_id=$1 AND lead_id=$2',[tenant,lead]);
+  assert.deepEqual(tasks.rows,[{title:'Contato inicial',owner_id:actor}]);
+  assert.equal((await call(path,'PUT',{...spec,wait_minutes:30,expected_version:3})).status,200);
+  assert.equal((await call('crm/leads','POST',{name:'Conta posterior',source:'Feira'})).status,201);
+  await worker(tenant);
+  assert.equal((await runs()).filter(r=>r.state==='queued').length,1);
+  await admin.query("UPDATE vant.jobs SET available_at=now() WHERE tenant_id=$1 AND state='queued'",[tenant]);
+  await admin.query('UPDATE vant.members SET active=false WHERE tenant_id=$1 AND id=$2',[tenant,actor]);
+  await worker(tenant);
+  await admin.query('UPDATE vant.members SET active=true WHERE tenant_id=$1 AND id=$2',[tenant,actor]);
+  const retry=(await runs()).find(r=>r.state==='queued');
+  assert.equal(retry.history[0].outcome,'retry');
+  await admin.query("UPDATE vant.jobs SET available_at=now() WHERE tenant_id=$1 AND id=$2",[tenant,retry.id]);
+  await worker(tenant);
+  assert.deepEqual((await runs()).find(r=>r.id===retry.id).history.map(h=>h.outcome),['retry','created']);
+ }finally{
+  if(server.listening)await new Promise(resolve=>server.close(resolve));
+  await pool.end();await admin.end();
+ }
+});
