@@ -92,3 +92,15 @@ A análise de lead prepara um roteiro de perguntas para os campos de qualificaç
 O endpoint `POST /api/v1/agents/sdr/{runId}/answers` recebe um objeto `answers`. A atualização confere o valor que originou cada pergunta sob bloqueio do registro. Uma repetição idêntica é aceita. Se outra pessoa já registrou uma resposta diferente, a operação retorna conflito e a interface permite gerar um novo roteiro. O teste HTTP cobre respostas parciais, permissão, campos fora do roteiro, repetição e conflito. O teste de Chromium registra uma necessidade na ficha e a consulta em nova análise.
 
 Próxima atividade independente: supervisão das ferramentas internas dos agentes por empresa, com pausa operacional e limites de execução. O SDR assistido continua separado da homologação de atendimento por canal.
+
+## Supervisão das ações que alteram o CRM
+
+O SDR assistido em [d6bfda6](https://github.com/marllonfilipe/vantplatform/commit/d6bfda62353de6ff81a1521e218419aaf1ed11e6) passou nas suítes de [inteligência e navegador](https://github.com/marllonfilipe/vantplatform/actions/runs/44694188957) e [fundação SaaS](https://github.com/marllonfilipe/vantplatform/actions/runs/44694188876).
+
+Em **Inteligência → Supervisão de agentes**, proprietários e gestores consultam o consumo diário e as últimas dez alterações. O proprietário pode pausar ações no CRM, habilitar separadamente a criação de tarefas e a escrita de respostas SDR e configurar de 1 a 10.000 ações por dia. O padrão inicial é 100 por empresa, com aprovação da tarefa ou confirmação das respostas. O dia de consumo é o de São Paulo.
+
+Os controles atuam na transação que modifica o CRM. Uma falha reverte a reserva. Repetições idênticas que já produziram resultado não consomem outra unidade. A pausa mantém disponíveis consulta, preparação e cancelamento. A edição normal do CRM pelo usuário segue suas permissões originais. A API `GET/PUT /api/v1/agents/controls` usa revisão para detectar atualizações concorrentes. O histórico registra a política e o autor.
+
+O teste HTTP verifica bloqueio por pausa, ferramenta desligada, cota esgotada, reversão da reserva, repetição, acesso por perfil e isolamento de empresas. O Chromium configura a pausa pela interface. Os checks associados ao commit são a evidência da execução.
+
+Continuam abertas na 07 as perguntas do copiloto sobre empresas interessadas e gargalos, o contexto de registros específicos e as funções de atendimento ligadas à 05. A próxima atividade independente é consultar interesse por empresa e gargalos por etapa com base nos registros existentes.

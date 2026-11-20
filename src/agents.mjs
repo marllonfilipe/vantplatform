@@ -1,3 +1,4 @@
+import {reserveAgentAction} from './supervision.mjs';
 import {maySuggestFollowup} from './followup.mjs';
 import {audit} from './db.mjs';
 import {createCrmActivity,recordSdrAnswers} from './crm.mjs';
@@ -42,6 +43,7 @@ export async function agentRoutes(ctx) {
     }
     const task={kind:run.result.followup?'followup':'task',title:run.result.nextAction,owner_id:record.owner_id,[run.subject_kind+'_id']:run.subject_id};
     if(body.due_at)task.due_at=body.due_at;
+    await reserveAgentAction(db,tenant,'tasks_enabled');
     activityId=(await createCrmActivity(ctx,task)).id;
   }
   const {rows}=await db.query(`UPDATE vant.agent_proposals SET status=$3,activity_id=$4,decided_by=$5,decided_at=now()

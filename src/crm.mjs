@@ -1,3 +1,4 @@
+import {reserveAgentAction} from './supervision.mjs';
 import {sdrQuestions} from './sdr-questions.mjs';
 import {entities,options} from '../public/crm-schema.js';
 import {leadCsv} from './csv.mjs';
@@ -79,6 +80,7 @@ export async function recordSdrAnswers(ctx,runId,answers){
   changes[field]=normalized;
  }
  if(Object.keys(changes).length){
+  await reserveAgentAction(ctx.db,ctx.tenant,'sdr_enabled');
   await save(ctx,'leads',changes,lead);
   await audit(ctx.db,ctx.tenant,ctx.member.id,'agent.sdr.answered',runId,ctx.requestId);
  }

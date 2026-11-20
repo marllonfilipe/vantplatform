@@ -87,6 +87,11 @@ test('gestor indexa e consulta política comercial no Chromium',async()=>{
     await page.getByLabel('Notas da reunião',{exact:true}).fill('O cliente confirmou o prazo.');
     await page.getByRole('button',{name:'Salvar resultado',exact:true}).click();
     await page.getByText('O cliente confirmou o prazo.',{exact:true}).first().waitFor();
+    await page.getByRole('button',{name:'Fechar',exact:true}).click();
+    await page.getByRole('button',{name:'Supervisão de agentes',exact:true}).click();
+    await page.getByLabel('Pausar ações dos agentes no CRM').check();
+    await page.getByRole('button',{name:'Salvar controles'}).click();
+    await page.getByText(/Revisão 1 · Pausado/).waitFor();
   } finally {
     await browser?.close();
     stopInference();
