@@ -11,29 +11,50 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const wrapper=node('label',label),control=node('input');
   control.type=type;wrapper.append(control);form.append(wrapper);return control;
  }
- function editor(existing){
+ async function editor(existing){
+  const [members,pipelines]=await Promise.all([api('/crm/members'),api('/crm/pipelines')]);
   const form=node('form',undefined,'stack');
   const name=input(form,'Nome do fluxo');name.required=true;name.maxLength=120;name.value=existing?.name??'';
   const trigger=select(form,'Evento no CRM',Object.entries(events),existing?.trigger_event??'lead_created');
-  const condition=input(form,'Origem do lead (opcional)');condition.maxLength=250;condition.value=existing?.source_filter??'';
+  const condition=input(form,'Origem no CRM (opcional)');condition.maxLength=250;condition.value=existing?.source_filter??'';
+  const conditions=node('details');conditions.append(node('summary','Condições comerciais'));form.append(conditions);
+  const filters=existing?.conditions??{},fields={};
+  for(const [key,label,max] of [['segment','Segmento',250],['tag','Tag do lead',60]]){
+   fields[key]=input(conditions,label);fields[key].maxLength=max;
+  }
+  for(const [key,label,max] of [['min_score','Score mínimo',100],['min_quiet_days','Dias mínimos sem contato',36500],['min_cents','Valor mínimo da oportunidade (R$)',9999999999.99]]){
+   const control=input(conditions,label,'number');control.min=0;control.max=max;control.step=key==='min_cents'?'0.01':'1';fields[key]=control;
+  }
+  const any=[['','Sem condição']];
+  fields.intent=select(conditions,'Intenção de compra',[...any,['unknown','Não informada'],['exploring','Pesquisando'],['evaluating','Em avaliação'],['requested_proposal','Solicitou proposta']],'');
+  fields.owner_id=select(conditions,'Responsável',[...any,...members.items.map(m=>[m.id,m.name])],'');
+  fields.stage_id=select(conditions,'Etapa do funil',[...any,...pipelines.items.flatMap(p=>p.stages.map(s=>[s.id,p.name+' · '+s.name]))],'');
+  for(const [key,value] of Object.entries(filters)){
+   const control=fields[key];
+   if(control.tagName==='SELECT'&&![...control.options].some(o=>o.value===value))control.add(new Option(value,value));
+   control.value=key==='min_cents'?(value/100).toFixed(2):value;
+  }
+  function selectedConditions(){
+   return Object.fromEntries(Object.entries(fields).filter(([,el])=>el.value.trim()!=='').map(([key,el])=>[key,key==='min_cents'?Math.round(Number(el.value)*100):key.startsWith('min_')?Number(el.value):el.value.trim()]));
+  }
   const delay=input(form,'Espera em minutos','number');delay.min=0;delay.max=43200;delay.required=true;delay.value=existing?.wait_minutes??0;
   const kind=select(form,'Ação principal',Object.entries(kinds),existing?.action_kind??'task');
   const title=input(form,'Título da atividade principal');title.required=true;title.maxLength=240;title.value=existing?.task_title??'';
-  const alternate=select(form,'Se a origem for diferente',[['','Encerrar fluxo'],...Object.entries(kinds)],existing?.else_kind??'');
+  const alternate=select(form,'Se as condições não forem atendidas',[['','Encerrar fluxo'],...Object.entries(kinds)],existing?.else_kind??'');
   const alternateTitle=input(form,'Título da atividade alternativa');alternateTitle.maxLength=240;alternateTitle.value=existing?.else_title??'';
   const due=input(form,'Prazo após a execução (minutos)','number');due.min=0;due.max=43200;due.value=existing?.due_minutes??'';
   function refresh(){
-   alternate.disabled=!condition.value.trim();if(alternate.disabled)alternate.value='';
+   alternate.disabled=!condition.value.trim()&&!Object.keys(selectedConditions()).length;if(alternate.disabled)alternate.value='';
    alternateTitle.disabled=!alternate.value;alternateTitle.required=Boolean(alternate.value);
    due.required=[kind.value,alternate.value].includes('reminder');
   }
-  condition.oninput=refresh;kind.onchange=refresh;alternate.onchange=refresh;refresh();
+  conditions.addEventListener('input',refresh);conditions.addEventListener('change',refresh);condition.oninput=refresh;kind.onchange=refresh;alternate.onchange=refresh;refresh();
   const enabled=input(form,'Ativar fluxo','checkbox');enabled.checked=existing?.enabled??false;
   const save=node('button','Publicar versão','primary'),feedback=node('p');feedback.setAttribute('role','alert');form.append(save,feedback);
   form.onsubmit=async e=>{
    e.preventDefault();save.disabled=true;
    try{
-    const data={trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),task_title:title.value,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.value===''?null:Number(due.value),enabled:enabled.checked};
+    const data={conditions:selectedConditions(),trigger_event:trigger.value,name:name.value,source_filter:condition.value.trim()||null,wait_minutes:Number(delay.value),task_title:title.value,action_kind:kind.value,else_kind:alternate.value||null,else_title:alternate.value?alternateTitle.value:null,due_minutes:due.value===''?null:Number(due.value),enabled:enabled.checked};
     if(existing)data.expected_version=existing.version;
     await api(existing?'/automations/'+existing.id:'/automations',existing?'PUT':'POST',data);
     document.getElementById('dialog').close();await view(page);
@@ -45,7 +66,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const [flows,runs]=await Promise.all([api('/automations'),api('/automations/runs')]);
   const names=new Map(flows.items.map(f=>[f.id,f.name]));
   const config=flows.items.map(f=>panel(f.name,node('p','Versão '+f.version+' · '+(f.enabled?'Ativo':'Pausado')),
-    node('p',events[f.trigger_event]+' · '+(f.source_filter??'Todas as origens')+' · espera de '+f.wait_minutes+' min'),node('p',kinds[f.action_kind]+': '+f.task_title),...(f.else_kind?[node('p','Outra origem · '+kinds[f.else_kind]+': '+f.else_title)]:[]),
+    node('p',events[f.trigger_event]+' · '+(f.source_filter??'Todas as origens')+' · espera de '+f.wait_minutes+' min'),node('p',kinds[f.action_kind]+': '+f.task_title),...(f.else_kind?[node('p','Caminho alternativo · '+kinds[f.else_kind]+': '+f.else_title)]:[]),
     button('Editar fluxo',()=>editor(f))));
   const states={queued:'Na fila',done:'Concluído',running:'Em execução',failed:'Falhou'};
   const outcomes={created:'Tarefa criada',skipped:'Ignorado',retry:'Nova tentativa agendada',failed:'Falha final'};

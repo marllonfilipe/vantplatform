@@ -53,3 +53,13 @@ Os eventos de leads e oportunidades no [commit 23b3d3d](https://github.com/marll
 O editor oferece **Reunião agendada** e **Reunião concluída**. A primeira data atribuída a uma reunião em aberto gera um agendamento. A transição para concluída gera a ocorrência de conclusão. Uma simples edição de título ou um ajuste de data de uma reunião já agendada não repete o agendamento. A ação interna usa o responsável e os vínculos atuais da reunião. Uma reunião sem lead ou oportunidade vinculada também pode gerar uma atividade para seu responsável. A origem para a condição é a da oportunidade vinculada ou, se ausente, a do lead.
 
 A migration 018 instala o gatilho apenas para atividades de reunião. As ações que o worker cria são tarefas, lembretes ou follow-ups e não voltam a acionar o gatilho de reunião. O teste de integração agenda, edita e conclui a atividade por HTTP, executa dois workers e verifica no PostgreSQL os vínculos das atividades produzidas. A missão permanece parcial. Próxima atividade independente: avaliação de condições adicionais a partir dos dados do evento.
+
+## Condições comerciais avaliadas no momento do evento
+
+Os gatilhos de reunião no [commit 05f5441](https://github.com/marllonfilipe/vantplatform/commit/05f5441c29416a6114254b02c71e37f4fc902120) passaram nos testes de [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44706559999) e [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44706559986).
+
+O editor permite combinar a origem com segmento, tag, intenção de compra, score mínimo, dias desde o cadastro ou último contato registrado, responsável, etapa e valor mínimo da oportunidade. Todos os critérios preenchidos precisam corresponder para executar a ação principal. A ausência de um dado exigido leva ao caminho alternativo. Uma lista de condições vazia conserva o comportamento das versões anteriores.
+
+A API recebe `conditions`, um objeto formado por `segment`, `tag`, `intent`, `min_score`, `min_quiet_days`, `owner_id`, `stage_id` e `min_cents`. O formulário recebe o valor em reais e a API usa centavos inteiros. A migration 019 registra na fila somente os valores comerciais exigidos por aquela versão do fluxo. Com isso, alterar a ficha antes de o worker executar não muda a ramificação. Para score, usa a última análise persistida do lead ou, na ausência dela, o score do cadastro.
+
+O Chromium configura uma condição por responsável. O teste de integração altera o segmento duas vezes antes do processamento e confere as duas decisões contra os fatos gravados. Também verifica etapa, valor em centavos e rejeição de condições inválidas. A próxima atividade independente é capturar mudanças de pontuação e qualificação a partir da análise do Core.

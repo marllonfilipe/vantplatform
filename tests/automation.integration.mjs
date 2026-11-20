@@ -74,9 +74,11 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   await page.getByRole('button',{name:'Automações',exact:true}).click();
   await page.getByRole('button',{name:'Criar fluxo'}).click();
   await page.getByLabel('Nome do fluxo').fill('Retorno de evento');
-  await page.getByLabel('Origem do lead (opcional)').fill('Congresso');
+  await page.getByLabel('Origem no CRM (opcional)').fill('Congresso');
+  await page.getByText('Condições comerciais',{exact:true}).click();
+  await page.getByRole('dialog').getByLabel('Responsável',{exact:true}).selectOption(actor);
   await page.getByLabel('Título da atividade principal').fill('Retornar ao participante');
-  await page.getByLabel('Se a origem for diferente').selectOption('reminder');
+  await page.getByLabel('Se as condições não forem atendidas').selectOption('reminder');
   await page.getByLabel('Título da atividade alternativa').fill('Revisar outro canal');
   await page.getByLabel('Prazo após a execução (minutos)').fill('45');
   await page.getByLabel('Ativar fluxo').check();
@@ -141,6 +143,29 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   assert.ok(meetingRuns.every(r=>r.state==='done'&&r.history.length===1));
   const planned=await admin.query('SELECT title,deal_id,owner_id FROM vant.activities WHERE tenant_id=$1 AND id=ANY($2::uuid[]) ORDER BY title',[tenant,meetingRuns.map(r=>r.history[0].activity_id)]);
   assert.deepEqual(planned.rows.map(r=>[r.title,r.deal_id,r.owner_id]),[['meeting_completed',deal,actor],['meeting_scheduled',deal,actor]]);
+  const conditionalFlow=await call('automations','POST',{...spec,trigger_event:'lead_updated',source_filter:null,conditions:{segment:'Varejo',tag:'prioridade',owner_id:actor},else_kind:'task',else_title:'Reavaliar cadastro'});
+  assert.equal(conditionalFlow.status,201);
+  const conditionalId=(await conditionalFlow.json()).id;
+  assert.equal((await call('crm/leads/'+lead,'PATCH',{segment:'Varejo',tags:['prioridade']})).status,200);
+  assert.equal((await call('crm/leads/'+lead,'PATCH',{segment:'Outro'})).status,200);
+  for(let i=0;i<4;i++)await worker(tenant);
+  const decisions=(await runs()).filter(r=>r.payload.flow===conditionalId);
+  assert.equal(decisions.length,2);
+  for(const decision of decisions){
+   assert.equal(decision.history.length,1);
+   assert.equal(decision.history[0].branch,decision.payload.facts.segment==='Varejo'?'match':'otherwise');
+   assert.deepEqual(Object.keys(decision.payload.facts).sort(),['owner_id','segment','tag']);
+  }
+  const amountFlow=await call('automations','POST',{...spec,trigger_event:'deal_moved',source_filter:null,conditions:{min_cents:35000,stage_id:stages[0].id}});
+  assert.equal(amountFlow.status,201);
+  const amountId=(await amountFlow.json()).id;
+  assert.equal((await call('crm/deals/'+deal,'PATCH',{stage_id:stages[0].id})).status,200);
+  await worker(tenant);await worker(tenant);
+  const amountRun=(await runs()).find(r=>r.payload.flow===amountId);
+  assert.equal(amountRun.history[0].branch,'match');
+  assert.equal(amountRun.payload.facts.min_cents,35000);
+  assert.equal((await call('automations','POST',{...spec,conditions:{min_score:101}})).status,400);
+  assert.equal((await call('automations','POST',{...spec,conditions:{bogus:true}})).status,400);
  }finally{
   await browser?.close();
   if(server.listening)await new Promise(resolve=>server.close(resolve));
