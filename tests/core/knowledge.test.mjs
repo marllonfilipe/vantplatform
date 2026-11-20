@@ -238,6 +238,30 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     assert.equal(stats.won_cents,'50001');
     assert.equal(stats.weighted_cents,'8001');
     assert.equal((await consult(other,summaryQuestion)).items[0].conversion,null);
+    const idle=(await admin.query(`INSERT INTO vant.leads(tenant_id,owner_id,name,email,created_at)
+      VALUES($1,$2,'Contato antigo','antigo@example.invalid',now()-interval '21 days') RETURNING id`,[tenants[0],sellerId])).rows[0].id;
+    const idleQuestion='Quais leads estão sem contato recente?';
+    const queue=await consult(seller,idleQuestion);
+    assert.equal(queue.intent,'inactive_leads');
+    assert.equal(queue.items[0].id,idle);
+    assert.ok(queue.items[0].quiet_days>=21);
+    assert.deepEqual((await consult(other,idleQuestion)).items,[]);
+    const analyzeFollowup=async()=> (await (await call('core/leads/'+idle+'/analyses','POST',seller,{})).json());
+    const suggested=await analyzeFollowup(), overlapping=await analyzeFollowup();
+    assert.ok(suggested.result.followup.draft.includes('prioridade'));
+    const propose=async run=>{
+      const path='agents/proposals/'+run.id;
+      assert.equal((await call(path,'POST',seller,{})).status,201);
+      return path+'/approve';
+    };
+    const approvalsForLead=await Promise.all([propose(suggested),propose(overlapping)]);
+    const decisions=await Promise.all(approvalsForLead.map(path=>call(path,'POST',seller,{})));
+    assert.deepEqual(decisions.map(r=>r.status).sort(),[200,409]);
+    const pendingFollowups=await admin.query("SELECT id FROM vant.activities WHERE tenant_id=$1 AND lead_id=$2 AND kind='followup' AND done_at IS NULL",[tenants[0],idle]);
+    assert.equal(pendingFollowups.rowCount,1);
+    assert.deepEqual((await consult(seller,idleQuestion)).items,[]);
+    assert.equal((await call('crm/activities/'+pendingFollowups.rows[0].id,'PATCH',seller,{done_at:new Date().toISOString()})).status,200);
+    assert.deepEqual((await consult(seller,idleQuestion)).items,[]);
     assert.equal((await call(path+'/'+id,'DELETE',owner)).status,204);
     assert.ok((await search(owner)).every(row=>row.document_id!==id));
     assert.equal((await admin.query('SELECT count(*)::int AS n FROM vant.document_chunks WHERE document_id=$1',[id])).rows[0].n,0);

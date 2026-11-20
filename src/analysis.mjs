@@ -1,3 +1,4 @@
+import {contactReference,maySuggestFollowup} from './followup.mjs';
 import { lastDealTouch } from './deal-context.mjs';
 import { options } from '../public/crm-schema.js';
 import { audit } from './db.mjs';
@@ -5,7 +6,8 @@ import { reject } from './http.mjs';
 import { isUuid, mayManageTeams } from './security.mjs';
 import { retrieveKnowledge } from './knowledge.mjs';
 
-const leadQuery = `SELECT l.*, a.name AS account_name, ct.title AS contact_title, ct.decision_maker,
+const leadQuery = `SELECT l.*, ${maySuggestFollowup} AS followup_due,
+  floor(extract(epoch FROM now()-(${contactReference}))/86400)::integer AS quiet_days, a.name AS account_name, ct.title AS contact_title, ct.decision_maker,
   EXISTS(SELECT FROM vant.deals d WHERE d.tenant_id=l.tenant_id AND d.lead_id=l.id AND d.status='open') AS open_deal,
   EXISTS(SELECT FROM vant.activities t WHERE t.tenant_id=l.tenant_id AND t.lead_id=l.id AND t.kind IN ('meeting','call') AND t.done_at BETWEEN now()-interval '30 days' AND now()) AS recent_interaction,
   (l.last_contact_at BETWEEN now()-interval '30 days' AND now()) AS recent_contact
@@ -100,6 +102,13 @@ export async function analysisRoutes({db, tenant, member, requestId, url, method
     reject(403,'permission','A análise exige gestão ou responsabilidade pelo registro.');
   }
   const result = lead ? qualify(row) : assess(row);
+  if(lead && row.followup_due){
+    const prompt=row.stated_need ? 'A necessidade registrada continua sendo uma prioridade?'
+      : 'Qual é a sua prioridade comercial neste momento?';
+    result.followup={days:row.quiet_days,reason:'Sem contato concluído há pelo menos 14 dias e sem follow-up pendente.',
+      draft:'Olá! '+prompt+' Podemos combinar um horário para conversar?'};
+    result.nextAction='Revisar o contexto do lead e preparar um follow-up.';
+  }
   const subjectColumn = lead ? 'lead_id' : 'deal_id';
   const taskFields = 't.id,t.title,t.kind,t.due_at,t.done_at,t.owner_id,m.name AS owner_name';
   const taskQuery = 'SELECT '+taskFields+' FROM vant.activities t JOIN vant.members m ON (m.tenant_id,m.id)=(t.tenant_id,t.owner_id) WHERE t.tenant_id=$1 AND t.'+subjectColumn+'=$2 ';

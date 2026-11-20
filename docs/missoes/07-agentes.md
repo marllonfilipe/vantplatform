@@ -70,3 +70,15 @@ No **Copiloto comercial**, as consultas de resultado e conversão por responsáv
 O teste HTTP compara o resumo com o dashboard, inclui perdas, ganhos, um ganho anterior à janela e um valor com arredondamento em centavos. Também verifica o ranking, a separação de carteiras, o isolamento entre empresas e o período sem fechamento. O check do commit registra o resultado real.
 
 A próxima atividade independente é o agente de follow-up com priorização de leads sem contato recente, justificativa e preparação de tarefa interna. O aceite integral da missão 07 segue pendente.
+
+## Preparação de follow-ups
+
+O commit executivo [b08c3f7](https://github.com/marllonfilipe/vantplatform/commit/b08c3f70821703eb6c7e3f2c373e19755a616c9b) passou na [conciliação com o dashboard](https://github.com/marllonfilipe/vantplatform/actions/runs/44693690980) e na [regressão SaaS](https://github.com/marllonfilipe/vantplatform/actions/runs/44693691092).
+
+O copiloto responde **Quais leads estão sem contato recente?** com até dez leads da carteira, em ordem de espera. O filtro exige telefone ou e-mail cadastrado, pelo menos 14 dias completos desde o cadastro ou último contato e ausência de follow-up pendente. Ligações, reuniões e follow-ups concluídos atualizam a referência.
+
+Na ficha de um lead elegível, a análise mostra o motivo, o tempo decorrido e uma sugestão de abordagem para revisão. O responsável pode preparar e aprovar uma atividade interna de follow-up. O agente verifica a elegibilidade novamente na aprovação. Duas propostas de análises distintas para o mesmo lead são serializadas na decisão. Após uma aprovação, a outra encontra o acompanhamento agendado. O texto sugerido fica no CRM, sem disparo de mensagem.
+
+O teste usa duas análises do mesmo lead e aprovações concorrentes. Verifica que há exatamente um follow-up pendente, que o lead sai da fila e que a conclusão recente impede nova sugestão. Cobre também a permissão do vendedor e o isolamento por empresa.
+
+A próxima atividade independente é o SDR assistido para conferir as lacunas de qualificação e sugerir perguntas a partir da ficha. Atendimento e entrega externa de mensagens continuam vinculados à missão 05.

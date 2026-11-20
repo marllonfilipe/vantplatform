@@ -20,7 +20,7 @@ export function createCopilotPage({api,node,button,panel,empty,date}){
     const answer=await api('/agents/copilot','POST',{question:input.value});
     if(current!==generation)return;
     if(!answer.intent){output.replaceChildren(empty('Reformule a pergunta sobre prioridades, riscos, inatividade, follow-ups, conversão ou resultado comercial.'));return;}
-    const titles={executive:'Resultado comercial · últimos 30 dias',conversion:'Conversão por responsável · últimos 30 dias',stalled:'Oportunidades abertas sem movimento há pelo menos 14 dias',leads:'Prioridade dos leads analisados',risks:'Riscos nas últimas análises de oportunidades abertas',followups:'Follow-ups vencidos'};
+    const titles={inactive_leads:'Leads sem contato recente e sem retorno agendado',executive:'Resultado comercial · últimos 30 dias',conversion:'Conversão por responsável · últimos 30 dias',stalled:'Oportunidades abertas sem movimento há pelo menos 14 dias',leads:'Prioridade dos leads analisados',risks:'Riscos nas últimas análises de oportunidades abertas',followups:'Follow-ups vencidos'};
     const items=answer.items.map(item=>{
      if(answer.intent==='executive'){
       const rate=item.conversion==null?'Sem fechamentos':item.conversion+'% em '+item.closed_count+' fechamentos';
@@ -28,6 +28,7 @@ export function createCopilotPage({api,node,button,panel,empty,date}){
        node('p',item.open_count+' oportunidades abertas · '+amount(item.pipeline_cents)),node('p','Valor ponderado hoje: '+amount(item.weighted_cents)));
      }
      if(answer.intent==='conversion')return panel(item.name,node('p',item.conversion+'% · '+item.won_count+' ganhos em '+item.closed_count+' fechamentos'));
+     if(answer.intent==='inactive_leads')return panel(item.name,node('p',item.quiet_days+' dias desde o cadastro ou último contato'),node('p','Referência: '+date(item.reference_at)));
      const details=answer.intent==='stalled'?[item.days_stalled+' dias sem movimento','Último movimento em '+date(item.last_touch)]:item.due_at?['Vencimento: '+date(item.due_at)]:[item.risk??('Pontuação: '+item.score),item.detail,'Análise de '+date(item.analyzed_at)];
      return panel(item.name,...details.map(text=>node('p',text)));
     });

@@ -1,3 +1,4 @@
+import {contactReference,maySuggestFollowup} from './followup.mjs';
 import {lastDealTouch} from './deal-context.mjs';
 import {questions} from '../public/copilot-questions.js';
 import {audit} from './db.mjs';
@@ -23,6 +24,10 @@ async function classify(question){
 // O painel usa o início do dia em São Paulo e inclui o dia atual no período.
 const periodStart = "((now() AT TIME ZONE 'America/Sao_Paulo')::date-29)::timestamp AT TIME ZONE 'America/Sao_Paulo'";
 const reads={
+ inactive_leads:`SELECT l.id,l.name,${contactReference} AS reference_at,
+   floor(extract(epoch FROM now()-(${contactReference}))/86400)::integer AS quiet_days
+   FROM vant.leads l WHERE l.tenant_id=$1 AND ($2::uuid IS NULL OR l.owner_id=$2)
+   AND ${maySuggestFollowup} ORDER BY reference_at,l.id LIMIT 10`,
  conversion:`SELECT m.id,m.name,count(*)::int AS closed_count,count(*) FILTER (WHERE d.status='won')::int AS won_count,
      round(100.0*count(*) FILTER(WHERE d.status='won')/count(*),1) AS conversion
    FROM vant.deals d JOIN vant.members m ON (m.tenant_id,m.id)=(d.tenant_id,d.owner_id)

@@ -61,6 +61,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
     if(activities.length)parts.push(panel(title,...activities.map(task=>pair(task.title,task.owner_name+' · '+date(task.done_at??task.due_at)))));
    }
   }
+  if(result.followup)parts.push(panel('Preparação do follow-up',pair('Dias sem contato',result.followup.days),node('p',result.followup.reason),pair('Texto para revisão',result.followup.draft)));
   if(result.recovery){
    const recovery=result.recovery,items=[pair('Dias desde atualização ou contato',recovery.daysSinceTouch)];
    if(recovery.reason)items.push(pair('Motivo',recovery.reason));

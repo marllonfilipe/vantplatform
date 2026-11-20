@@ -1,3 +1,4 @@
+import {maySuggestFollowup} from './followup.mjs';
 import {audit} from './db.mjs';
 import {createCrmActivity} from './crm.mjs';
 import {reject} from './http.mjs';
@@ -33,7 +34,11 @@ export async function agentRoutes(ctx) {
   let activityId=null;
   if(decision==='approve'){
     if(run.result.recovery && record.status!==run.result.recovery.status)reject(409,'outdated','A situação da oportunidade mudou. Gere uma nova análise.');
-    const task={kind:'task',title:run.result.nextAction,owner_id:record.owner_id,[run.subject_kind+'_id']:run.subject_id};
+    if(run.subject_kind==='lead' && run.result.followup){
+      const eligible=await db.query('SELECT 1 FROM vant.leads l WHERE l.tenant_id=$1 AND l.id=$2 AND '+maySuggestFollowup,[tenant,run.subject_id]);
+      if(!eligible.rowCount)reject(409,'outdated','O contexto de follow-up mudou. Consulte a agenda e atualize a análise.');
+    }
+    const task={kind:run.result.followup?'followup':'task',title:run.result.nextAction,owner_id:record.owner_id,[run.subject_kind+'_id']:run.subject_id};
     if(body.due_at)task.due_at=body.due_at;
     activityId=(await createCrmActivity(ctx,task)).id;
   }
