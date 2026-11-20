@@ -4,6 +4,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
  const kinds={task:'Tarefa',reminder:'Lembrete',followup:'Follow-up'};
  function select(form,label,choices,value){
   const wrapper=node('label',label),control=node('select');
+  control.setAttribute('aria-label',label);
   for(const [key,name] of choices)control.add(new Option(name,key));
   control.value=value;wrapper.append(control);form.append(wrapper);return control;
  }
