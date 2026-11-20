@@ -1,6 +1,6 @@
 export function createAutomationPage({api,node,button,panel,empty,modal,view,date}){
  const page='Automações';
- const events={lead_created:'Novo lead',lead_updated:'Lead atualizado',deal_created:'Nova oportunidade',deal_moved:'Mudança de etapa',deal_lost:'Oportunidade perdida'};
+ const events={lead_created:'Novo lead',lead_updated:'Lead atualizado',deal_created:'Nova oportunidade',deal_moved:'Mudança de etapa',deal_lost:'Oportunidade perdida',meeting_scheduled:'Reunião agendada',meeting_completed:'Reunião concluída'};
  const kinds={task:'Tarefa',reminder:'Lembrete',followup:'Follow-up'};
  function select(form,label,choices,value){
   const wrapper=node('label',label),control=node('select');
@@ -51,7 +51,7 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const outcomes={created:'Tarefa criada',skipped:'Ignorado',retry:'Nova tentativa agendada',failed:'Falha final'};
   const history=runs.items.map(r=>{
    const details=node('details'),summary=node('summary',(names.get(r.payload.flow)??'Fluxo')+' · v'+r.payload.version+' · '+states[r.state]);
-   details.append(summary,node('p',events[r.payload.event??'lead_created']),node('p',r.payload.deal?'Oportunidade: '+r.payload.deal:'Lead: '+r.payload.lead),node('p','Disponível em '+date(r.available_at)));
+   details.append(summary,node('p',events[r.payload.event??'lead_created']),node('p',r.payload.meeting?'Reunião: '+r.payload.meeting:r.payload.deal?'Oportunidade: '+r.payload.deal:'Lead: '+r.payload.lead),node('p','Disponível em '+date(r.available_at)));
    for(const attempt of r.history)details.append(node('p','Tentativa '+attempt.attempt+' · '+(attempt.outcome==='created'?({task:'Tarefa criada',reminder:'Lembrete criado',followup:'Follow-up criado'}[attempt.action_kind]??outcomes.created):outcomes[attempt.outcome])+(attempt.branch==='otherwise'?' · caminho alternativo':'')+(attempt.activity_id?' · atividade '+attempt.activity_id:'')));
    return details;
   });

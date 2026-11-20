@@ -45,3 +45,11 @@ No editor, **Evento no CRM** seleciona novo lead, lead atualizado, nova oportuni
 O trabalho guarda ocorrência, versão, origem e identificador do registro. Eventos de mudança de oportunidade incluem etapa e situação anteriores. A atividade é vinculada ao lead ou à oportunidade que originou a execução. Os gatilhos acompanham alterações no PostgreSQL e mantêm o filtro por empresa.
 
 O teste de integração usa as rotas reais do CRM para cadastrar e editar os registros e executa o worker para conferir cinco ocorrências, incluindo uma mudança simultânea de etapa e situação. O check da revisão documenta o resultado. Próxima atividade: eventos de reuniões agendadas e concluídas e condições adicionais ligadas ao registro.
+
+## Agenda comercial como origem de eventos
+
+Os eventos de leads e oportunidades no [commit 23b3d3d](https://github.com/marllonfilipe/vantplatform/commit/23b3d3d68b372f0accc32b1e0d6da7f4a6247197) passaram nos testes de [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44706235966) e [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44706235890).
+
+O editor oferece **Reunião agendada** e **Reunião concluída**. A primeira data atribuída a uma reunião em aberto gera um agendamento. A transição para concluída gera a ocorrência de conclusão. Uma simples edição de título ou um ajuste de data de uma reunião já agendada não repete o agendamento. A ação interna usa o responsável e os vínculos atuais da reunião. Uma reunião sem lead ou oportunidade vinculada também pode gerar uma atividade para seu responsável. A origem para a condição é a da oportunidade vinculada ou, se ausente, a do lead.
+
+A migration 018 instala o gatilho apenas para atividades de reunião. As ações que o worker cria são tarefas, lembretes ou follow-ups e não voltam a acionar o gatilho de reunião. O teste de integração agenda, edita e conclui a atividade por HTTP, executa dois workers e verifica no PostgreSQL os vínculos das atividades produzidas. A missão permanece parcial. Próxima atividade independente: avaliação de condições adicionais a partir dos dados do evento.

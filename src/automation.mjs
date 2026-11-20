@@ -4,7 +4,7 @@ import {createCrmActivity} from './crm.mjs';
 import {isUuid,mayManageTeams} from './security.mjs';
 import {reject,textField} from './http.mjs';
 
-const events=['lead_created','lead_updated','deal_created','deal_moved','deal_lost'];
+const events=['lead_created','lead_updated','deal_created','deal_moved','deal_lost','meeting_scheduled','meeting_completed'];
 const jobKinds=events.map(event=>'flow.'+event);
 const activityKinds=new Set(['task','reminder','followup']);
 function actions(body,source){
@@ -59,6 +59,16 @@ export async function automationRoutes({db,tenant,member,url,method,body,request
  return [create?201:200,{id,version}];
 }
 
+async function activityTarget(db,tenant,payload){
+ if(payload.meeting){
+  return (await db.query("SELECT owner_id,lead_id,deal_id FROM vant.activities WHERE tenant_id=$1 AND id=$2 AND kind='meeting' FOR SHARE",[tenant,payload.meeting])).rows[0];
+ }
+ const deal=Boolean(payload.deal),subjectId=deal?payload.deal:payload.lead;
+ const table=deal?'deals':'leads';
+ const row=(await db.query('SELECT owner_id FROM vant.'+table+' WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenant,subjectId])).rows[0];
+ if(row)return {...row,[deal?'deal_id':'lead_id']:subjectId};
+}
+
 export function processNext(pool,tenant){
  return withTenant(pool,tenant,async db=>{
   const job=(await db.query(`SELECT j.id,j.payload,j.attempts,v.task_title,v.source_filter,v.author_id,v.action_kind,v.else_kind,v.else_title,v.due_minutes
@@ -76,13 +86,11 @@ export function processNext(pool,tenant){
   await db.query('SAVEPOINT flow_effect');
   try{
    if(kind){
-    const deal=Boolean(job.payload.deal),subjectId=deal?job.payload.deal:job.payload.lead;
-    const table=deal?'deals':'leads';
-    const record=(await db.query('SELECT owner_id FROM vant.'+table+' WHERE tenant_id=$1 AND id=$2 FOR SHARE',[tenant,subjectId])).rows[0];
+    const record=await activityTarget(db,tenant,job.payload);
     if(record){
      const member=(await db.query('SELECT id,role FROM vant.members WHERE tenant_id=$1 AND id=$2 AND active',[tenant,job.author_id])).rows[0];
      if(!member||!mayManageTeams(member.role))throw Object.assign(new Error('author_unavailable'),{code:'author_unavailable'});
-     const task={kind,title,[deal?'deal_id':'lead_id']:subjectId,owner_id:record.owner_id};
+     const task={kind,title,...record};
      if(job.due_minutes!==null)task.due_at=new Date(Date.now()+job.due_minutes*60000).toISOString();
      activity=(await createCrmActivity({db,tenant,member,requestId:randomUUID()},task)).id;
      outcome='created';

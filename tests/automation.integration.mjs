@@ -124,6 +124,23 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   assert.equal(moved.payload.stage,stages[1].id);
   const linked=await admin.query('SELECT deal_id,lead_id,owner_id FROM vant.activities WHERE tenant_id=$1 AND id=$2',[tenant,moved.history[0].activity_id]);
   assert.deepEqual(linked.rows,[{deal_id:deal,lead_id:null,owner_id:actor}]);
+  for(const trigger_event of ['meeting_scheduled','meeting_completed']){
+   assert.equal((await call('automations','POST',{...spec,name:trigger_event,trigger_event,source_filter:null,task_title:trigger_event})).status,201);
+  }
+  const addMeeting=await call('crm/activities','POST',{title:'Revisão da conta',kind:'meeting',deal_id:deal});
+  assert.equal(addMeeting.status,201);
+  const meeting=(await addMeeting.json()).id,activityPath='crm/activities/'+meeting;
+  assert.ok(!(await runs()).some(r=>r.payload.meeting===meeting));
+  assert.equal((await call(activityPath,'PATCH',{due_at:new Date(Date.now()+86400000).toISOString()})).status,200);
+  assert.equal((await call(activityPath,'PATCH',{title:'Revisão comercial'})).status,200);
+  assert.equal((await call(activityPath,'PATCH',{done_at:new Date().toISOString()})).status,200);
+  assert.equal((await call(activityPath,'PATCH',{title:'Revisão encerrada'})).status,200);
+  await Promise.all([worker(tenant),worker(tenant)]);
+  const meetingRuns=(await runs()).filter(r=>r.payload.meeting===meeting);
+  assert.deepEqual(meetingRuns.map(r=>r.payload.event).sort(),['meeting_completed','meeting_scheduled']);
+  assert.ok(meetingRuns.every(r=>r.state==='done'&&r.history.length===1));
+  const planned=await admin.query('SELECT title,deal_id,owner_id FROM vant.activities WHERE tenant_id=$1 AND id=ANY($2::uuid[]) ORDER BY title',[tenant,meetingRuns.map(r=>r.history[0].activity_id)]);
+  assert.deepEqual(planned.rows.map(r=>[r.title,r.deal_id,r.owner_id]),[['meeting_completed',deal,actor],['meeting_scheduled',deal,actor]]);
  }finally{
   await browser?.close();
   if(server.listening)await new Promise(resolve=>server.close(resolve));

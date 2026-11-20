@@ -29,7 +29,7 @@ As entregas 01–04 têm relatórios no diretório `docs/missoes`. A [revisão d
 |---|---|---|
 | 06 | Inferência, documentos, catálogo, análise de leads e oportunidades, histórico de tarefas e métricas | [Relatório e testes](missoes/06-inteligencia.md). Avaliar recomendações com dados representativos e capacidade no host de implantação. |
 | 07 | Propostas de tarefa, consultas do copiloto, reuniões, recuperação, indicadores executivos, follow-ups, SDR e supervisão de ações no CRM | [Relatório](missoes/07-agentes.md). Verificar os checks do commit e conferir consultas por empresa e etapa, e avançar no fluxo interno de novo lead da missão 08. |
-| 08 | Fluxos de lead e oportunidade, ramificação por origem, tarefas, lembretes, follow-ups e monitor | [Relatório](missoes/08-automacoes.md). Conferir os checks do worker e do Chromium. Continuar os eventos de reunião e as condições sobre os dados do CRM. |
+| 08 | Fluxos de lead, oportunidade e reunião, ramificação por origem, tarefas, lembretes, follow-ups e monitor | [Relatório](missoes/08-automacoes.md). Conferir os checks do worker e do Chromium. Continuar as condições sobre os dados do CRM. |
 | 09–13 | Sem entrega integral registrada nesse ponto de retomada | Os critérios e dependências por missão constam da tabela acima e do cronograma. |
 
 A evidência de CI pertence ao commit testado. Nas próximas execuções, conferir o histórico e os checks mais recentes da main antes de retomar.
