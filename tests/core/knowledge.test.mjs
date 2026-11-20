@@ -78,6 +78,8 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     const dealResult=(await dealRun.json()).result;
     assert.equal(dealResult.probability,40);
     assert.equal(dealResult.classification,'Risco elevado');
+    assert.equal(dealResult.recovery.status,'open');
+    assert.equal(dealResult.recovery.questions.length,2);
     const newRun=await call(leadPath,'POST',owner,{});
     assert.equal((await newRun.json()).result.score,55);
     const history=await (await call(leadPath,'GET',owner)).json();
@@ -197,6 +199,26 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     const recorded=await (await call(minutes,'GET',owner)).json();
     assert.deepEqual(recorded.items.map(item=>item.revision),[2,1]);
     assert.equal(recorded.items[1].notes,notes);
+    const stalledQuestion='Quais oportunidades estão paradas?';
+    await admin.query("UPDATE vant.deals SET updated_at=now()-interval '20 days' WHERE id=$1",[deal]);
+    // A reunião concluída é um contato recente, mesmo com a ficha antiga.
+    assert.deepEqual((await consult(owner,stalledQuestion)).items,[]);
+    await admin.query("UPDATE vant.activities SET done_at=now()-interval '18 days' WHERE id=$1",[meeting]);
+    const stalled=await consult(owner,stalledQuestion);
+    assert.equal(stalled.intent,'stalled');
+    assert.equal(stalled.items[0].id,deal);
+    assert.equal(stalled.items[0].days_stalled,18);
+    assert.deepEqual((await consult(other,stalledQuestion)).items,[]);
+    assert.deepEqual((await consult(seller,stalledQuestion)).items,[]);
+    const staleRun=await (await call('core/deals/'+deal+'/analyses','POST',owner,{})).json();
+    const stalePath='agents/proposals/'+staleRun.id;
+    assert.equal((await call(stalePath,'POST',owner,{})).status,201);
+    assert.equal((await call('crm/deals/'+deal,'PATCH',owner,{status:'lost',loss_reason:'Orçamento indisponível.'})).status,200);
+    assert.equal((await call(stalePath+'/approve','POST',owner,{})).status,409);
+    const lostRun=await (await call('core/deals/'+deal+'/analyses','POST',owner,{})).json();
+    assert.equal(lostRun.result.recovery.status,'lost');
+    assert.equal(lostRun.result.recovery.reason,'Orçamento indisponível.');
+    assert.deepEqual((await consult(owner,stalledQuestion)).items,[]);
     assert.equal((await call(path+'/'+id,'DELETE',owner)).status,204);
     assert.ok((await search(owner)).every(row=>row.document_id!==id));
     assert.equal((await admin.query('SELECT count(*)::int AS n FROM vant.document_chunks WHERE document_id=$1',[id])).rows[0].n,0);

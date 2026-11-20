@@ -1,3 +1,4 @@
+import { lastDealTouch } from './deal-context.mjs';
 import { options } from '../public/crm-schema.js';
 import { audit } from './db.mjs';
 import { reject } from './http.mjs';
@@ -12,6 +13,7 @@ const leadQuery = `SELECT l.*, a.name AS account_name, ct.title AS contact_title
   LEFT JOIN vant.contacts ct ON (ct.tenant_id,ct.id)=(l.tenant_id,l.contact_id)
   WHERE l.tenant_id=$1 AND l.id=$2`;
 const dealQuery = `SELECT d.*, current_date-d.updated_at::date AS days_unchanged,
+  current_date-(${lastDealTouch})::date AS days_since_touch,
   d.close_on < current_date AS late_close,
   EXISTS(SELECT FROM vant.activities t WHERE t.tenant_id=d.tenant_id AND t.deal_id=d.id AND t.done_at IS NULL) AS has_next_step
   FROM vant.deals d WHERE d.tenant_id=$1 AND d.id=$2`;
@@ -43,6 +45,12 @@ function qualify(lead) {
 
 function assess(deal) {
   const evidence = [];
+  if (deal.status === 'lost') {
+    const nextAction='Verificar se as condições da perda mudaram antes de propor retomada.';
+    return {classification:'Perdida',probability:deal.probability,evidence:deal.loss_reason?[{detail:deal.loss_reason}]:[],nextAction,
+      recovery:{status:'lost',reason:deal.loss_reason??null,daysSinceTouch:deal.days_since_touch,
+      questions:['O motivo registrado para a perda ainda se aplica?','Há uma condição nova que justifique reavaliar a oportunidade?']}};
+  }
   if (deal.status !== 'open') {
     return {classification:deal.status === 'won' ? 'Ganha' : 'Perdida', probability:deal.probability,
       evidence: deal.loss_reason ? [{detail:deal.loss_reason}] : [], nextAction:'Revisar o resultado registrado no CRM.'};
@@ -50,7 +58,11 @@ function assess(deal) {
   if (deal.late_close) evidence.push({detail:'Data prevista de fechamento vencida'});
   if (deal.days_unchanged >= 14) evidence.push({detail:'Pelo menos 14 dias sem atualização da oportunidade'});
   if (!deal.has_next_step) evidence.push({detail:'Nenhuma atividade pendente vinculada'});
-  return { classification:evidence.length >= 2 ? 'Risco elevado' : evidence.length ? 'Requer atenção' : 'Em acompanhamento',
+  const recovery=evidence.length ? {status:'open',daysSinceTouch:deal.days_since_touch,
+    reason:deal.late_close?'Fechamento previsto vencido':deal.days_since_touch>=14?'Sem atualização ou contato recente':'Revisão do acompanhamento',
+    questions:[deal.late_close?'Qual é a nova previsão de decisão?':'Que impedimento está atrasando a decisão?',
+      deal.has_next_step?'A atividade planejada resolve o impedimento?':'Quem assumirá a próxima atividade e em qual data?']} : null;
+  return { recovery, classification:evidence.length >= 2 ? 'Risco elevado' : evidence.length ? 'Requer atenção' : 'Em acompanhamento',
     probability:deal.probability, daysUnchanged:deal.days_unchanged, evidence,
     nextAction: deal.late_close ? 'Confirmar e atualizar a previsão de fechamento.'
       : !deal.has_next_step ? 'Agendar a próxima atividade com o responsável.' : 'Revisar a atividade pendente.' };
@@ -96,7 +108,7 @@ export async function analysisRoutes({db, tenant, member, requestId, url, method
   result.activities = {pending:pending.rows,completed:completed.rows};
   const query = (lead ? [row.stated_need,row.stated_objection,row.segment,row.notes,row.account_name,row.name] : [row.products,row.loss_reason,row.name]).filter(Boolean).join(' ').slice(0,320) || subject;
   const memory = await retrieveKnowledge(db,tenant,query,3,Boolean(lead && row.stated_need));
-  result.ruleset = lead ? 'crm-v2' : 'crm-v1';
+  result.ruleset = 'crm-v2';
   result.sources = memory.items.map(({document_id,revision,chunk_index,similarity})=>({document_id,revision,chunk_index,similarity}));
   if (lead && memory.offer && memory.offer.similarity >= 0.65) {
     const {document_id,revision,chunk_index,similarity,title}=memory.offer;

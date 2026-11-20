@@ -17,10 +17,10 @@ export function createCopilotPage({api,node,button,panel,empty,date}){
    try{
     const answer=await api('/agents/copilot','POST',{question:input.value});
     if(current!==generation)return;
-    if(!answer.intent){output.replaceChildren(empty('Reformule a pergunta sobre prioridades, riscos ou follow-ups.'));return;}
-    const titles={leads:'Prioridade dos leads analisados',risks:'Riscos nas últimas análises de oportunidades abertas',followups:'Follow-ups vencidos'};
+    if(!answer.intent){output.replaceChildren(empty('Reformule a pergunta sobre prioridades, riscos, oportunidades paradas ou follow-ups.'));return;}
+    const titles={stalled:'Oportunidades abertas sem movimento há pelo menos 14 dias',leads:'Prioridade dos leads analisados',risks:'Riscos nas últimas análises de oportunidades abertas',followups:'Follow-ups vencidos'};
     const items=answer.items.map(item=>{
-     const details=item.due_at?['Vencimento: '+date(item.due_at)]:[item.risk??('Pontuação: '+item.score),item.detail,'Análise de '+date(item.analyzed_at)];
+     const details=answer.intent==='stalled'?[item.days_stalled+' dias sem movimento','Último movimento em '+date(item.last_touch)]:item.due_at?['Vencimento: '+date(item.due_at)]:[item.risk??('Pontuação: '+item.score),item.detail,'Análise de '+date(item.analyzed_at)];
      return panel(item.name,...details.map(text=>node('p',text)));
     });
     output.replaceChildren(panel(titles[answer.intent],...(items.length?items:[empty('Nenhum registro encontrado para esta consulta.')])));

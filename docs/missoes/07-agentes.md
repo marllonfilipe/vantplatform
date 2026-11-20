@@ -50,3 +50,13 @@ Depois de concluir a atividade na agenda, o responsável ou gestor abre **Result
 A rota `/api/v1/agents/meetings/{id}/minutes` oferece as últimas dez revisões por GET e registro por POST com `notes` e `expectedRevision`. A primeira revisão parte de zero. Reenviar notas idênticas retorna a última versão. Uma edição com conteúdo diferente e revisão vencida retorna conflito. A aplicação conserva as revisões anteriores e audita o ator.
 
 A suíte HTTP verifica conclusão da atividade, extração literal, autorização, isolamento, revisão e histórico no PostgreSQL. O teste em Chromium cobre preparação, conclusão da atividade e leitura do resultado. Os checks associados ao commit registram o resultado da execução. O incremento é parcial. A próxima atividade independente da missão é a recuperação de oportunidades do CRM com acompanhamento sujeito à decisão humana.
+
+## Recuperação de oportunidades
+
+No commit [2dda266](https://github.com/marllonfilipe/vantplatform/commit/2dda266ff7f17e37412f734d43092ea40d0a2188), o fluxo das notas de reunião passou nas suítes de [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44693169813) e [fundação SaaS](https://github.com/marllonfilipe/vantplatform/actions/runs/44693169653).
+
+No dashboard, o copiloto aceita a pergunta **Quais oportunidades estão paradas?**. A consulta mostra até dez oportunidades abertas da carteira acessível com pelo menos 14 dias de calendário desde o último movimento. Usa a mais recente entre a atualização da ficha e as datas de ligações, reuniões e follow-ups concluídos. A ordenação prioriza as mais antigas.
+
+Em **Oportunidades**, abra a ficha e selecione **Analisar no Intelligence Core**. Para registros que exigem atenção, a análise apresenta motivo, intervalo desde o último movimento e perguntas para preparar a abordagem. Em uma perda, registra o motivo disponível no CRM. O responsável decide se prepara uma tarefa interna e se a aprova. A aprovação exige uma nova análise caso a oportunidade tenha mudado de situação entre a sugestão e a decisão.
+
+O teste HTTP cobre contato recente em uma ficha antiga, inatividade de 18 dias, carteiras e empresas diferentes, exclusão das oportunidades fechadas da lista, motivo de perda e conflito de aprovação. Os checks do commit registram o resultado. Próxima atividade independente: agente executivo com indicadores conciliados e consulta de conversão por vendedor. A Missão 07 continua parcial.

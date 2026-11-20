@@ -1,3 +1,4 @@
+import {lastDealTouch} from './deal-context.mjs';
 import {questions} from '../public/copilot-questions.js';
 import {audit} from './db.mjs';
 import {reject,textField} from './http.mjs';
@@ -31,6 +32,10 @@ const reads={
    ) r ON true WHERE d.tenant_id=$1 AND ($2::uuid IS NULL OR d.owner_id=$2) AND d.status='open'
    AND r.result->>'classification' IN ('Risco elevado','Requer atenção')
    ORDER BY (r.result->>'classification'='Risco elevado') DESC,r.created_at DESC,d.id LIMIT 10`,
+ stalled:`SELECT d.id,d.name,activity.last_touch,current_date-activity.last_touch::date AS days_stalled
+   FROM vant.deals d CROSS JOIN LATERAL (SELECT ${lastDealTouch} AS last_touch) activity
+   WHERE d.tenant_id=$1 AND ($2::uuid IS NULL OR d.owner_id=$2) AND d.status='open'
+     AND current_date-activity.last_touch::date>=14 ORDER BY activity.last_touch,d.id LIMIT 10`,
  followups:`SELECT id,title AS name,due_at FROM vant.activities WHERE tenant_id=$1 AND ($2::uuid IS NULL OR owner_id=$2)
    AND kind='followup' AND done_at IS NULL AND due_at<now() ORDER BY due_at,id LIMIT 10`
 };

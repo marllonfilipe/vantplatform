@@ -28,7 +28,7 @@ As entregas 01–04 têm relatórios no diretório `docs/missoes`. A [revisão d
 | Missão | Entrega mais recente | Evidência e próxima atividade |
 |---|---|---|
 | 06 | Inferência, documentos, catálogo, análise de leads e oportunidades, histórico de tarefas e métricas | [Relatório e testes](missoes/06-inteligencia.md). Avaliar recomendações com dados representativos e capacidade no host de implantação. |
-| 07 | Propostas de tarefa, consultas do copiloto, preparação e resultados de reuniões do CRM | [Relatório](missoes/07-agentes.md). Verificar os checks do commit e continuar a recuperação de oportunidades do CRM. |
+| 07 | Propostas de tarefa, consultas do copiloto, reuniões e recuperação de oportunidades do CRM | [Relatório](missoes/07-agentes.md). Verificar os checks do commit e continuar os indicadores do agente executivo. |
 | 08–13 | Sem entrega integral registrada nesse ponto de retomada | Os critérios e dependências por missão constam da tabela acima e do cronograma. |
 
 A evidência de CI pertence ao commit testado. Nas próximas execuções, conferir o histórico e os checks mais recentes da main antes de retomar.

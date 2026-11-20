@@ -13,7 +13,8 @@ export async function agentRoutes(ctx) {
   if(!run)reject(404,'missing','Análise não encontrada.');
   const table=run.subject_kind==='lead'?'leads':'deals';
   // Serializa decisões e reatribuições do mesmo registro no CRM.
-  const record=(await db.query('SELECT owner_id FROM vant.'+table+' WHERE tenant_id=$1 AND id=$2'+(method==='POST'?' FOR UPDATE':''),[tenant,run.subject_id])).rows[0];
+  const fields=run.subject_kind==='deal'?'owner_id,status':'owner_id';
+  const record=(await db.query('SELECT '+fields+' FROM vant.'+table+' WHERE tenant_id=$1 AND id=$2'+(method==='POST'?' FOR UPDATE':''),[tenant,run.subject_id])).rows[0];
   if(!record)reject(404,'missing','Registro não encontrado.');
   const writable=mayManageTeams(member.role)||(member.role==='seller'&&record.owner_id===member.id);
   const existing=(await db.query('SELECT * FROM vant.agent_proposals WHERE tenant_id=$1 AND run_id=$2',[tenant,runId])).rows[0];
@@ -31,6 +32,7 @@ export async function agentRoutes(ctx) {
   if(existing.status!=='pending')reject(409,'decided','A proposta já recebeu outra decisão.');
   let activityId=null;
   if(decision==='approve'){
+    if(run.result.recovery && record.status!==run.result.recovery.status)reject(409,'outdated','A situação da oportunidade mudou. Gere uma nova análise.');
     const task={kind:'task',title:run.result.nextAction,owner_id:record.owner_id,[run.subject_kind+'_id']:run.subject_id};
     if(body.due_at)task.due_at=body.due_at;
     activityId=(await createCrmActivity(ctx,task)).id;
