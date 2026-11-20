@@ -81,3 +81,7 @@ O [webhook da Missão 08](https://github.com/marllonfilipe/vantplatform/commit/c
 O CSV vincula as contas ao perfil escolhido e ao CRM, conserva os dados existentes e registra cada fonte. A suíte de fundação cobre concorrência, isolamento, validação do lote e importação na interface. A próxima atividade independente é a classificação de aderência ao ICP pelo Core. A implementação continua parcial.
 
 Os [perfis e a seleção no CRM](https://github.com/marllonfilipe/vantplatform/commit/033435f604636bf89ebb08e31d5decbc02dba0e1) passaram na [fundação com Chromium e PostgreSQL](https://github.com/marllonfilipe/vantplatform/actions/runs/44798921819) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44798921771).
+
+## Missão 09 · Classificação de aderência
+
+A [importação CSV](https://github.com/marllonfilipe/vantplatform/commit/5aa6fc546c85a34e95e7af18b4b3068933faf326) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44799366675) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44799366656). A classificação de empresas-alvo usa o modelo local e critérios estruturados, registra a evidência por critério e ordena a lista por aderência atual. O cenário está em `tests/core/prospecting.test.mjs`. A próxima atividade é o registro assistido de decisores e a conversão em lead do CRM. A entrega permanece parcial.

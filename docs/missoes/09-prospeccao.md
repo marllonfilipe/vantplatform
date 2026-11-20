@@ -25,3 +25,13 @@ A correspondência usa o identificador da empresa dentro do tenant e desconsider
 Cada referência de origem fica vinculada à conta com o usuário e o instante de registro. Uma seleção posterior pode acrescentar uma fonte. A retirada de uma lista preserva as fontes da empresa. O cartão mostra até cinco referências recentes, além da origem da seleção vigente. O endpoint `POST /api/v1/prospecting/profiles/{id}/import` recebe `csv` e devolve as contagens de registros, empresas criadas, reutilizações e novas seleções.
 
 O teste de prospecção importa arquivos com as mesmas contas em ordens opostas, verifica a reversão de lote inválido, confirma o isolamento entre empresas e importa uma fonte complementar pelo Chromium. O próximo incremento é classificar a aderência ao ICP com o Intelligence Core e apresentar a evidência da classificação.
+
+## Aderência ao ICP e priorização
+
+Na lista **Prioridade das empresas-alvo**, use **Classificar aderência**. O Core considera somente critérios definidos no perfil. Cada critério tem peso igual. Dados ausentes recebem zero pontos. Região e porte usam os critérios estruturados da pesquisa. Para segmento e atividade econômica com dados, o mesmo modelo de embeddings local da plataforma calcula a similaridade entre perfil e empresa. Correspondência direta recebe cem pontos. Fora dela, os critérios semânticos usam o cosseno limitado ao intervalo de zero a um.
+
+A nota final é a média arredondada dos pontos. As faixas são alta aderência a partir de 80, parcial a partir de 50 e baixa abaixo de 50. A nota mede aderência aos critérios selecionados. A interface mostra os valores avaliados, o método, os pontos, a revisão do modelo quando usada e uma sugestão de abordagem. A fonte da seleção permanece disponível no cartão.
+
+A classificação fica associada à empresa, à revisão do perfil, aos dados observados e à revisão do motor. Repetir a ação com as mesmas entradas reutiliza o resultado. A prioridade usa somente avaliações compatíveis com os dados atuais. As contas sem avaliação atual aparecem no fim. Em `POST .../targets/{accountId}/assess`, membros com escrita avaliam contas selecionadas. `GET .../priority` expõe o resultado paginado aos leitores da empresa.
+
+A suíte de inteligência executa `tests/core/prospecting.test.mjs` em CPU com PostgreSQL e Chromium. Ela verifica classificação com modelo real, falta de dados, concorrência, revisão do perfil, edição do CRM, ordenação e isolamento. O próximo incremento é associar perfis profissionais e fontes aos decisores e registrar a passagem da conta-alvo para um lead no CRM.

@@ -80,13 +80,36 @@ export function createProspectingPage({api,node,button,panel,empty,modal,date,vi
   if(user.role!=='viewer')bar.append(button('Importar empresas',()=>csvImport(base+'/'+profile.id)));
   const criteria=node('p',Object.entries(labels).filter(([k])=>profile[k]).map(([k,label])=>label+' · '+profile[k]).join(' | '));
   const filters=node('form',undefined,'toolbar'),list=node('select');list.setAttribute('aria-label','Lista de prospecção');
-  list.add(new Option('Empresas com os critérios do perfil','accounts'));list.add(new Option('Empresas-alvo selecionadas','targets'));list.value=mode;
+  list.add(new Option('Empresas com os critérios do perfil','accounts'));list.add(new Option('Empresas-alvo selecionadas','targets'));list.add(new Option('Prioridade das empresas-alvo','priority'));list.value=mode;
   list.onchange=()=>{mode=list.value;resetPages();view(page);};
   const input=node('input');input.setAttribute('aria-label','Pesquisar empresa pelo nome');input.placeholder='Pesquisar empresa pelo nome';input.maxLength=250;input.value=query;
   filters.append(list,input,node('button','Pesquisar'));filters.onsubmit=e=>{e.preventDefault();query=input.value.trim();resetPages();view(page);};
   const path=base+'/'+profile.id,params=new URLSearchParams({limit:'25',q:query});if(cursor)params.set('cursor',cursor);
   const result=await api(path+'/'+mode+'?'+params),cards=[];
   for(const account of result.items){
+   if(mode==='priority'){
+    const parts=[node('p','Fonte da seleção: '+account.source_reference)];
+    if(account.result){
+     parts.push(node('p',account.result.classification+' · '+account.score+'/100'),node('p',account.result.approach));
+     const evidence=node('details');evidence.append(node('summary','Critérios da classificação'));
+     const methods={missing:'sem dado',match:'critério atendido',semantic:'similaridade semântica',different:'critério não atendido'};
+     for(const c of account.result.criteria)evidence.append(node('p',labels[c.key]+' · perfil: '+c.wanted+' · empresa: '+(c.observed??'não informado')+' · '+methods[c.method]+' · '+c.points+'/100'));
+     evidence.append(node('p',date(account.created_at)+(account.model_version?' · modelo '+account.model_version:' · critérios estruturados')));
+     parts.push(evidence);
+    }else{
+     parts.push(node('p','Sem classificação para os dados atuais.'));
+     if(user.role!=='viewer'){
+      const assess=button('Classificar aderência',async()=>{
+       assess.disabled=true;assess.textContent='Classificando…';
+       try{await api(path+'/targets/'+account.id+'/assess','POST',{});resetPages();await view(page);}
+       finally{assess.disabled=false;assess.textContent='Classificar aderência';}
+      });
+      parts.push(assess);
+     }
+    }
+    parts.push(button('Abrir empresa no CRM',()=>openAccount(account.id)));
+    cards.push(panel(account.name,...parts));continue;
+   }
    const details=[node('p',[account.segment,account.location,account.size_band,account.business_activity].filter(Boolean).join(' · ')),node('p','Decisores registrados: '+account.decision_makers)];
    if(account.selected_at)details.push(node('p','Fonte da seleção: '+account.source_reference),node('p','Selecionada em '+date(account.selected_at)));
    const sources=account.recent_sources.filter(v=>v!==account.source_reference);

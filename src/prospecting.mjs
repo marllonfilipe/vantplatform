@@ -1,3 +1,4 @@
+import {assessProspect,priorities} from './prospect-fit.mjs';
 import {importProspectAccounts} from './prospect-import.mjs';
 import {audit} from './db.mjs';
 import {pagination,reject,textField} from './http.mjs';
@@ -32,7 +33,7 @@ export async function prospectingRoutes(ctx){
  if(url.pathname!==base&&!url.pathname.startsWith(base+'/'))return;
  const parts=url.pathname===base?[]:url.pathname.slice(base.length+1).split('/');
  const [id,resource,accountId]=parts;
- if(parts.length>3||(parts.length&&!isUuid(id))||(parts.length===3&&!isUuid(accountId)))reject(404,'missing','Endereço de prospecção não encontrado.');
+ if(parts.length>4||(parts.length&&!isUuid(id))||(parts.length>=3&&!isUuid(accountId)))reject(404,'missing','Endereço de prospecção não encontrado.');
  if(parts.length===0&&method==='GET'){
   const limit=pagination(url.searchParams),cursor=url.searchParams.get('cursor');
   if(cursor!==null&&!isUuid(cursor))reject(400,'cursor','Cursor inválido.');
@@ -63,6 +64,8 @@ export async function prospectingRoutes(ctx){
  if(!id)reject(405,'method','Método inválido.');
  const profile=(await db.query('SELECT * FROM vant.prospect_profiles WHERE tenant_id=$1 AND id=$2',[tenant,id])).rows[0];
  if(!profile)reject(404,'missing','Perfil não encontrado.');
+ if(parts.length===4&&resource==='targets'&&parts[3]==='assess'&&method==='POST')return assessProspect(ctx,profile,accountId);
+ if(parts.length===2&&resource==='priority'&&method==='GET')return priorities(ctx,profile);
  if(parts.length===2&&resource==='import'&&method==='POST'){
   if(member.role==='viewer')reject(403,'permission','Esta conta permite apenas consulta.');
   return [200,await importProspectAccounts(ctx,id)];

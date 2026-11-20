@@ -1,0 +1,77 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {stopInference,modelVersion} from '../../src/inference.mjs';
+import pg from 'pg';
+import {chromium} from 'playwright-core';
+import {servePage} from '../../src/pages.mjs';
+import {createApp} from '../../src/app.mjs';
+import {createPool,checkRuntime} from '../../src/db.mjs';
+import {featureRoutes} from '../../src/routes.mjs';
+import {hashPassword} from '../../src/security.mjs';
+
+test('Core classifica contas do ICP com inferência em CPU, evidências e prioridade no navegador',async()=>{
+ assert.equal(process.env.APP_ENV,'test');
+ const admin=new pg.Client({connectionString:process.env.ADMIN_DATABASE_URL});await admin.connect();
+ const pool=createPool(process.env.DATABASE_URL),origin='http://127.0.0.1:3206';
+ const server=createApp({pool,origin,featureRoutes,servePage,environment:'test'});
+ let browser;
+ const tenant=randomUUID(),other=randomUUID(),actor=randomUUID(),password=randomUUID(),email='gestor@example.invalid';
+ try{
+  await checkRuntime(pool);
+  await admin.query("INSERT INTO vant.tenants(id,name) VALUES($1,'Fluxos'),($2,'Isolada')",[tenant,other]);
+  await admin.query("INSERT INTO vant.members(tenant_id,id,email,name,role,password_hash) VALUES($1,$2,$3,'Gestor','owner',$4)",[tenant,actor,email,await hashPassword(password)]);
+  await new Promise(resolve=>server.listen(3206,'127.0.0.1',resolve));
+  const base='http://127.0.0.1:'+server.address().port+'/api/v1/';
+  let cookie='';
+  const call=(path,method='GET',data)=>fetch(base+path,{method,headers:{origin,cookie,'content-type':'application/json'},body:JSON.stringify(data)});
+  const login=await call('auth/login','POST',{tenantId:tenant,email,password});assert.equal(login.status,200);
+  cookie=login.headers.get('set-cookie').split(';')[0];
+  const spec={name:'Operação industrial',segment:'Indústria',region:'Campinas',size_band:'Médio',business_activity:'Fabricar cerâmica'};
+  const profiles='prospecting/profiles',publication=await call(profiles,'POST',spec);assert.equal(publication.status,201);
+  const profile=(await publication.json()).id,path=profiles+'/'+profile;
+  const create=async(data)=>{
+   const r=await call('crm/accounts','POST',data);assert.equal(r.status,201);const account=(await r.json()).id;
+   assert.equal((await call(path+'/targets/'+account,'PUT',{source_reference:'Catálogo da empresa'})).status,201);return account;
+  };
+  const exact=await create({name:'Fábrica local',segment:'Indústria',location:'Campinas, SP',size_band:'Médio',business_activity:'Fabricar cerâmica'});
+  const partial=await create({name:'Oficina',segment:'Manufatura',location:'Santos',business_activity:'Peças de barro'});
+  const unscored=await create({name:'Em pesquisa'});
+  const assess=id=>call(path+'/targets/'+id+'/assess','POST',{});
+  const responses=await Promise.all([assess(partial),assess(partial)]);
+  assert.deepEqual(responses.map(r=>r.status).sort(),[200,201]);
+  const [a,b]=await Promise.all(responses.map(r=>r.json()));assert.equal(a.id,b.id);assert.equal(a.model_version,modelVersion);
+  const semantic=a.result.criteria.find(c=>c.key==='segment');
+  assert.equal(semantic.method,'semantic');assert.ok(semantic.similarity>=0&&semantic.similarity<=1);
+  assert.equal(a.result.criteria.find(c=>c.key==='size_band').method,'missing');assert.ok(a.score<100);
+  browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});
+  const page=await browser.newPage();await page.goto(origin);
+  await page.getByLabel('Identificador da empresa').fill(tenant);await page.getByLabel('E-mail',{exact:true}).fill(email);
+  await page.getByLabel('Senha').fill(password);await page.getByRole('button',{name:'Entrar'}).click();
+  await page.getByRole('button',{name:'Prospecção',exact:true}).click();await page.getByLabel('Lista de prospecção').selectOption('priority');
+  const exactCard=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Fábrica local',exact:true})});
+  await exactCard.getByRole('button',{name:'Classificar aderência'}).click();
+  await exactCard.getByText('Alta aderência · 100/100',{exact:true}).waitFor();
+  await exactCard.getByText('Critérios da classificação',{exact:true}).click();await exactCard.getByText(/modelo /).waitFor();
+  const ranking=async suffix=>(await (await call(path+'/priority'+suffix)).json());
+  const first=await ranking('?limit=1');assert.deepEqual(first.items.map(r=>r.id),[exact]);
+  const second=await ranking('?limit=1&cursor='+encodeURIComponent(first.nextCursor));assert.equal(second.items[0].id,partial);
+  const third=await ranking('?limit=1&cursor='+encodeURIComponent(second.nextCursor));assert.equal(third.items[0].id,unscored);assert.equal(third.items[0].score,null);
+  assert.equal((await call('crm/accounts/'+exact,'PATCH',{segment:'Serviços'})).status,200);
+  assert.equal((await ranking('?q=Fábrica')).items[0].score,null);
+  assert.equal((await assess(exact)).status,201);
+  assert.equal((await call(path,'PUT',{...spec,region:'Recife',expected_revision:1})).status,200);
+  assert.ok((await ranking('')).items.every(item=>item.score===null));
+  const repeated=await assess(exact);assert.equal(repeated.status,201);
+  const records=await admin.query('SELECT count(*)::int AS n FROM vant.prospect_fits WHERE tenant_id=$1',[tenant]);
+  assert.equal(records.rows[0].n,4);
+  const foreignHash=await hashPassword(password);
+  await admin.query("INSERT INTO vant.members(tenant_id,email,name,role,password_hash) VALUES($1,$2,'Gestor','owner',$3)",[other,email,foreignHash]);
+  const foreign=await call('auth/login','POST',{tenantId:other,email,password});assert.equal(foreign.status,200);cookie=foreign.headers.get('set-cookie').split(';')[0];
+  assert.equal((await call(path+'/priority')).status,404);assert.equal((await assess(exact)).status,404);
+ }finally{
+  stopInference();await browser?.close();
+  if(server.listening)await new Promise(resolve=>server.close(resolve));
+  await pool.end();await admin.end();
+ }
+});
