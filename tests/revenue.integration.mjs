@@ -1,0 +1,70 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import pg from 'pg';
+import {chromium} from 'playwright-core';
+import {servePage} from '../src/pages.mjs';
+import {createApp} from '../src/app.mjs';
+import {createPool,checkRuntime} from '../src/db.mjs';
+import {featureRoutes} from '../src/routes.mjs';
+import {hashPassword} from '../src/security.mjs';
+
+test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no intervalo de São Paulo',async()=>{
+ assert.equal(process.env.APP_ENV,'test');
+ const admin=new pg.Client({connectionString:process.env.ADMIN_DATABASE_URL});await admin.connect();
+ const pool=createPool(process.env.DATABASE_URL),origin='http://127.0.0.1:3207';
+ const server=createApp({pool,origin,featureRoutes,servePage,environment:'test'});
+ let browser;
+ const tenant=randomUUID(),other=randomUUID(),actor=randomUUID(),password=randomUUID(),email='gestor@example.invalid';
+ try{
+  await checkRuntime(pool);
+  await admin.query("INSERT INTO vant.tenants(id,name) VALUES($1,'Fluxos'),($2,'Isolada')",[tenant,other]);
+  await admin.query("INSERT INTO vant.members(tenant_id,id,email,name,role,password_hash) VALUES($1,$2,$3,'Gestor','owner',$4)",[tenant,actor,email,await hashPassword(password)]);
+  await new Promise(resolve=>server.listen(3207,'127.0.0.1',resolve));
+  const base='http://127.0.0.1:'+server.address().port+'/api/v1/';
+  let cookie='';
+  const call=(path,method='GET',data)=>fetch(base+path,{method,headers:{origin,cookie,'content-type':'application/json'},body:JSON.stringify(data)});
+  const login=await call('auth/login','POST',{tenantId:tenant,email,password});assert.equal(login.status,200);
+  cookie=login.headers.get('set-cookie').split(';')[0];
+  const seller=randomUUID(),hash=await hashPassword(password);
+  await admin.query("INSERT INTO vant.members(tenant_id,id,email,name,role,password_hash) VALUES($1,$2,'seller@example.invalid','Consultora','seller',$3),($4,$5,$6,'Isolada','owner',$3)",[tenant,seller,hash,other,randomUUID(),email]);
+  const setup=await call('crm/pipelines','POST',{name:'Vendas',stages:['Fechamento']});assert.equal(setup.status,201);
+  const pipeline=(await setup.json()).id,stage=(await (await call('crm/pipelines')).json()).items.find(p=>p.id===pipeline).stages[0].id;
+  async function deal(name,status,amount,owner,source,created,closed){
+   const response=await call('crm/deals','POST',{name,status,amount_cents:amount,owner_id:owner,source,probability:50,pipeline_id:pipeline,stage_id:stage,...(status==='lost'?{loss_reason:'Prazo'}:{})});
+   assert.equal(response.status,201);
+   await admin.query('UPDATE vant.deals SET created_at=$2,closed_at=$3 WHERE tenant_id=$4 AND id=$1',[(await response.json()).id,created,closed,tenant]);
+  }
+  await deal('Ganho inicial','won',10000,actor,'Feira','2025-02-01T03:00:00Z','2025-03-01T03:00:00Z');
+  await deal('Ganho final','won',30000,seller,'Indicação','2025-03-02T02:59:59Z','2025-04-01T02:59:59Z');
+  await deal('Perda confirmada','lost',20000,actor,'Feira','2025-01-02T12:00:00Z','2025-03-20T12:00:00Z');
+  await deal('Fora do período','won',90000,actor,'Feira','2025-02-01T02:00:00Z','2025-03-01T02:59:59Z');
+  await deal('Período seguinte','won',90000,actor,'Feira','2025-03-01T02:00:00Z','2025-04-01T03:00:00Z');
+  await deal('Ainda aberta','open',100000,seller,'Indicação','2025-03-01T02:00:00Z',null);
+  const path='revenue/closed?from=2025-03-01&to=2025-03-31',all=await (await call(path)).json();
+  assert.deepEqual(all.period,{from:'2025-03-01',to:'2025-03-31'});
+  assert.equal(all.total.closed,3);assert.equal(all.total.won,2);assert.equal(all.total.lost,1);
+  assert.equal(all.total.revenue_cents,'40000');assert.equal(all.total.average_ticket_cents,'20000');
+  assert.equal(Number(all.total.average_cycle_days),29);assert.equal(Number(all.total.conversion_pct),66.67);
+  for(const kind of ['source','seller','stage'])assert.equal(all.groups.filter(r=>r.kind===kind).reduce((n,r)=>n+Number(r.revenue_cents),0),40000);
+  assert.deepEqual(all.groups.filter(r=>r.kind==='loss').map(r=>[r.label,r.lost]),[['Prazo',1]]);
+  assert.equal((await (await call(path+'&source=feira')).json()).total.revenue_cents,'10000');
+  assert.equal((await call('revenue/closed?from=2025-02-31&to=2025-03-01')).status,400);
+  browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});
+  const page=await browser.newPage();await page.goto(origin);
+  await page.getByLabel('Identificador da empresa').fill(tenant);await page.getByLabel('E-mail',{exact:true}).fill(email);
+  await page.getByLabel('Senha').fill(password);await page.getByRole('button',{name:'Entrar'}).click();
+  await page.getByRole('button',{name:'Receita comercial',exact:true}).click();
+  await page.getByLabel('Fechamentos a partir de').fill('2025-03-01');await page.getByLabel('Fechamentos até').fill('2025-03-31');
+  await page.getByRole('button',{name:'Aplicar filtros'}).click();await page.getByText('2 / 1',{exact:true}).waitFor();
+  const sellerLogin=await call('auth/login','POST',{tenantId:tenant,email:'seller@example.invalid',password});
+  cookie=sellerLogin.headers.get('set-cookie').split(';')[0];assert.equal((await (await call(path)).json()).total.won,1);
+  assert.equal((await call(path+'&seller='+actor)).status,403);
+  const isolated=await call('auth/login','POST',{tenantId:other,email,password});cookie=isolated.headers.get('set-cookie').split(';')[0];
+  const empty=(await (await call(path)).json()).total;assert.equal(empty.closed,0);assert.equal(empty.conversion_pct,null);assert.equal(empty.average_ticket_cents,null);
+ }finally{
+  await browser?.close();
+  if(server.listening)await new Promise(resolve=>server.close(resolve));
+  await pool.end();await admin.end();
+ }
+});

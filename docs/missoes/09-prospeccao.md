@@ -1,20 +1,18 @@
 # Missão 09 · Inteligência de prospecção
 
-**Implementação parcial.** A página **Comercial → Prospecção** utiliza as empresas e os contatos já cadastrados no CRM da empresa autenticada.
+**Implementação concluída e publicada em 20/11/2026. Aceite do proprietário pendente.** A página **Comercial → Prospecção** utiliza as empresas e os contatos já cadastrados no CRM da empresa autenticada.
 
 ## Perfil de cliente ideal e seleção de contas
 
-Proprietários e gestores podem criar ou revisar um perfil com pelo menos um critério entre segmento, região, porte e atividade econômica. No cadastro de empresa do CRM, o campo **Atividade econômica** registra a atividade informada. A pesquisa combina todos os critérios do perfil. Segmento e porte usam igualdade sem distinguir maiúsculas e minúsculas. Região e atividade buscam parte do texto. A busca adicional por nome restringe o resultado. O perfil indica critérios comerciais definidos pela equipe. A classificação pelo Intelligence Core é uma entrega posterior.
+Proprietários e gestores podem criar ou revisar um perfil com pelo menos um critério entre segmento, região, porte e atividade econômica. No cadastro de empresa do CRM, o campo **Atividade econômica** registra a atividade informada. A pesquisa combina todos os critérios do perfil. Segmento e porte usam igualdade sem distinguir maiúsculas e minúsculas. Região e atividade buscam parte do texto. A busca adicional por nome restringe o resultado. O perfil indica critérios comerciais definidos pela equipe.
 
 Cada cartão indica o número de decisores registrados na empresa e dá acesso à ficha original no CRM. Usuários com escrita podem selecionar uma conta e registrar a fonte da seleção. A lista **Empresas-alvo selecionadas** conserva fonte, data e vínculo com a empresa mesmo que o perfil seja revisado. A remoção afeta apenas a seleção. Leituras usam paginação; as operações de escrita têm auditoria.
 
 Na API autenticada, use `GET /api/v1/prospecting/profiles`, `POST /api/v1/prospecting/profiles` e `PUT /api/v1/prospecting/profiles/{id}` (com `expected_revision`). Os recursos `accounts` e `targets` abaixo do perfil listam, respectivamente, empresas compatíveis e empresas selecionadas. Aceitam `q`, `limit` e `cursor`. A seleção recebe `source_reference` em `PUT .../targets/{accountId}`; `DELETE` remove o vínculo.
 
-## Evidência e pendências
+## Verificação no CRM
 
 A suíte de fundação executa `tests/prospecting.integration.mjs` em PostgreSQL e Chromium. O cenário cadastra um perfil na interface, escolhe uma empresa com fonte, abre a ficha original, confere papéis de acesso e separação entre empresas, conflito de revisão, paginação e auditoria. O resultado pertence ao commit testado.
-
-O próximo incremento é importar contas de uma fonte autorizada por CSV com deduplicação e rastreabilidade. Pesquisa assistida, classificação pelo Core e apoio à abordagem permanecem pendentes de implementação e validação.
 
 ## Importação CSV com origem e deduplicação
 
@@ -24,7 +22,7 @@ A correspondência usa o identificador da empresa dentro do tenant e desconsider
 
 Cada referência de origem fica vinculada à conta com o usuário e o instante de registro. Uma seleção posterior pode acrescentar uma fonte. A retirada de uma lista preserva as fontes da empresa. O cartão mostra até cinco referências recentes, além da origem da seleção vigente. O endpoint `POST /api/v1/prospecting/profiles/{id}/import` recebe `csv` e devolve as contagens de registros, empresas criadas, reutilizações e novas seleções.
 
-O teste de prospecção importa arquivos com as mesmas contas em ordens opostas, verifica a reversão de lote inválido, confirma o isolamento entre empresas e importa uma fonte complementar pelo Chromium. O próximo incremento é classificar a aderência ao ICP com o Intelligence Core e apresentar a evidência da classificação.
+O teste de prospecção importa arquivos com as mesmas contas em ordens opostas, verifica a reversão de lote inválido, confirma o isolamento entre empresas e importa uma fonte complementar pelo Chromium.
 
 ## Aderência ao ICP e priorização
 
@@ -34,7 +32,7 @@ A nota final é a média arredondada dos pontos. As faixas são alta aderência 
 
 A classificação fica associada à empresa, à revisão do perfil, aos dados observados e à revisão do motor. Repetir a ação com as mesmas entradas reutiliza o resultado. A prioridade usa somente avaliações compatíveis com os dados atuais. As contas sem avaliação atual aparecem no fim. Em `POST .../targets/{accountId}/assess`, membros com escrita avaliam contas selecionadas. `GET .../priority` expõe o resultado paginado aos leitores da empresa.
 
-A suíte de inteligência executa `tests/core/prospecting.test.mjs` em CPU com PostgreSQL e Chromium. Ela verifica classificação com modelo real, falta de dados, concorrência, revisão do perfil, edição do CRM, ordenação e isolamento. O próximo incremento é associar perfis profissionais e fontes aos decisores e registrar a passagem da conta-alvo para um lead no CRM.
+A suíte de inteligência executa `tests/core/prospecting.test.mjs` em CPU com PostgreSQL e Chromium. Ela verifica classificação com modelo real, falta de dados, concorrência, revisão do perfil, edição do CRM, ordenação e isolamento.
 
 ## Decisores, perfis profissionais e conversão
 
@@ -42,7 +40,7 @@ No perfil de cliente ideal, o gestor pode indicar o cargo procurado. Em uma empr
 
 Cada revisão tem histórico de quem registrou, quando, a conta, os dados e a fonte utilizados. Repetir a mesma gravação preserva a revisão. Alterações concorrentes exigem recarregar a ficha. Uma conta pode ser convertida em lead ou vinculada a um lead existente da mesma empresa. Quando já há leads, o operador escolhe o vínculo. O vendedor só pode vincular um lead de sua responsabilidade. O registro da conversão conserva a seleção de origem e impede uma segunda conversão para a mesma conta.
 
-Os endpoints abaixo de `.../targets/{accountId}` são `GET people`, `PUT people/{contactId}`, `GET people/{contactId}/history` e `GET/POST handoff`. O cenário de fundação verifica o histórico, a URL, permissões e separação por empresa, a criação pelo Chromium e o vínculo com lead existente. A próxima atividade é combinar a aderência pelo Core com os cargos registrados e sinais reais do funil para sugerir decisores e oportunidades potenciais.
+Os endpoints abaixo de `.../targets/{accountId}` são `GET people`, `PUT people/{contactId}`, `GET people/{contactId}/history` e `GET/POST handoff`. O cenário de fundação verifica o histórico, a URL, permissões e separação por empresa, a criação pelo Chromium e o vínculo com lead existente.
 
 ## Sugestão de decisores, abordagem e oportunidade potencial
 
@@ -50,7 +48,7 @@ Na ficha **Decisores e conversão**, use **Analisar abordagem**. A análise reú
 
 Até três contatos aparecem como decisores registrados ou candidatos cujo cargo deve ser confirmado. A similaridade mínima para sugerir um cargo não confirmado é 0,65. A sugestão preserva o papel cadastrado no CRM. Uma conta com alta aderência, contato relevante e nenhuma negociação aberta pode gerar indicação de oportunidade a validar. Negócios abertos direcionam o usuário ao responsável pela negociação existente. A recomendação não cria negócio nem envia mensagem.
 
-O endpoint `POST .../targets/{accountId}/briefs` grava os dados e a revisão do modelo usada para selecionar os cargos. Uma análise com as mesmas entradas é reutilizada. `GET` retorna as dez revisões mais recentes. A suíte do Core verifica a sugestão em CPU, a distinção entre candidato e decisor, a mudança de recomendação ao abrir uma oportunidade real e o histórico. A próxima entrega é a revisão de enriquecimentos fornecidos por fontes autorizadas.
+O endpoint `POST .../targets/{accountId}/briefs` grava os dados e a revisão do modelo usada para selecionar os cargos. Uma análise com as mesmas entradas é reutilizada. `GET` retorna as dez revisões mais recentes. A suíte do Core verifica a sugestão em CPU, a distinção entre candidato e decisor, a mudança de recomendação ao abrir uma oportunidade real e o histórico.
 
 ## Revisão de enriquecimentos e captura assistida
 
@@ -68,3 +66,5 @@ No contato, **Registrar fonte e perfil → Preencher a partir de texto autorizad
 | Controle de qualidade | Papéis e isolamento por empresa, validação de revisão, preservação de valores existentes e aprovação de enriquecimentos |
 
 A suíte de fundação exercita a revisão de fonte e aplicação de campo no navegador, além da preservação de uma alteração concorrente. A suíte de inteligência exercita a classificação e a abordagem com o modelo instalado em CPU. O aceite pelo proprietário deve ser registrado separadamente.
+
+As duas suítes passaram na revisão publicada. [Commit de implementação](https://github.com/marllonfilipe/vantplatform/commit/3116617cdda959dcb7178c0b9d5b680cd745d7d2) · [Fundação com PostgreSQL e Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/44801218074) · [Inteligência com inferência em CPU](https://github.com/marllonfilipe/vantplatform/actions/runs/44801218116)

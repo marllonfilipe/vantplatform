@@ -101,3 +101,13 @@ Os [decisores e a conversão para lead](https://github.com/marllonfilipe/vantpla
 O fluxo de importação agora propõe valores para campos vazios. A equipe pode revisar a origem e aplicar ou descartar o enriquecimento. A ficha profissional admite preenchimento assistido a partir de texto fornecido e salva somente após revisão. A matriz dos seis critérios originais está no [relatório](missoes/09-prospeccao.md). Confirmar as duas suítes desta revisão antes de registrar o marco de implementação e os canais de relatório. O aceite do proprietário está pendente.
 
 A [sugestão de abordagem e oportunidades](https://github.com/marllonfilipe/vantplatform/commit/7023d36b5de578cd5cc0fd435ea70af88b35831d) passou na [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44800800557) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44800800478).
+
+## Missão 09 · Implementação publicada
+
+Os seis critérios originais têm funcionalidades e cenários vinculados no [relatório técnico](missoes/09-prospeccao.md). Aceite do proprietário pendente. [Commit de implementação](https://github.com/marllonfilipe/vantplatform/commit/3116617cdda959dcb7178c0b9d5b680cd745d7d2) · [Fundação com PostgreSQL e Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/44801218074) · [Inteligência com inferência em CPU](https://github.com/marllonfilipe/vantplatform/actions/runs/44801218116)
+
+Relatório apresentado no ChatGPT para o marco `3116617`. Envio por e-mail confirmado pela cópia em Itens Enviados para o mesmo marco. Leitura pelo destinatário sem confirmação.
+
+## Missão 10 · Receita dos negócios fechados
+
+Primeiro incremento da missão. O [relatório técnico](missoes/10-receita.md) descreve a apuração, o período e as permissões. Conferir as duas suítes no commit desta entrega. A implementação e o aceite da missão continuam em aberto.

@@ -1,0 +1,46 @@
+import {reject,textField} from './http.mjs';
+import {isUuid} from './security.mjs';
+
+function calendarDate(value){
+ if(value===null)return null;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(value))reject(400,'period','Data inválida.');
+ const date=new Date(value+'T00:00:00Z');
+ if(!Number.isFinite(+date)||date.toISOString().slice(0,10)!==value)reject(400,'period','Data inválida.');
+ return value;
+}
+export async function revenueRoutes({db,tenant,member,url,method}){
+ if(url.pathname!=='/api/v1/revenue/closed'||method!=='GET')return;
+ const from=calendarDate(url.searchParams.get('from')),to=calendarDate(url.searchParams.get('to'));
+ if((from===null)!==(to===null)||from&&from>to)reject(400,'period','Informe um intervalo de datas válido.');
+ const seller=url.searchParams.get('seller'),origin=url.searchParams.get('source');
+ if(seller!==null&&!isUuid(seller))reject(400,'seller','Vendedor inválido.');
+ if(member.role==='seller'&&seller&&seller!==member.id)reject(403,'permission','O vendedor consulta sua própria carteira.');
+ const period=(await db.query(`SELECT coalesce($1::date,(now() AT TIME ZONE 'America/Sao_Paulo')::date-29) AS "from",
+   coalesce($2::date,(now() AT TIME ZONE 'America/Sao_Paulo')::date) AS "to"`,[from,to])).rows[0];
+ const {rows}=await db.query(`WITH cohort AS (
+   SELECT d.id,d.status,d.amount_cents,d.owner_id,m.name AS seller,d.source,d.loss_reason,s.id AS stage_id,
+    p.name||' · '||s.name AS stage,extract(epoch FROM (d.closed_at-d.created_at))/86400 AS cycle
+   FROM vant.deals d JOIN vant.members m ON (m.tenant_id,m.id)=(d.tenant_id,d.owner_id)
+   JOIN vant.stages s ON (s.tenant_id,s.pipeline_id,s.id)=(d.tenant_id,d.pipeline_id,d.stage_id)
+   JOIN vant.pipelines p ON (p.tenant_id,p.id)=(d.tenant_id,d.pipeline_id)
+   WHERE d.tenant_id=$1 AND d.status IN ('won','lost') AND d.closed_at<=now()
+    AND d.closed_at>=($2::date::timestamp AT TIME ZONE 'America/Sao_Paulo')
+    AND d.closed_at<(($3::date+1)::timestamp AT TIME ZONE 'America/Sao_Paulo')
+    AND ($4::uuid IS NULL OR d.owner_id=$4) AND ($5::text IS NULL OR lower(d.source)=lower($5))
+  )
+  SELECT dim.kind,dim.id,dim.label,count(*)::integer AS closed,
+   count(*) FILTER(WHERE status='won')::integer AS won,count(*) FILTER(WHERE status='lost')::integer AS lost,
+   coalesce(sum(amount_cents) FILTER(WHERE status='won'),0)::text AS revenue_cents,
+   round(avg(amount_cents) FILTER(WHERE status='won'))::text AS average_ticket_cents,
+   round(avg(cycle) FILTER(WHERE status='won' AND cycle>=0),2)::text AS average_cycle_days,
+   count(*) FILTER(WHERE status='won' AND cycle>=0)::integer AS cycle_sample,
+   round(100.0*count(*) FILTER(WHERE status='won')/count(*),2)::text AS conversion_pct
+  FROM cohort c CROSS JOIN LATERAL (VALUES
+   ('total',null::text,'Total'),('seller',c.owner_id::text,c.seller),
+   ('source',c.source,coalesce(c.source,'Sem origem informada')),('stage',c.stage_id::text,c.stage),
+   ('loss',c.loss_reason,coalesce(c.loss_reason,'Sem motivo informado'))) dim(kind,id,label)
+  WHERE dim.kind<>'loss' OR c.status='lost' GROUP BY dim.kind,dim.id,dim.label ORDER BY dim.kind,dim.label,dim.id`,
+  [tenant,period.from,period.to,member.role==='seller'?member.id:seller,origin===null?null:textField(origin,250)]);
+ const empty={closed:0,won:0,lost:0,revenue_cents:'0',average_ticket_cents:null,average_cycle_days:null,cycle_sample:0,conversion_pct:null};
+ return [200,{period,total:rows.find(r=>r.kind==='total')??empty,groups:rows.filter(r=>r.kind!=='total')}];
+}
