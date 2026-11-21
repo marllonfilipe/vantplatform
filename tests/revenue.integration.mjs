@@ -109,10 +109,36 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   await page.getByRole('heading',{name:'Projeção pela probabilidade do CRM'}).waitFor();
   await page.getByLabel('Horizonte da projeção').selectOption('60');
   await page.getByText(/3 negócios · estimativa/).waitFor();
+  const historical=await call('crm/pipelines','POST',{name:'Histórico controlado',stages:['Fechamento']});
+  assert.equal(historical.status,201);
+  const historicalId=(await historical.json()).id;
+  const historicalStage=(await (await call('crm/pipelines')).json()).items.find(item=>item.id===historicalId).stages[0].id;
+  const historyArgs=[tenant,actor,historicalId,historicalStage];
+  await admin.query(`INSERT INTO vant.deals(tenant_id,owner_id,pipeline_id,stage_id,name,amount_cents,probability,status,close_on)
+   VALUES($1,$2,$3,$4,'Previsão',10000,40,'open',(now() AT TIME ZONE 'America/Sao_Paulo')::date)`,historyArgs);
+  async function historyCohort(){
+   const data=await (await call('revenue/forecast')).json();
+   return data.comparisons.find(item=>item.pipeline==='Histórico controlado');
+  }
+  assert.equal((await historyCohort()).scenario_cents,null);
+  for(const years of [1,2]){
+   await admin.query(`INSERT INTO vant.deals(tenant_id,owner_id,pipeline_id,stage_id,name,amount_cents,probability,status,created_at,closed_at)
+    SELECT $1,$2,$3,$4,'Histórico '||i,10000,40,CASE WHEN i<=6 THEN 'won' ELSE 'lost' END,
+     day-interval '20 days',day FROM generate_series(1,10) AS i
+     CROSS JOIN (SELECT (date_trunc('month',now() AT TIME ZONE 'America/Sao_Paulo')+interval '1 day'-make_interval(years=>$5))
+      AT TIME ZONE 'America/Sao_Paulo' AS day) d`,[...historyArgs,years]);
+   const compared=await historyCohort();
+   assert.equal(compared.sample,10*years);assert.equal(compared.basis,years===1?'pipeline':'seasonal');
+   assert.equal(Number(compared.observed_pct),60);assert.equal(compared.scenario_cents,'6000');
+   assert.equal(Number(compared.won_cycle_days),20);
+  }
+  await page.getByLabel('Horizonte da projeção').selectOption('30');
+  await page.getByText('Mesmo mês, em ao menos dois anos',{exact:true}).waitFor();
   const sellerLogin=await call('auth/login','POST',{tenantId:tenant,email:'seller@example.invalid',password});
   cookie=sellerLogin.headers.get('set-cookie').split(';')[0];assert.equal((await (await call(path)).json()).total.won,1);
   assert.equal((await call(path+'&seller='+actor)).status,403);
   const ownForecast=await (await call('revenue/forecast')).json();
+  assert.ok(ownForecast.comparisons.every(item=>item.pipeline!=='Histórico controlado'));
   assert.equal(ownForecast.coverage.find(row=>row.bucket==='within').value_cents,'30001');
   const isolated=await call('auth/login','POST',{tenantId:other,email,password});cookie=isolated.headers.get('set-cookie').split(';')[0];
   assert.deepEqual((await (await call('revenue/forecast')).json()).coverage,[]);

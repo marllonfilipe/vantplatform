@@ -21,6 +21,17 @@ export function createForecastPage({api,node,panel,pair,empty,money}){
     return pair(name,(row?.deals??0)+' negócios · '+money(row?.value_cents??0));
    });
    output.append(panel('Carteira fora da projeção',...excluded));
+   for(const group of result.comparisons){
+    const month=new Intl.DateTimeFormat('pt-BR',{month:'long',timeZone:'UTC'}).format(new Date(Date.UTC(2000,group.close_month-1,1)));
+    const basis={seasonal:'Mesmo mês, em ao menos dois anos',pipeline:'Histórico do pipeline',insufficient:'Amostra insuficiente'};
+    output.append(panel(group.pipeline+' · '+month,
+     pair('Base de comparação',basis[group.basis]),
+     pair('Fechamentos observados',group.wins+' ganhos em '+group.sample+' fechamentos'),
+     pair('Conversão histórica',group.observed_pct===null?'Sem base':Number(group.observed_pct).toLocaleString('pt-BR')+'%'),
+     pair('Cenário pela conversão histórica',group.scenario_cents===null?'Sem base':money(group.scenario_cents)),
+     pair('Idade média das negociações abertas',group.open_age_days===null?'Sem base':group.open_age_days+' dias'),
+     pair('Ciclo médio dos ganhos anteriores',group.won_cycle_days===null?'Sem ganhos com duração válida':group.won_cycle_days+' dias')));
+   }
   }
   select.onchange=async()=>{
    select.disabled=true;

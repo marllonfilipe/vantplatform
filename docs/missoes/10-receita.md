@@ -34,6 +34,16 @@ Em **Inteligência → Previsão de receita**, escolha 30, 60 ou 90 dias. O hori
 
 A primeira projeção usa as oportunidades abertas cuja previsão de fechamento cai no intervalo. Multiplica o valor em centavos pela probabilidade registrada no CRM, divide por 100 e arredonda cada contribuição para o centavo mais próximo antes de somar. A soma das etapas reconcilia com a projeção total. A tela também mostra o valor nominal e a quantidade de negócios considerados. Oportunidades vencidas, sem data e posteriores ao horizonte aparecem separadamente para que a equipe confira a cobertura.
 
-O resultado é uma estimativa condicional aos valores, probabilidades e datas informados. Taxas históricas, duração das negociações e sazonalidade ainda não integram essa primeira projeção. As previsões precisam dessas análises para cobrir o escopo integral da missão.
+O resultado é uma estimativa condicional aos valores, probabilidades e datas informados. A comparação histórica abaixo oferece uma segunda referência para avaliar essa estimativa.
 
 O teste de integração fixa previsões nos dois extremos do horizonte, no dia anterior e no dia posterior, além de uma oportunidade sem data. Confere o arredondamento dos centavos, a ampliação para 60 dias, as permissões, o isolamento e o seletor no navegador.
+
+### Histórico, duração e sazonalidade
+
+Para cada pipeline e mês de fechamento previsto no horizonte, a tela mostra a idade média das negociações abertas e o ciclo médio dos ganhos da amostra comparável. O segundo cenário aplica a taxa de ganhos observada nos fechamentos ao valor nominal da carteira daquele grupo. O cenário por probabilidade do CRM segue disponível de forma independente.
+
+A janela histórica abrange os últimos três anos até a consulta e inclui ganhos e perdas do mesmo pipeline dentro do acesso do usuário. A referência sazonal exige pelo menos 20 fechamentos no mesmo mês do ano em pelo menos dois anos distintos. Se faltar essa base, o sistema utiliza todo o pipeline quando houver ao menos 10 fechamentos. Com menos dados, mostra a amostra disponível e deixa taxa e estimativa histórica sem valor. Esses limites são regras de exibição e não garantem precisão estatística.
+
+A taxa observada entre negócios encerrados pode diferir da conversão futura da carteira. O modelo não atribui uma probabilidade individual a partir da idade da negociação. O usuário pode comparar essa idade com os ciclos de vendas registrados. Mudanças de pipeline, cadastro e carteira podem afetar a comparabilidade.
+
+O cenário em PostgreSQL cria um pipeline com histórico controlado, verifica a ausência de projeção sem amostra e confere a transição da referência geral para a sazonal. Com seis ganhos em dez fechamentos e uma oportunidade de R$ 100,00, o comparativo esperado é R$ 60,00. A suíte também confere o ciclo, a separação por vendedor e a exibição no Chromium.
