@@ -37,7 +37,9 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   async function deal(name,status,amount,owner,source,created,closed){
    const response=await call('crm/deals','POST',{name,status,amount_cents:amount,owner_id:owner,source,probability:50,pipeline_id:pipeline,stage_id:stage,...(owner===seller?{team_id:teamId,account_id:accountId}:{}),...(status==='lost'?{loss_reason:'Prazo'}:{})});
    assert.equal(response.status,201);
-   await admin.query('UPDATE vant.deals SET created_at=$2,closed_at=$3 WHERE tenant_id=$4 AND id=$1',[(await response.json()).id,created,closed,tenant]);
+   const id=(await response.json()).id;
+   await admin.query('UPDATE vant.deals SET created_at=$2,closed_at=$3 WHERE tenant_id=$4 AND id=$1',[id,created,closed,tenant]);
+   return id;
   }
   await deal('Ganho inicial','won',10000,actor,'Feira','2025-02-01T03:00:00Z','2025-03-01T03:00:00Z');
   await deal('Ganho final','won',30000,seller,'=Feira; "Sul"','2025-03-02T02:59:59Z','2025-04-01T02:59:59Z');
@@ -90,10 +92,30 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   await page.getByLabel('Pipeline',{exact:true}).selectOption(pipeline);
   await page.getByRole('button',{name:'Aplicar filtros'}).click();
   await page.getByText('1 / 0',{exact:true}).waitFor();
+  for(const [name,offset,amount,owner] of [['Hoje',0,10001,actor],['Último dia',29,30001,seller],['Depois',30,70000,actor],['Vencida',-1,80000,actor]]){
+   const id=await deal(name,'open',amount,owner,'Cadastro','2025-01-01T12:00:00Z',null);
+   await admin.query("UPDATE vant.deals SET close_on=(now() AT TIME ZONE 'America/Sao_Paulo')::date+$3::int WHERE id=$1 AND tenant_id=$2",[id,tenant,offset]);
+  }
+  const forecast=await (await call('revenue/forecast?days=30')).json();
+  const bucket=key=>forecast.coverage.find(row=>row.bucket===key);
+  assert.equal(bucket('within').deals,2);assert.equal(bucket('within').weighted_cents,'20002');
+  assert.equal(bucket('within').value_cents,'40002');
+  assert.equal(forecast.stages[0].weighted_cents,'20002');
+  assert.equal(bucket('overdue').deals,1);assert.equal(bucket('undated').deals,1);assert.equal(bucket('later').deals,1);
+  assert.equal((await call('revenue/forecast?days=0')).status,400);
+  const sixty=await (await call('revenue/forecast?days=60')).json();
+  assert.equal(sixty.coverage.find(row=>row.bucket==='within').deals,3);
+  await page.getByRole('button',{name:'Previsão de receita',exact:true}).click();
+  await page.getByRole('heading',{name:'Projeção pela probabilidade do CRM'}).waitFor();
+  await page.getByLabel('Horizonte da projeção').selectOption('60');
+  await page.getByText(/3 negócios · estimativa/).waitFor();
   const sellerLogin=await call('auth/login','POST',{tenantId:tenant,email:'seller@example.invalid',password});
   cookie=sellerLogin.headers.get('set-cookie').split(';')[0];assert.equal((await (await call(path)).json()).total.won,1);
   assert.equal((await call(path+'&seller='+actor)).status,403);
+  const ownForecast=await (await call('revenue/forecast')).json();
+  assert.equal(ownForecast.coverage.find(row=>row.bucket==='within').value_cents,'30001');
   const isolated=await call('auth/login','POST',{tenantId:other,email,password});cookie=isolated.headers.get('set-cookie').split(';')[0];
+  assert.deepEqual((await (await call('revenue/forecast')).json()).coverage,[]);
   const empty=(await (await call(path)).json()).total;assert.equal(empty.closed,0);assert.equal(empty.conversion_pct,null);assert.equal(empty.average_ticket_cents,null);
  }finally{
   await browser?.close();

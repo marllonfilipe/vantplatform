@@ -30,6 +30,7 @@ export function createRevenuePage({api,node,panel,pair,empty,money,getUser}){
   }
   function selectFilter(key,label,items){
    const wrapper=node('label',label),select=node('select');
+   select.setAttribute('aria-label',label);
    select.add(new Option('Todos',''));
    for(const item of items)select.add(new Option(item.name,item.id));
    select.value=saved[key]??'';if(select.selectedIndex<0)select.selectedIndex=0;wrapper.append(select);form.append(wrapper);inputs[key]=select;

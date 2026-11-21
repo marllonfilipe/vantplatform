@@ -26,4 +26,14 @@ Cada fechamento pertence a uma única categoria em cada uma dessas dimensões. A
 
 Os filtros de equipe atribuída, segmento e pipeline podem ser combinados com a origem, o período e a carteira. O CSV e a impressão identificam os filtros aplicados. As quebras usam os cadastros vigentes na consulta. A soma das receitas em cada dimensão deve reproduzir a receita total do período. O cenário de integração confere essa igualdade e a atribuição de negócios com e sem equipe ou segmento.
 
-A próxima atividade independente é a previsão de receita a partir das oportunidades abertas, com horizonte, base histórica, premissas e indicação de lacunas.
+A previsão sobre oportunidades abertas está descrita abaixo.
+
+## Projeção da carteira aberta
+
+Em **Inteligência → Previsão de receita**, escolha 30, 60 ou 90 dias. O horizonte começa hoje em São Paulo e inclui o último dia. O endpoint autenticado é `GET /api/v1/revenue/forecast?days=30`. Vendedores veem somente suas oportunidades.
+
+A primeira projeção usa as oportunidades abertas cuja previsão de fechamento cai no intervalo. Multiplica o valor em centavos pela probabilidade registrada no CRM, divide por 100 e arredonda cada contribuição para o centavo mais próximo antes de somar. A soma das etapas reconcilia com a projeção total. A tela também mostra o valor nominal e a quantidade de negócios considerados. Oportunidades vencidas, sem data e posteriores ao horizonte aparecem separadamente para que a equipe confira a cobertura.
+
+O resultado é uma estimativa condicional aos valores, probabilidades e datas informados. Taxas históricas, duração das negociações e sazonalidade ainda não integram essa primeira projeção. As previsões precisam dessas análises para cobrir o escopo integral da missão.
+
+O teste de integração fixa previsões nos dois extremos do horizonte, no dia anterior e no dia posterior, além de uma oportunidade sem data. Confere o arredondamento dos centavos, a ampliação para 60 dias, as permissões, o isolamento e o seletor no navegador.
