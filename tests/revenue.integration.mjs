@@ -30,8 +30,12 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   await admin.query("INSERT INTO vant.members(tenant_id,id,email,name,role,password_hash) VALUES($1,$2,'seller@example.invalid','Consultora','seller',$3),($4,$5,$6,'Isolada','owner',$3)",[tenant,seller,hash,other,randomUUID(),email]);
   const setup=await call('crm/pipelines','POST',{name:'Vendas',stages:['Fechamento']});assert.equal(setup.status,201);
   const pipeline=(await setup.json()).id,stage=(await (await call('crm/pipelines')).json()).items.find(p=>p.id===pipeline).stages[0].id;
+  const team=await call('teams','POST',{name:'Sul'});assert.equal(team.status,201);
+  const teamId=(await team.json()).id;
+  const account=await call('crm/accounts','POST',{name:'Conta industrial',segment:'Indústria'});assert.equal(account.status,201);
+  const accountId=(await account.json()).id;
   async function deal(name,status,amount,owner,source,created,closed){
-   const response=await call('crm/deals','POST',{name,status,amount_cents:amount,owner_id:owner,source,probability:50,pipeline_id:pipeline,stage_id:stage,...(status==='lost'?{loss_reason:'Prazo'}:{})});
+   const response=await call('crm/deals','POST',{name,status,amount_cents:amount,owner_id:owner,source,probability:50,pipeline_id:pipeline,stage_id:stage,...(owner===seller?{team_id:teamId,account_id:accountId}:{}),...(status==='lost'?{loss_reason:'Prazo'}:{})});
    assert.equal(response.status,201);
    await admin.query('UPDATE vant.deals SET created_at=$2,closed_at=$3 WHERE tenant_id=$4 AND id=$1',[(await response.json()).id,created,closed,tenant]);
   }
@@ -46,10 +50,22 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   assert.equal(all.total.closed,3);assert.equal(all.total.won,2);assert.equal(all.total.lost,1);
   assert.equal(all.total.revenue_cents,'40000');assert.equal(all.total.average_ticket_cents,'20000');
   assert.equal(Number(all.total.average_cycle_days),29);assert.equal(Number(all.total.conversion_pct),66.67);
-  for(const kind of ['source','seller','stage'])assert.equal(all.groups.filter(r=>r.kind===kind).reduce((n,r)=>n+Number(r.revenue_cents),0),40000);
+  for(const kind of ['source','seller','stage','team','segment','pipeline'])assert.equal(all.groups.filter(r=>r.kind===kind).reduce((n,r)=>n+Number(r.revenue_cents),0),40000);
+  for(const [kind,label] of [['team','Sul'],['segment','Indústria']]){
+   const groups=all.groups.filter(r=>r.kind===kind);
+   assert.equal(groups.length,2);
+   assert.equal(groups.find(r=>r.label===label).revenue_cents,'30000');
+   assert.equal(groups.find(r=>r.id===null).revenue_cents,'10000');
+  }
+  assert.equal(all.groups.find(r=>r.kind==='pipeline').label,'Vendas');
+  const cut=await (await call(path+'&pipeline='+pipeline+'&team='+teamId+'&segment='+encodeURIComponent('indústria'))).json();
+  assert.equal(cut.total.revenue_cents,'30000');
+  assert.equal((await (await call(path+'&team='+randomUUID())).json()).total.closed,0);
+  assert.equal((await call(path+'&pipeline=invalido')).status,400);
   assert.deepEqual(all.groups.filter(r=>r.kind==='loss').map(r=>[r.label,r.lost]),[['Prazo',1]]);
   assert.equal((await (await call(path+'&source=feira')).json()).total.revenue_cents,'10000');
   assert.equal((await call('revenue/closed?from=2025-02-31&to=2025-03-01')).status,400);
+  assert.equal((await call('revenue/closed?from=0000-01-01&to=2025-03-01')).status,400);
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});
   const page=await browser.newPage();await page.goto(origin);
   await page.getByLabel('Identificador da empresa').fill(tenant);await page.getByLabel('E-mail',{exact:true}).fill(email);
@@ -69,6 +85,11 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   assert.equal(await page.getByText('2 / 1',{exact:true}).isVisible(),true);
   assert.equal((await page.pdf({format:'A4'})).subarray(0,5).toString(),'%PDF-');
   await page.emulateMedia({media:'screen'});
+  await page.getByLabel('Equipe do negócio').selectOption(teamId);
+  await page.getByLabel('Segmento',{exact:true}).fill('indústria');
+  await page.getByLabel('Pipeline',{exact:true}).selectOption(pipeline);
+  await page.getByRole('button',{name:'Aplicar filtros'}).click();
+  await page.getByText('1 / 0',{exact:true}).waitFor();
   const sellerLogin=await call('auth/login','POST',{tenantId:tenant,email:'seller@example.invalid',password});
   cookie=sellerLogin.headers.get('set-cookie').split(';')[0];assert.equal((await (await call(path)).json()).total.won,1);
   assert.equal((await call(path+'&seller='+actor)).status,403);

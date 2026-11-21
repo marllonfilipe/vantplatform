@@ -115,3 +115,7 @@ Primeiro incremento da missão. O [relatório técnico](missoes/10-receita.md) d
 ## Missão 10 · Exportação da receita fechada
 
 O [primeiro painel de fechamentos](https://github.com/marllonfilipe/vantplatform/commit/08e72f83aa1c63087d318867a788436eb8004b41) passou nas suítes de [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44846308192) e [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44846308225). Foram conciliados dois ganhos e uma perda, inclusive os limites de data em São Paulo. A tela agora permite exportar a consulta em CSV e imprimir para PDF. O teste do navegador verifica download e geração do documento. Conferir os checks desta revisão. Próxima atividade independente: recortes por equipe, segmento e pipeline. Aceite da missão pendente.
+
+## Missão 10 · Recortes gerenciais
+
+A [exportação da consulta](https://github.com/marllonfilipe/vantplatform/commit/14552464759b624dbd3ef6bfd64fbde7884d6415) passou na [fundação, com download CSV e geração de PDF pelo Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/44846562533) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/44846562575). O painel ganha agrupamentos e filtros combináveis por equipe do negócio, segmento e pipeline. O teste verifica conciliação dos valores e registros sem atribuição. Conferir os checks desta revisão antes de avançar à previsão documentada sobre oportunidades abertas. A missão continua parcial.
