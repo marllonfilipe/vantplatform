@@ -111,3 +111,7 @@ Relatório apresentado no ChatGPT para o marco `3116617`. Envio por e-mail confi
 ## Missão 10 · Receita dos negócios fechados
 
 Primeiro incremento da missão. O [relatório técnico](missoes/10-receita.md) descreve a apuração, o período e as permissões. Conferir as duas suítes no commit desta entrega. A implementação e o aceite da missão continuam em aberto.
+
+## Missão 10 · Exportação da receita fechada
+
+O [primeiro painel de fechamentos](https://github.com/marllonfilipe/vantplatform/commit/08e72f83aa1c63087d318867a788436eb8004b41) passou nas suítes de [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/44846308192) e [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/44846308225). Foram conciliados dois ganhos e uma perda, inclusive os limites de data em São Paulo. A tela agora permite exportar a consulta em CSV e imprimir para PDF. O teste do navegador verifica download e geração do documento. Conferir os checks desta revisão. Próxima atividade independente: recortes por equipe, segmento e pipeline. Aceite da missão pendente.

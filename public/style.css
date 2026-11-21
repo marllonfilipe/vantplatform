@@ -11,3 +11,12 @@
 .flow-path li{padding:.35rem .5rem;border-inline-start:2px solid var(--line)}
 .flow-end{font-size:.85rem;color:var(--muted)}
 .step-controls{display:flex;gap:.35rem;flex-wrap:wrap}
+@media print {
+  html:has(.revenue-report) { color-scheme: light; --line: #ddd; --surface: white; --muted: #444; color: black; background: white; }
+  body:has(.revenue-report) #shell { display: block; min-height: auto; }
+  body:has(.revenue-report) :is(#side, #workspace > header, #filters, #context, #status),
+  .revenue-report :is(form, .revenue-actions, [role=status]) { display: none !important; }
+  body:has(.revenue-report) .page { max-width: none; padding: 0; }
+  .revenue-report .row, .revenue-report h2 { break-inside: avoid; }
+  .revenue-report h2 { break-after: avoid; }
+}

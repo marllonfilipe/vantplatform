@@ -36,7 +36,7 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
    await admin.query('UPDATE vant.deals SET created_at=$2,closed_at=$3 WHERE tenant_id=$4 AND id=$1',[(await response.json()).id,created,closed,tenant]);
   }
   await deal('Ganho inicial','won',10000,actor,'Feira','2025-02-01T03:00:00Z','2025-03-01T03:00:00Z');
-  await deal('Ganho final','won',30000,seller,'Indicação','2025-03-02T02:59:59Z','2025-04-01T02:59:59Z');
+  await deal('Ganho final','won',30000,seller,'=Feira; "Sul"','2025-03-02T02:59:59Z','2025-04-01T02:59:59Z');
   await deal('Perda confirmada','lost',20000,actor,'Feira','2025-01-02T12:00:00Z','2025-03-20T12:00:00Z');
   await deal('Fora do período','won',90000,actor,'Feira','2025-02-01T02:00:00Z','2025-03-01T02:59:59Z');
   await deal('Período seguinte','won',90000,actor,'Feira','2025-03-01T02:00:00Z','2025-04-01T03:00:00Z');
@@ -57,6 +57,18 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   await page.getByRole('button',{name:'Receita comercial',exact:true}).click();
   await page.getByLabel('Fechamentos a partir de').fill('2025-03-01');await page.getByLabel('Fechamentos até').fill('2025-03-31');
   await page.getByRole('button',{name:'Aplicar filtros'}).click();await page.getByText('2 / 1',{exact:true}).waitFor();
+  const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Exportar CSV'}).click();
+  const file=await download;assert.equal(file.suggestedFilename(),'receita-2025-03-01-2025-03-31.csv');
+  const chunks=[];for await(const chunk of await file.createReadStream())chunks.push(chunk);
+  const csv=Buffer.concat(chunks).toString('utf8');
+  assert.ok(csv.includes(`"Origem";"'=Feira; ""Sul"""`));
+  assert.match(csv,/"Total";"Total";"3";"2";"1";"40000";"20000";/);
+  await page.emulateMedia({media:'print'});
+  assert.equal(await page.getByRole('button',{name:'Exportar CSV'}).isVisible(),false);
+  assert.equal(await page.getByText('2 / 1',{exact:true}).isVisible(),true);
+  assert.equal((await page.pdf({format:'A4'})).subarray(0,5).toString(),'%PDF-');
+  await page.emulateMedia({media:'screen'});
   const sellerLogin=await call('auth/login','POST',{tenantId:tenant,email:'seller@example.invalid',password});
   cookie=sellerLogin.headers.get('set-cookie').split(';')[0];assert.equal((await (await call(path)).json()).total.won,1);
   assert.equal((await call(path+'&seller='+actor)).status,403);
