@@ -47,3 +47,11 @@ A janela histórica abrange os últimos três anos até a consulta e inclui ganh
 A taxa observada entre negócios encerrados pode diferir da conversão futura da carteira. O modelo não atribui uma probabilidade individual a partir da idade da negociação. O usuário pode comparar essa idade com os ciclos de vendas registrados. Mudanças de pipeline, cadastro e carteira podem afetar a comparabilidade.
 
 O cenário em PostgreSQL cria um pipeline com histórico controlado, verifica a ausência de projeção sem amostra e confere a transição da referência geral para a sazonal. Com seis ganhos em dez fechamentos e uma oportunidade de R$ 100,00, o comparativo esperado é R$ 60,00. A suíte também confere o ciclo, a separação por vendedor e a exibição no Chromium.
+
+## Conversão entre etapas do funil
+
+Em **Inteligência → Receita comercial → Conversão entre etapas**, o denominador de cada etapa é o número de negócios distintos cuja entrada nela está registrada no histórico do CRM durante o período selecionado. Cada negócio contribui uma vez por etapa. O relatório identifica o destino da primeira saída após essa entrada e calcula a porcentagem sobre todos os negócios que entraram. Inclui retornos, saltos e transferências identificados pelo nome do pipeline e da etapa de destino. Uma entrada sem saída observada até o fim do intervalo continua no denominador.
+
+A criação de um negócio registra entrada na sua primeira etapa. Atribuir novamente a mesma etapa não cria entrada. A apuração exige que o histórico da saída registre a mesma etapa de origem da visita. Não se infere um movimento a partir da posição atual do negócio ou da ordem atual do funil. Negócios que já estavam na etapa antes do período só entram no denominador se registrarem nova entrada no intervalo.
+
+As datas usam São Paulo. Os filtros de carteira, equipe, origem e segmento usam o cadastro atual. Para as movimentações, o filtro de pipeline seleciona o pipeline da etapa de origem. CSV e impressão incluem as passagens e os filtros aplicados. Um relatório pode mostrar movimentações mesmo sem qualquer fechamento no período.
