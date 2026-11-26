@@ -46,7 +46,7 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   const enterprise=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Enterprise',exact:true})});
   assert.match(await enterprise.innerText(),/Sob consulta/);
   const usage=async()=>{const r=await call('billing/usage');assert.equal(r.status,200);return r.json();};
-  assert.deepEqual(await usage(),{assignment:null,users:2,leads:0,pipelines:0});
+  assert.deepEqual(await usage(),{assignment:null,users:2,leads:0,pipelines:0,storage_bytes:'0'});
   // A empresa não pode contratar ou elevar o próprio limite pela conexão da aplicação.
   assert.equal((await pool.query("SELECT has_table_privilege(current_user,'vant.plan_assignments','INSERT') AS allowed")).rows[0].allowed,false);
   async function assign(code,revision,limits){
@@ -57,7 +57,7 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
     return row;
    }catch(error){await admin.query('ROLLBACK');throw error;}
   }
-  const limits={user_limit:2,active_lead_limit:1,pipeline_limit:1};
+  const limits={user_limit:2,active_lead_limit:1,pipeline_limit:1,storage_limit_bytes:6};
   assert.equal((await assign('start',0,limits)).revision,1);
   assert.equal((await assign('start',0,limits)).revision,1);
   await assert.rejects(assign('growth',0,limits),/vínculo mudou/);
@@ -70,9 +70,21 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   assert.equal((await responses.find(r=>r.status===409).json()).error.code,'plan_limit');
   const lead=await call('crm/leads','POST',{name:'Lead da franquia'});
   assert.equal(lead.status,201);
+  const {id:leadId}=await lead.json();
+  const document=(await admin.query(`INSERT INTO vant.documents(tenant_id,filename,media_type,size_bytes) VALUES($1,'Descrição','text/plain',3) RETURNING id`,[tenant])).rows[0];
+  await admin.query(`INSERT INTO vant.documents(tenant_id,filename,media_type,size_bytes) VALUES($1,'Separado','text/plain',10)`,[other]);
+  const addFile=filename=>call('crm/leads/'+leadId+'/files','POST',{filename,base64:Buffer.from('Olá'.normalize('NFC')).toString('base64')});
+  const over=await addFile('maior.txt');
+  assert.equal(over.status,409);assert.equal((await over.json()).error.code,'plan_limit');
+  assert.equal((await usage()).storage_bytes,'3');
+  await admin.query('UPDATE vant.documents SET size_bytes=2 WHERE tenant_id=$1 AND id=$2',[tenant,document.id]);
+  const uploads=await Promise.all(['primeiro.txt','segundo.txt'].map(addFile));
+  assert.deepEqual(uploads.map(r=>r.status).sort(),[201,409]);
+  assert.equal((await usage()).storage_bytes,'6');
+  await assert.rejects(admin.query('UPDATE vant.documents SET size_bytes=3 WHERE tenant_id=$1 AND id=$2',[tenant,document.id]),{code:'V4001'});
   assert.equal((await call('crm/leads','POST',{name:'Outro lead'})).status,409);
   await admin.query("UPDATE vant.members SET active=false WHERE tenant_id=$1 AND role='seller'",[tenant]);
-  const lowered={...limits,user_limit:1,active_lead_limit:0};
+  const lowered={...limits,user_limit:1,active_lead_limit:0,storage_limit_bytes:5};
   assert.equal((await assign('enterprise',1,lowered)).revision,2);
   await assert.rejects(admin.query("UPDATE vant.members SET active=true WHERE tenant_id=$1 AND role='seller'",[tenant]),{code:'V4001'});
   const report=await usage();
@@ -82,7 +94,13 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   await page.getByRole('button',{name:'Planos comerciais'}).click();
   const consumption=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Consumo da empresa'})});
   await consumption.getByText('1 de 0',{exact:true}).waitFor();
-  assert.equal((await assign('growth',2)).revision,3);
+  await consumption.getByText('6 bytes de 5 bytes',{exact:true}).waitFor();
+  assert.equal(await consumption.getByText('Franquia excedida',{exact:true}).count(),2);
+  await admin.query('DELETE FROM vant.documents WHERE tenant_id=$1 AND id=$2',[tenant,document.id]);
+  assert.equal((await usage()).storage_bytes,'4');
+  await assert.rejects(assign('growth',2,{storage_limit_bytes:-1}),/armazenamento inválida/);
+  assert.equal((await assign('growth',2)).storage_limit_bytes,'5');
+  assert.equal((await usage()).assignment.revision,3);
   assert.equal((await call('crm/leads','POST',{name:'Depois da ampliação'})).status,201);
   await admin.query("UPDATE vant.members SET active=true WHERE tenant_id=$1 AND role='seller'",[tenant]);
   const history=await admin.query('SELECT revision FROM vant.plan_assignments WHERE tenant_id=$1 ORDER BY revision',[tenant]);

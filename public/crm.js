@@ -219,6 +219,16 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    const current=panel('Consumo da empresa',pair('Plano vinculado',assigned?catalog.items.find(p=>p.code===assigned.plan_code).name:'Sem vínculo'),
     pair('Usuários ativos',display(usage.users,assigned?.user_limit)),pair('Leads cadastrados',display(usage.leads,assigned?.active_lead_limit)),
     pair('Pipelines cadastrados',display(usage.pipelines,assigned?.pipeline_limit)));
+   const usedBytes=BigInt(usage.storage_bytes);
+   const limitBytes=assigned?.storage_limit_bytes==null?null:BigInt(assigned.storage_limit_bytes);
+   const bytes=value=>value.toLocaleString('pt-BR')+' bytes';
+   current.append(pair('Conteúdo armazenado',limitBytes===null?bytes(usedBytes):bytes(usedBytes)+' de '+bytes(limitBytes)));
+   for(const [label,used,limit] of [
+    ['Usuários ativos',usage.users,assigned?.user_limit],['Leads cadastrados',usage.leads,assigned?.active_lead_limit],
+    ['Pipelines cadastrados',usage.pipelines,assigned?.pipeline_limit],['Armazenamento',usedBytes,limitBytes]
+   ]){
+    if(limit!=null&&used>=limit)current.append(pair(label+' · alerta',used>limit?'Franquia excedida':'Limite atingido'));
+   }
    return [current,...catalog.items.map(plan=>panel(plan.name,
     pair('Mensalidade',plan.custom_terms?'Sob consulta':money(plan.monthly_cents)+' / mês'),
     pair('Usuários',number(plan.user_limit)),pair('Leads ativos',number(plan.active_lead_limit)),

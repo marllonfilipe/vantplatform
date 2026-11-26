@@ -29,3 +29,11 @@ Um quarto argumento JSON permite configurar `user_limit`, `active_lead_limit` e 
 O PostgreSQL serializa por empresa as novas ocupações e a troca de plano. Ao atingir o limite, o CRM responde com HTTP 409 e código `plan_limit`. A redução de uma franquia preserva os dados existentes e bloqueia novas ocupações até haver capacidade. Desativar um usuário libera um assento. Os testes de integração cobrem requisições simultâneas, reativação, mudança de plano, redução com excesso existente, isolamento e leitura do consumo no Chromium.
 
 O vínculo administrativo registra a franquia comercial. Assinatura no gateway, cobranças, faturas, confirmação de pagamento, renovação, inadimplência e os demais recursos medidos seguem pendentes.
+
+## Armazenamento e alertas de capacidade
+
+A franquia opcional `storage_limit_bytes` no comando administrativo aceita um inteiro em bytes de 0 a 9.007.199.254.740.991. Sua omissão preserva o valor anterior. Um valor explícito `null` retira o teto de armazenamento do vínculo. O plano original não especifica quantidades de armazenamento para precificar. A tela mostra o consumo mesmo antes de configurar a franquia.
+
+O total soma os bytes lógicos dos documentos cadastrados e o conteúdo binário dos anexos dos leads. Índices, vetores e backups ficam fora dessa medida. O PostgreSQL controla o aumento dos dois tipos de conteúdo com uma única franquia por empresa. Exclusões e reduções liberam espaço. A consulta identifica limites atingidos e franquias já excedidas após uma redução de capacidade para usuários, leads, pipelines e armazenamento.
+
+O teste de integração usa arquivos UTF-8 enviados pela API, dois uploads concorrentes na última vaga, alterações e exclusões de documentos, isolamento entre empresas e a leitura dos alertas no Chromium.
