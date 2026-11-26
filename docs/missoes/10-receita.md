@@ -55,3 +55,11 @@ Em **Inteligência → Receita comercial → Conversão entre etapas**, o denomi
 A criação de um negócio registra entrada na sua primeira etapa. Atribuir novamente a mesma etapa não cria entrada. A apuração exige que o histórico da saída registre a mesma etapa de origem da visita. Não se infere um movimento a partir da posição atual do negócio ou da ordem atual do funil. Negócios que já estavam na etapa antes do período só entram no denominador se registrarem nova entrada no intervalo.
 
 As datas usam São Paulo. Os filtros de carteira, equipe, origem e segmento usam o cadastro atual. Para as movimentações, o filtro de pipeline seleciona o pipeline da etapa de origem. CSV e impressão incluem as passagens e os filtros aplicados. Um relatório pode mostrar movimentações mesmo sem qualquer fechamento no período.
+
+## Atividades comerciais e produtividade
+
+Em **Inteligência → Receita comercial**, o quadro **Atividades comerciais** usa as atividades registradas na agenda do CRM. As conclusões usam a data de conclusão. A pontualidade divide as atividades concluídas até o prazo pelas que venceram no período. Uma atividade concluída sem prazo entra nas conclusões e fica fora da pontualidade. O quadro identifica também quantas venceram no período e ainda estavam abertas no instante de corte, incluindo as concluídas somente depois dele. O corte é o fim do período ou o instante da consulta, o que ocorrer primeiro. Sem vencimentos, a pontualidade aparece sem base.
+
+O relatório discrimina as contagens por responsável e tipo de atividade. A carteira é a do responsável pela atividade. Os filtros comerciais usam a oportunidade vinculada ou o lead associado. Uma atividade avulsa aparece no total e na carteira de seu responsável quando os filtros comerciais não exigem um vínculo. As colunas do CSV identificam separadamente essas medidas. A versão para impressão inclui o mesmo quadro.
+
+Os indicadores medem volume e cumprimento dos prazos cadastrados. Reagendamentos e reatribuições usam os valores atuais do CRM.

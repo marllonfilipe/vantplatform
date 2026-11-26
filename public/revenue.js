@@ -1,3 +1,4 @@
+const activityNames={task:'Tarefa',call:'Ligação',meeting:'Reunião',comment:'Comentário',reminder:'Lembrete',followup:'Follow-up'};
 const groupNames={total:'Total',source:'Origem',seller:'Vendedor',stage:'Etapa',team:'Equipe',pipeline:'Pipeline',segment:'Segmento',loss:'Motivo da perda'};
 
 function csvCell(value){
@@ -11,7 +12,7 @@ function transitionPercent(count,entered){
 }
 
 function downloadReport(report,filters){
- const rows=[['Início','Fim','Filtro de origem','Carteira','Equipe','Pipeline','Segmento','Grupo','Descrição','Fechados','Ganhos','Perdidos','Receita (centavos)','Ticket médio (centavos)','Ciclo médio (dias)','Amostra do ciclo','Conversão (%)','Negócios que entraram','Saídas observadas','Destino','Negócios por destino','Conversão ao destino (%)']];
+ const rows=[['Início','Fim','Filtro de origem','Carteira','Equipe','Pipeline','Segmento','Grupo','Descrição','Fechados','Ganhos','Perdidos','Receita (centavos)','Ticket médio (centavos)','Ciclo médio (dias)','Amostra do ciclo','Conversão (%)','Negócios que entraram','Saídas observadas','Destino','Negócios por destino','Conversão ao destino (%)','Atividades concluídas','Com vencimento','Concluídas no prazo','Pendentes no corte','Pontualidade (%)']];
  for(const row of [report.total,...report.groups]){
   rows.push([report.period.from,report.period.to,...filters,groupNames[row.kind??'total'],row.label??'Total',row.closed,row.won,row.lost,row.revenue_cents,row.average_ticket_cents,row.average_cycle_days,row.cycle_sample,row.conversion_pct,'','','','','']);
  }
@@ -20,6 +21,13 @@ function downloadReport(report,filters){
   if(!stage.destinations.length)rows.push([...prefix,'','','']);
   for(const dest of stage.destinations)rows.push([...prefix,dest.label,dest.deals,transitionPercent(dest.deals,stage.entered)]);
  }
+ for(const row of [report.activities.total,...report.activities.groups]){
+  const kind={owner:'Atividades por responsável',kind:'Atividades por tipo',total:'Atividades comerciais'}[row.kind??'total'];
+  const label=row.kind==='kind'?activityNames[row.id]:row.label??'Total';
+  rows.push([report.period.from,report.period.to,...filters,kind,label,...Array(13).fill(''),row.completed,row.due,row.on_time,row.pending,row.on_time_pct]);
+ }
+ const width=rows[0].length;
+ for(const row of rows)while(row.length<width)row.push('');
  const csv=rows.map(row=>row.map(csvCell).join(';')).join('\r\n');
  const url=URL.createObjectURL(new Blob(['\uFEFF',csv,'\r\n'],{type:'text/csv;charset=utf-8'}));
  const link=document.createElement('a');
@@ -86,6 +94,19 @@ export function createRevenuePage({api,node,panel,pair,empty,money,getUser}){
    }
    if(!report.transitions.length)transitions.append(empty('Sem entradas de etapa registradas no período.'));
    output.append(transitions);
+   const activities=report.activities.total;
+   const productivity=panel('Atividades comerciais',
+    pair('Concluídas no período',activities.completed),pair('Com vencimento no período',activities.due),
+    pair('Concluídas no prazo',activities.on_time),pair('Pontualidade',percent(activities.on_time_pct)),
+    pair('Vencidas no período e pendentes no corte',activities.pending));
+   for(const kind of ['owner','kind']){
+    productivity.append(node('h3',kind==='owner'?'Por responsável':'Por tipo de atividade'));
+    const groups=report.activities.groups.filter(row=>row.kind===kind);
+    if(!groups.length)productivity.append(empty('Sem atividades no período.'));
+    for(const row of groups)productivity.append(pair(kind==='owner'?row.label:activityNames[row.id],
+     row.completed+' concluídas · '+row.on_time+' de '+row.due+' no prazo · '+row.pending+' pendentes no corte'));
+   }
+   output.append(productivity);
   }
   form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;try{await refresh();feedback.textContent='';}catch(error){feedback.textContent=error.message;}finally{submit.disabled=false;}};
   await refresh();return [root];
