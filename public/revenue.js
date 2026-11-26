@@ -28,10 +28,14 @@ function downloadReport(report,filters){
  }
  const width=rows[0].length;
  for(const row of rows)while(row.length<width)row.push('');
+ downloadCsv(rows,'receita-'+report.period.from+'-'+report.period.to+'.csv');
+}
+
+function downloadCsv(rows,filename){
  const csv=rows.map(row=>row.map(csvCell).join(';')).join('\r\n');
  const url=URL.createObjectURL(new Blob(['\uFEFF',csv,'\r\n'],{type:'text/csv;charset=utf-8'}));
  const link=document.createElement('a');
- link.href=url;link.download='receita-'+report.period.from+'-'+report.period.to+'.csv';
+ link.href=url;link.download=filename;
  document.body.append(link);link.click();link.remove();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
@@ -107,6 +111,38 @@ export function createRevenuePage({api,node,panel,pair,empty,money,getUser}){
      row.completed+' concluídas · '+row.on_time+' de '+row.due+' no prazo · '+row.pending+' pendentes no corte'));
    }
    output.append(productivity);
+   if(['manager','owner'].includes(getUser().role)){
+    const executive=node('section'),controls=node('div',undefined,'toolbar revenue-actions'),label=node('label','Foco da análise'),focus=node('select'),generate=node('button','Gerar análise executiva');
+    for(const topic of ['Revisar riscos comerciais','Priorizar as oportunidades de receita','Melhorar a pontualidade das atividades'])focus.add(new Option(topic,topic));
+    focus.setAttribute('aria-label','Foco da análise');label.append(focus);controls.append(label,generate);
+    const content=node('div'),notice=node('p');notice.setAttribute('role','status');executive.append(controls,notice,content);output.append(executive);
+    generate.onclick=async()=>{
+     generate.disabled=true;notice.textContent='Analisando os registros…';
+     try{
+      const applied=new URLSearchParams(query);applied.set('from',report.period.from);applied.set('to',report.period.to);
+      const brief=await api('/revenue/executive?'+applied,'POST',{focus:focus.value});
+      const lines=[
+       ['Período',brief.period.from+' até '+brief.period.to],['Filtros',context.textContent],
+       ['Foco solicitado',brief.focus],['Modelo local',brief.model],['Consulta',brief.observed_at],
+       ['Receita ganha',money(brief.total.revenue_cents)],['Ganhos / fechamentos',brief.total.won+' / '+brief.total.closed],
+       ['Período anterior',brief.previous_from+' até '+brief.previous_to],
+       ['Ganhos / fechamentos anteriores',brief.previous.won+' / '+brief.previous.closed],
+       ['Variação da conversão',brief.change_pp===null?'Sem comparação entre períodos completos com fechamentos':brief.change_pp.toLocaleString('pt-BR')+' pontos percentuais'],
+       ['Atividades concluídas no intervalo / anterior',brief.completed_activities+' / '+(brief.previous_activities??'Sem comparação')],
+       ['Negócios abertos vencidos ou parados hoje',brief.at_risk],
+       ['Maior valor ponderado na carteira atual',brief.potential?brief.potential.name+' · '+money(brief.potential.weighted_cents):'Sem oportunidade com valor e probabilidade positivos']
+      ];
+      for(const item of brief.priorities)lines.push([item.title,item.evidence+' '+item.action]);
+      if(!brief.priorities.length)lines.push(['Ações prioritárias','Sem sinal para intervenção com estes dados.']);
+      for(const item of brief.references)lines.push(['Referência · '+item.title+' · revisão '+item.revision,item.content]);
+      if(!brief.references.length)lines.push(['Memória comercial','Sem trecho com aderência suficiente.']);
+      const exportButton=node('button','Exportar análise executiva em CSV', 'revenue-actions');
+      exportButton.onclick=()=>downloadCsv([['Item','Evidência'],...lines],'analise-executiva-'+brief.period.from+'-'+brief.period.to+'.csv');
+      content.replaceChildren(panel('Análise executiva do período',...lines.map(([title,value])=>pair(title,value)),exportButton));
+      notice.textContent='';
+     }catch(error){content.replaceChildren();notice.textContent=error.message;}finally{generate.disabled=false;}
+    };
+   }
   }
   form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;try{await refresh();feedback.textContent='';}catch(error){feedback.textContent=error.message;}finally{submit.disabled=false;}};
   await refresh();return [root];

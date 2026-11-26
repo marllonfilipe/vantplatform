@@ -1,6 +1,7 @@
+import {executiveBrief,scopedDeals} from './revenue-executive.mjs';
 import {activityReport} from './revenue-activities.mjs';
 import {reject,textField} from './http.mjs';
-import {isUuid} from './security.mjs';
+import {isUuid,mayManageTeams} from './security.mjs';
 
 function calendarDate(value){
  if(value===null)return null;
@@ -9,8 +10,11 @@ function calendarDate(value){
  if(!Number.isFinite(+date)||date.toISOString().slice(0,10)!==value)reject(400,'period','Data inválida.');
  return value;
 }
-export async function revenueRoutes({db,tenant,member,url,method}){
- if(url.pathname!=='/api/v1/revenue/closed'||method!=='GET')return;
+export async function revenueRoutes(ctx){
+ const {db,tenant,member,url,method}=ctx;
+ const executive=url.pathname==='/api/v1/revenue/executive'&&method==='POST';
+ if(!executive&&(url.pathname!=='/api/v1/revenue/closed'||method!=='GET'))return;
+ if(executive&&!mayManageTeams(member.role))reject(403,'permission','A análise executiva exige gestão.');
  const from=calendarDate(url.searchParams.get('from')),to=calendarDate(url.searchParams.get('to'));
  if((from===null)!==(to===null)||from&&from>to)reject(400,'period','Informe um intervalo de datas válido.');
  const seller=url.searchParams.get('seller'),origin=url.searchParams.get('source');
@@ -22,14 +26,7 @@ export async function revenueRoutes({db,tenant,member,url,method}){
    coalesce($2::date,(now() AT TIME ZONE 'America/Sao_Paulo')::date) AS "to"`,[from,to])).rows[0];
  const filters=[tenant,period.from,period.to,member.role==='seller'?member.id:seller,origin===null?null:textField(origin,250),team,pipeline,segment===null?null:textField(segment,250)];
  const {rows:[report]}=await db.query(`WITH scoped AS NOT MATERIALIZED (
-   SELECT d.*,coalesce(a.segment,l.segment) AS segment
-   FROM vant.deals d
-   LEFT JOIN vant.leads l ON (l.tenant_id,l.id)=(d.tenant_id,d.lead_id)
-   LEFT JOIN vant.accounts a ON (a.tenant_id,a.id)=(d.tenant_id,coalesce(d.account_id,l.account_id))
-   WHERE d.tenant_id=$1 AND ($4::uuid IS NULL OR d.owner_id=$4)
-    AND ($5::text IS NULL OR lower(d.source)=lower($5))
-    AND ($6::uuid IS NULL OR d.team_id=$6)
-    AND ($8::text IS NULL OR lower(coalesce(a.segment,l.segment))=lower($8))
+   ${scopedDeals}
   ), cohort AS (
    SELECT d.id,d.status,d.amount_cents,d.owner_id,m.name AS seller,d.source,d.loss_reason,s.id AS stage_id,
     p.id AS pipeline_id,p.name AS pipeline,d.team_id,t.name AS team,
@@ -89,5 +86,7 @@ export async function revenueRoutes({db,tenant,member,url,method}){
    coalesce((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.label,t.stage_id) FROM transitions t),'[]') AS transitions`,
   filters);
  const empty={closed:0,won:0,lost:0,revenue_cents:'0',average_ticket_cents:null,average_cycle_days:null,cycle_sample:0,conversion_pct:null};
- return [200,{period,total:report.metrics.find(r=>r.kind==='total')??empty,groups:report.metrics.filter(r=>r.kind!=='total'),transitions:report.transitions,activities:await activityReport(db,filters)}];
+ const result={period,total:report.metrics.find(r=>r.kind==='total')??empty,groups:report.metrics.filter(r=>r.kind!=='total'),transitions:report.transitions,activities:await activityReport(db,filters)};
+ if(executive)return [200,await executiveBrief(ctx,filters,result)];
+ return [200,result];
 }

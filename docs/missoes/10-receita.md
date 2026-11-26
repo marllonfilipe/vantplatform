@@ -71,3 +71,13 @@ Em **Inteligência → Metas comerciais**, selecione o mês de referência. Prop
 A receita realizada soma as oportunidades ganhas por responsável, usando a data de fechamento no mês em São Paulo. Atingimento é a receita ganha dividida pela meta mensal. Pode superar 100%. Sem meta cadastrada, o painel apresenta a receita e indica ausência de meta e de base para o percentual. As revisões preservam uma única meta por empresa, mês e responsável. Alterações concorrentes exigem recarregar. Cada gravação bem-sucedida gera auditoria na mesma transação.
 
 O endpoint autenticado é `GET /api/v1/revenue/goals?month=AAAA-MM`. A gravação usa `PUT /api/v1/revenue/goals` com mês, responsável, centavos e revisão esperada. O teste de integração verifica concorrência, edição no navegador, percentuais reconciliados com ganhos do CRM, separação por empresa e acesso do vendedor.
+
+## Análise executiva com o Intelligence Core
+
+Em **Inteligência → Receita comercial**, aplique os filtros, escolha o foco e selecione **Gerar análise executiva**. Proprietários e gestores podem consultar a análise. A API apura novamente as métricas no servidor, com o período e os filtros aplicados. O relatório identifica o instante da consulta.
+
+A comparação considera os dias imediatamente anteriores, em número igual ao do período selecionado, no fuso de São Paulo. Variação de conversão em pontos percentuais exige dois intervalos completos com fechamentos. O relatório exibe os denominadores. A diferença de volume de atividades usa as datas de conclusão registradas.
+
+Os sinais de carteira são atuais. Uma oportunidade aberta requer revisão quando sua previsão de fechamento venceu ou há pelo menos 14 dias sem atualização ou interação concluída. O maior potencial considera o valor multiplicado pela probabilidade registrada. O Core ordena ações elegíveis por similaridade semântica com o foco da gestão. A análise apresenta a evidência que motivou cada ação e recupera até três trechos da memória da empresa com similaridade de pelo menos 0,55. Os cálculos financeiros vêm do CRM. O modelo local apoia a priorização e a recuperação de referências. Ausência de base, ausência de sinais e indisponibilidade de inferência têm estados distintos.
+
+A impressão inclui a análise gerada. **Exportar análise executiva em CSV** salva o mesmo resultado, com modelo, filtros, valores, ações e referências. O cenário em `tests/core/revenue.test.mjs` usa PostgreSQL, pgvector, pesos locais em CPU e Chromium. Verifica isolamento, acesso, queda de conversão entre amostras conhecidas, indicação de risco, mudança de escopo por origem e arquivos exportados.
