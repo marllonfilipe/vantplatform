@@ -1,3 +1,4 @@
+import {activityReport} from './revenue-activities.mjs';
 import {reject,textField} from './http.mjs';
 import {isUuid} from './security.mjs';
 
@@ -19,6 +20,7 @@ export async function revenueRoutes({db,tenant,member,url,method}){
  if((team!==null&&!isUuid(team))||(pipeline!==null&&!isUuid(pipeline)))reject(400,'filter','Equipe ou pipeline inválido.');
  const period=(await db.query(`SELECT coalesce($1::date,(now() AT TIME ZONE 'America/Sao_Paulo')::date-29) AS "from",
    coalesce($2::date,(now() AT TIME ZONE 'America/Sao_Paulo')::date) AS "to"`,[from,to])).rows[0];
+ const filters=[tenant,period.from,period.to,member.role==='seller'?member.id:seller,origin===null?null:textField(origin,250),team,pipeline,segment===null?null:textField(segment,250)];
  const {rows:[report]}=await db.query(`WITH scoped AS NOT MATERIALIZED (
    SELECT d.*,coalesce(a.segment,l.segment) AS segment
    FROM vant.deals d
@@ -85,7 +87,7 @@ export async function revenueRoutes({db,tenant,member,url,method}){
   )
   SELECT coalesce((SELECT jsonb_agg(to_jsonb(m) ORDER BY m.kind,m.label,m.id) FROM metrics m),'[]') AS metrics,
    coalesce((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.label,t.stage_id) FROM transitions t),'[]') AS transitions`,
-  [tenant,period.from,period.to,member.role==='seller'?member.id:seller,origin===null?null:textField(origin,250),team,pipeline,segment===null?null:textField(segment,250)]);
+  filters);
  const empty={closed:0,won:0,lost:0,revenue_cents:'0',average_ticket_cents:null,average_cycle_days:null,cycle_sample:0,conversion_pct:null};
- return [200,{period,total:report.metrics.find(r=>r.kind==='total')??empty,groups:report.metrics.filter(r=>r.kind!=='total'),transitions:report.transitions}];
+ return [200,{period,total:report.metrics.find(r=>r.kind==='total')??empty,groups:report.metrics.filter(r=>r.kind!=='total'),transitions:report.transitions,activities:await activityReport(db,filters)}];
 }
