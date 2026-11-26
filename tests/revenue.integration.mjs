@@ -134,14 +134,65 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   }
   await page.getByLabel('Horizonte da projeção').selectOption('30');
   await page.getByText('Mesmo mês, em ao menos dois anos',{exact:true}).waitFor();
+  const funnel=await call('crm/pipelines','POST',{name:'Fluxo observado',stages:['Entrada','Proposta','Revisão']});
+  assert.equal(funnel.status,201);
+  const funnelId=(await funnel.json()).id;
+  const steps=(await (await call('crm/pipelines')).json()).items.find(item=>item.id===funnelId).stages;
+  const [entry,proposal,review]=steps.map(item=>item.id);
+  async function dateEvent(id,at){
+   await admin.query(`UPDATE vant.crm_history SET created_at=$3 WHERE tenant_id=$1 AND id=(
+    SELECT max(id) FROM vant.crm_history WHERE tenant_id=$1 AND kind='deals' AND record_id=$2)`,[tenant,id,at]);
+  }
+  async function enter(name,owner,at){
+   const r=await call('crm/deals','POST',{name,owner_id:owner,source:'Movimento',amount_cents:10000,probability:40,pipeline_id:funnelId,stage_id:entry});
+   assert.equal(r.status,201);const {id}=await r.json();await dateEvent(id,at);return id;
+  }
+  async function move(id,stageId,at){
+   assert.equal((await call('crm/deals/'+id,'PATCH',{stage_id:stageId})).status,200);
+   await dateEvent(id,at);
+  }
+  const first=await enter('Reentrada',seller,'2025-03-01T03:00:00Z');
+  await move(first,entry,'2025-03-03T12:00:00Z');
+  await move(first,proposal,'2025-03-04T12:00:00Z');
+  await move(first,entry,'2025-03-05T12:00:00Z');
+  await move(first,review,'2025-03-06T12:00:00Z');
+  const second=await enter('Salto',actor,'2025-03-04T12:00:00Z');
+  await move(second,review,'2025-04-01T02:59:59Z');
+  const third=await enter('Saída em abril',actor,'2025-03-05T12:00:00Z');
+  await move(third,review,'2025-04-01T03:00:00Z');
+  const fourth=await enter('Entrada em fevereiro',actor,'2025-03-01T02:59:59Z');
+  await move(fourth,proposal,'2025-03-10T12:00:00Z');
+  const movementPath=path+'&pipeline='+funnelId+'&source=Movimento';
+  const movement=await (await call(movementPath)).json();
+  const stagesById=new Map(movement.transitions.map(stage=>[stage.stage_id,stage]));
+  assert.equal(movement.total.closed,0);
+  assert.deepEqual([stagesById.get(entry).entered,stagesById.get(entry).moved],[3,2]);
+  assert.deepEqual(stagesById.get(entry).destinations.map(d=>[d.id,d.deals]),[[proposal,1],[review,1]]);
+  assert.deepEqual([stagesById.get(proposal).entered,stagesById.get(proposal).moved],[2,1]);
+  assert.equal(stagesById.get(proposal).destinations[0].id,entry);
+  assert.deepEqual([stagesById.get(review).entered,stagesById.get(review).moved],[2,0]);
+  await page.getByRole('button',{name:'Receita comercial',exact:true}).click();
+  await page.getByLabel('Equipe do negócio').selectOption('');
+  await page.getByLabel('Segmento',{exact:true}).fill('');
+  await page.getByLabel('Pipeline',{exact:true}).selectOption(funnelId);
+  await page.getByRole('button',{name:'Aplicar filtros'}).click();
+  await page.getByText('2 de 3 · 66,67%',{exact:true}).waitFor();
+  const transitionDownload=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Exportar CSV'}).click();
+  const transitionFile=await transitionDownload,parts=[];
+  for await(const part of await transitionFile.createReadStream())parts.push(part);
+  assert.ok(Buffer.concat(parts).toString('utf8').includes('"3";"2";"Fluxo observado · Proposta";"1";"33.33"'));
   const sellerLogin=await call('auth/login','POST',{tenantId:tenant,email:'seller@example.invalid',password});
   cookie=sellerLogin.headers.get('set-cookie').split(';')[0];assert.equal((await (await call(path)).json()).total.won,1);
   assert.equal((await call(path+'&seller='+actor)).status,403);
+  const ownTransitions=(await (await call(movementPath)).json()).transitions;
+  assert.equal(ownTransitions.find(r=>r.stage_id===entry).entered,1);
   const ownForecast=await (await call('revenue/forecast')).json();
   assert.ok(ownForecast.comparisons.every(item=>item.pipeline!=='Histórico controlado'));
   assert.equal(ownForecast.coverage.find(row=>row.bucket==='within').value_cents,'30001');
   const isolated=await call('auth/login','POST',{tenantId:other,email,password});cookie=isolated.headers.get('set-cookie').split(';')[0];
   assert.deepEqual((await (await call('revenue/forecast')).json()).coverage,[]);
+  assert.deepEqual((await (await call(movementPath)).json()).transitions,[]);
   const empty=(await (await call(path)).json()).total;assert.equal(empty.closed,0);assert.equal(empty.conversion_pct,null);assert.equal(empty.average_ticket_cents,null);
  }finally{
   await browser?.close();

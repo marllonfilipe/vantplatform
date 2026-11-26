@@ -6,10 +6,19 @@ function csvCell(value){
  return '"'+safe.replaceAll('"','""')+'"';
 }
 
+function transitionPercent(count,entered){
+ return Number((100*count/entered).toFixed(2));
+}
+
 function downloadReport(report,filters){
- const rows=[['Início','Fim','Filtro de origem','Carteira','Equipe','Pipeline','Segmento','Grupo','Descrição','Fechados','Ganhos','Perdidos','Receita (centavos)','Ticket médio (centavos)','Ciclo médio (dias)','Amostra do ciclo','Conversão (%)']];
+ const rows=[['Início','Fim','Filtro de origem','Carteira','Equipe','Pipeline','Segmento','Grupo','Descrição','Fechados','Ganhos','Perdidos','Receita (centavos)','Ticket médio (centavos)','Ciclo médio (dias)','Amostra do ciclo','Conversão (%)','Negócios que entraram','Saídas observadas','Destino','Negócios por destino','Conversão ao destino (%)']];
  for(const row of [report.total,...report.groups]){
-  rows.push([report.period.from,report.period.to,...filters,groupNames[row.kind??'total'],row.label??'Total',row.closed,row.won,row.lost,row.revenue_cents,row.average_ticket_cents,row.average_cycle_days,row.cycle_sample,row.conversion_pct]);
+  rows.push([report.period.from,report.period.to,...filters,groupNames[row.kind??'total'],row.label??'Total',row.closed,row.won,row.lost,row.revenue_cents,row.average_ticket_cents,row.average_cycle_days,row.cycle_sample,row.conversion_pct,'','','','','']);
+ }
+ for(const stage of report.transitions){
+  const prefix=[report.period.from,report.period.to,...filters,'Passagem entre etapas',stage.label,'','','','','','','','',stage.entered,stage.moved];
+  if(!stage.destinations.length)rows.push([...prefix,'','','']);
+  for(const dest of stage.destinations)rows.push([...prefix,dest.label,dest.deals,transitionPercent(dest.deals,stage.entered)]);
  }
  const csv=rows.map(row=>row.map(csvCell).join(';')).join('\r\n');
  const url=URL.createObjectURL(new Blob(['\uFEFF',csv,'\r\n'],{type:'text/csv;charset=utf-8'}));
@@ -70,6 +79,13 @@ export function createRevenuePage({api,node,panel,pair,empty,money,getUser}){
     const entries=rows.map(r=>pair(r.label,kind==='loss'?r.lost+' perdas':r.won+' de '+r.closed+' ganhos · '+percent(r.conversion_pct)+' · '+money(r.revenue_cents)));
     output.append(panel(title,...(entries.length?entries:[empty('Sem fechamentos no período.')])));
    }
+   const transitions=panel('Conversão entre etapas',node('p','Cada negócio entra uma vez por etapa no período. A primeira saída observada indica o destino, inclusive em retornos e transferências.'));
+   for(const stage of report.transitions){
+    transitions.append(node('h3',stage.label),pair('Com saída registrada',stage.moved+' de '+stage.entered+' · '+percent(transitionPercent(stage.moved,stage.entered))));
+    for(const dest of stage.destinations)transitions.append(pair(dest.label,dest.deals+' negócios · '+percent(transitionPercent(dest.deals,stage.entered))));
+   }
+   if(!report.transitions.length)transitions.append(empty('Sem entradas de etapa registradas no período.'));
+   output.append(transitions);
   }
   form.onsubmit=async e=>{e.preventDefault();submit.disabled=true;try{await refresh();feedback.textContent='';}catch(error){feedback.textContent=error.message;}finally{submit.disabled=false;}};
   await refresh();return [root];
