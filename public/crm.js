@@ -210,6 +210,16 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
     const stage=select(p.stages.map(v=>[v.id,v.name]),s.id,false);stage.setAttribute('aria-label','Mover '+d.name);stage.onchange=async()=>{try{await api(path('deals',d.id),'PATCH',{stage_id:stage.value});if(active==='Funil de vendas')await view(active);}catch(e){stage.value=s.id;modal('Movimentação',empty(e.message));}};card.append(stage);}lane.append(card);}board.append(lane);}return [bar,board];
  }
  async function page(name){
+  if(name==='Planos comerciais'){
+   active=name;
+   const catalog=await api('/billing/plans');
+   const number=value=>value===null?'Sob consulta':value.toLocaleString('pt-BR');
+   return catalog.items.map(plan=>panel(plan.name,
+    pair('Mensalidade',plan.custom_terms?'Sob consulta':money(plan.monthly_cents)+' / mês'),
+    pair('Usuários',number(plan.user_limit)),pair('Leads ativos',number(plan.active_lead_limit)),
+    pair('Pipelines',number(plan.pipeline_limit)),pair('Conexões WhatsApp previstas',number(plan.whatsapp_connection_limit)),
+    pair('Recursos previstos no plano',plan.features.join(' · '))));
+  }
   if(name==='Metas comerciais'){active=name;return goalsPage();}
   if(name==='Previsão de receita'){active=name;return forecastPage();}
   if(name==='Receita comercial'){active=name;return revenuePage();}
@@ -232,5 +242,5 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   if(previous.length)pager.append(button('Página anterior',()=>{cursor=previous.pop();return view(active);}));if(result.nextCursor)pager.append(button('Próxima página',()=>{previous.push(cursor);cursor=result.nextCursor;return view(active);}));
   return [bar,filter,wrap,pager];
  }
- return {get groups(){return manager()?{...groups,Operação:[...groups.Operação,'Automações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
+ return {get groups(){return manager()?{...groups,Financeiro:['Planos comerciais'],Operação:[...groups.Operação,'Automações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
 }

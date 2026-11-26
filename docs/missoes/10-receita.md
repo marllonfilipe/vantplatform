@@ -1,6 +1,6 @@
 # Missão 10 · Revenue Intelligence e inteligência executiva
 
-**Implementação parcial.** Em **Inteligência → Receita comercial**, selecione as datas de fechamento e, se desejar, a origem e o vendedor. O vendedor consulta a própria carteira. Os dados vêm das oportunidades do CRM da empresa autenticada.
+**Implementação concluída e publicada. Aceite operacional pendente.** Em **Inteligência → Receita comercial**, selecione as datas de fechamento e, se desejar, a origem e o vendedor. O vendedor consulta a própria carteira. Os dados vêm das oportunidades do CRM da empresa autenticada.
 
 ## Cálculo
 
