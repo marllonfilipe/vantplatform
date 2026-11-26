@@ -12,7 +12,7 @@ As quebras por origem, vendedor e etapa usam os dados atuais do negócio fechado
 
 O cenário em `tests/revenue.integration.mjs` cadastra negócios pela API, fixa as datas em banco de teste e confere os totais, os dois limites do mês, exclusão de negócios abertos, filtros, acesso por carteira e isolamento entre empresas. O Chromium verifica o relatório pela interface.
 
-Continuam em aberto previsão documentada, evolução entre etapas, produtividade, demais recortes gerenciais e análises contextuais pelo Core. A atribuição específica ao WhatsApp depende da homologação da Missão 05.
+As seções seguintes descrevem as entregas posteriores. A integração de eventos do WhatsApp continua sujeita à homologação da Missão 05.
 
 ## Exportação da consulta exibida
 
@@ -81,3 +81,23 @@ A comparação considera os dias imediatamente anteriores, em número igual ao d
 Os sinais de carteira são atuais. Uma oportunidade aberta requer revisão quando sua previsão de fechamento venceu ou há pelo menos 14 dias sem atualização ou interação concluída. O maior potencial considera o valor multiplicado pela probabilidade registrada. O Core ordena ações elegíveis por similaridade semântica com o foco da gestão. A análise apresenta a evidência que motivou cada ação e recupera até três trechos da memória da empresa com similaridade de pelo menos 0,55. Os cálculos financeiros vêm do CRM. O modelo local apoia a priorização e a recuperação de referências. Ausência de base, ausência de sinais e indisponibilidade de inferência têm estados distintos.
 
 A impressão inclui a análise gerada. **Exportar análise executiva em CSV** salva o mesmo resultado, com modelo, filtros, valores, ações e referências. O cenário em `tests/core/revenue.test.mjs` usa PostgreSQL, pgvector, pesos locais em CPU e Chromium. Verifica isolamento, acesso, queda de conversão entre amostras conhecidas, indicação de risco, mudança de escopo por origem e arquivos exportados.
+
+## Conversão por canal comercial
+
+Na ficha de **Oportunidades**, o campo **Canal comercial** registra o canal informado pelo responsável. **Origem** continua identificando a campanha, evento ou indicação de captação. Um negócio originado em uma feira pode ser conduzido por telefone ou e-mail. O CRM preserva o canal não informado dos registros anteriores. A alteração é registrada no histórico. A classificação manual de mensageria independe de pareamento, mensagens ou atribuição automática de um provedor.
+
+Em **Receita comercial**, cada canal apresenta ganhos, fechamentos, conversão e receita. Os canais reconciliam com o total. O filtro seleciona negócios do canal e, no quadro de atividades, apenas atividades vinculadas a esses negócios. O relatório executivo, o CSV e a impressão conservam o recorte aplicado.
+
+## Verificação dos critérios originais
+
+| Critério | Onde conferir | Evidência técnica |
+|---|---|---|
+| Indicadores calculados com dados reais | Receita, ticket, ciclo, ganhos, perdas, motivos, etapas, canais, vendedores e atividades | API, PostgreSQL, histórico movimentado pelo CRM e conciliação dos grupos em `tests/revenue.integration.mjs` |
+| Filtros | Período, carteira, equipe, origem, canal, segmento e pipeline | Testes de datas limítrofes, filtros combinados e isolamento |
+| Relatórios | Receita comercial, metas mensais, análise executiva, comparação de atividades e resultados por responsável e equipe | Edição e consulta no Chromium, concorrência e conciliação com ganhos |
+| Exportação | CSV e impressão para PDF do relatório filtrado e da análise executiva | Download, conteúdo CSV e geração de PDF no Chromium |
+| Previsões documentadas | Projeções de 30, 60 e 90 dias, idade das negociações, amostra histórica e sazonalidade | Cenários com amostra insuficiente, histórico de pipeline e recorrência sazonal em PostgreSQL |
+| Análises contextuais | Recortes temporais, quedas de conversão e atividade, risco, potencial e ações por foco. O Copiloto comercial também consulta leads prioritários, oportunidades paradas e gargalos | Inferência local com referências da empresa em `tests/core/revenue.test.mjs` e consultas operacionais em `tests/core/knowledge.test.mjs` |
+| Nenhuma métrica inventada | Cada indicador identifica a origem e o denominador. A ausência de dados tem tratamento próprio | Casos sem meta, fechamentos, histórico suficiente, referências ou registros de outra empresa |
+
+O aceite operacional pelo proprietário é registrado separadamente. Os estudos de carteira usam os dados e as probabilidades cadastrados. O cenário histórico da previsão e a priorização semântica têm funções distintas.

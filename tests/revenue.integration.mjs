@@ -43,7 +43,9 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   }
   await deal('Ganho inicial','won',10000,actor,'Feira','2025-02-01T03:00:00Z','2025-03-01T03:00:00Z');
   const wonBySeller=await deal('Ganho final','won',30000,seller,'=Feira; "Sul"','2025-03-02T02:59:59Z','2025-04-01T02:59:59Z');
-  await deal('Perda confirmada','lost',20000,actor,'Feira','2025-01-02T12:00:00Z','2025-03-20T12:00:00Z');
+  const lost=await deal('Perda confirmada','lost',20000,actor,'Feira','2025-01-02T12:00:00Z','2025-03-20T12:00:00Z');
+  for(const id of [wonBySeller,lost])assert.equal((await call('crm/deals/'+id,'PATCH',{sales_channel:'phone'})).status,200);
+  assert.equal((await call('crm/deals/'+lost,'PATCH',{sales_channel:'invalido'})).status,400);
   await deal('Fora do período','won',90000,actor,'Feira','2025-02-01T02:00:00Z','2025-03-01T02:59:59Z');
   await deal('Período seguinte','won',90000,actor,'Feira','2025-03-01T02:00:00Z','2025-04-01T03:00:00Z');
   await deal('Ainda aberta','open',100000,seller,'Indicação','2025-03-01T02:00:00Z',null);
@@ -64,7 +66,12 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   assert.equal(all.total.closed,3);assert.equal(all.total.won,2);assert.equal(all.total.lost,1);
   assert.equal(all.total.revenue_cents,'40000');assert.equal(all.total.average_ticket_cents,'20000');
   assert.equal(Number(all.total.average_cycle_days),29);assert.equal(Number(all.total.conversion_pct),66.67);
-  for(const kind of ['source','seller','stage','team','segment','pipeline'])assert.equal(all.groups.filter(r=>r.kind===kind).reduce((n,r)=>n+Number(r.revenue_cents),0),40000);
+  for(const kind of ['source','channel','seller','stage','team','segment','pipeline'])assert.equal(all.groups.filter(r=>r.kind===kind).reduce((n,r)=>n+Number(r.revenue_cents),0),40000);
+  const byPhone=await (await call(path+'&channel=phone')).json();
+  assert.equal(byPhone.total.conversion_pct,'50.00');assert.equal(byPhone.total.revenue_cents,'30000');
+  assert.equal(byPhone.activities.total.completed,2);assert.equal(byPhone.groups.find(row=>row.kind==='channel').label,'Telefone');
+  assert.equal((await (await call(path+'&channel=unknown')).json()).total.revenue_cents,'10000');
+  assert.equal((await call(path+'&channel=invalido')).status,400);
   for(const [kind,label] of [['team','Sul'],['segment','Indústria']]){
    const groups=all.groups.filter(r=>r.kind===kind);
    assert.equal(groups.length,2);
@@ -95,6 +102,7 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   const file=await download;assert.equal(file.suggestedFilename(),'receita-2025-03-01-2025-03-31.csv');
   const chunks=[];for await(const chunk of await file.createReadStream())chunks.push(chunk);
   const csv=Buffer.concat(chunks).toString('utf8');
+  assert.ok(csv.includes('"Canal comercial";"Telefone"'));
   assert.ok(csv.includes('"Atividades comerciais";"Total"'));
   assert.ok(csv.includes('"3";"3";"1";"1";"33.33"'));
   assert.ok(csv.includes(`"Origem";"'=Feira; ""Sul"""`));
@@ -104,6 +112,10 @@ test('receita concilia fechamentos, ticket, ciclo, vendedor e origem no interval
   assert.equal(await page.getByText('2 / 1',{exact:true}).isVisible(),true);
   assert.equal((await page.pdf({format:'A4'})).subarray(0,5).toString(),'%PDF-');
   await page.emulateMedia({media:'screen'});
+  await page.getByLabel('Canal comercial',{exact:true}).selectOption('phone');
+  await page.getByRole('button',{name:'Aplicar filtros'}).click();
+  await page.getByText('1 / 1',{exact:true}).waitFor();
+  await page.getByLabel('Canal comercial',{exact:true}).selectOption('');
   await page.getByLabel('Equipe do negócio').selectOption(teamId);
   await page.getByLabel('Segmento',{exact:true}).fill('indústria');
   await page.getByLabel('Pipeline',{exact:true}).selectOption(pipeline);

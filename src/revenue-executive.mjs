@@ -13,7 +13,8 @@ export const scopedDeals=`SELECT d.*,coalesce(a.segment,l.segment) AS segment
    WHERE d.tenant_id=$1 AND ($4::uuid IS NULL OR d.owner_id=$4)
     AND ($5::text IS NULL OR lower(d.source)=lower($5))
     AND ($6::uuid IS NULL OR d.team_id=$6)
-    AND ($8::text IS NULL OR lower(coalesce(a.segment,l.segment))=lower($8))`;
+    AND ($8::text IS NULL OR lower(coalesce(a.segment,l.segment))=lower($8))
+    AND ($9::text IS NULL OR d.sales_channel=$9)`;
 
 export async function executiveBrief({db,tenant,member,requestId,body},filters,report){
  const focus=textField(body.focus??'Revisar riscos, oportunidades e prioridades da gestão comercial',240);

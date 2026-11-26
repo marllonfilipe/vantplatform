@@ -19,6 +19,7 @@ export async function activityReport(db,filters){
     AND ($6::uuid IS NULL OR coalesce(d.team_id,l.team_id)=$6)
     AND ($7::uuid IS NULL OR d.pipeline_id=$7)
     AND ($8::text IS NULL OR lower(coalesce(c.segment,l.segment))=lower($8))
+    AND ($9::text IS NULL OR d.sales_channel=$9)
     AND ((a.done_at>=b.start_at AND a.done_at<b.end_at) OR (a.due_at>=b.start_at AND a.due_at<b.end_at))
   )
   SELECT dimension.kind,dimension.id,dimension.label,

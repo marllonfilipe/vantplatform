@@ -51,11 +51,13 @@ test('CRM, persistência e navegação',async t=>{
   await page.getByRole('button',{name:'Oportunidades',exact:true}).click();try {await page.getByRole('columnheader',{name:'Probabilidade'}).waitFor({timeout:12000});} catch(error) {throw Error('Tabela do CRM: '+(await page.locator('#pageTitle').innerText())+' / '+(await page.locator('#status').innerText())+' / '+(await page.locator('#content').innerText()).slice(0,400),{cause:error});}
   await page.getByRole('button',{name:'Contrato anual',exact:true}).click();
   await page.getByRole('button',{name:'Editar',exact:true}).click();
+  await page.getByLabel('Canal comercial').selectOption('email');
   const closeDate=page.getByLabel('Previsão de fechamento',{exact:true});
   assert.equal(await closeDate.inputValue(),'2028-02-29','Preservar a data civil ao abrir a edição');
   await page.getByLabel('Nome',{exact:true}).fill('Contrato anual renovado');
   await page.getByRole('button',{name:'Salvar',exact:true}).click();
   await page.getByRole('button',{name:'Contrato anual renovado',exact:true}).waitFor();
   assert.equal((await call('deals/'+deal.id)).close_on,'2028-02-29');
+  assert.equal((await call('deals/'+deal.id)).sales_channel,'email');
  }finally{await browser?.close();if(server.listening)await new Promise(ok=>server.close(ok));await pool.end();await admin.end();}
 });

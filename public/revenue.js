@@ -1,5 +1,6 @@
+import {options} from './crm-schema.js';
 const activityNames={task:'Tarefa',call:'Ligação',meeting:'Reunião',comment:'Comentário',reminder:'Lembrete',followup:'Follow-up'};
-const groupNames={total:'Total',source:'Origem',seller:'Vendedor',stage:'Etapa',team:'Equipe',pipeline:'Pipeline',segment:'Segmento',loss:'Motivo da perda'};
+const groupNames={total:'Total',source:'Origem',channel:'Canal comercial',seller:'Vendedor',stage:'Etapa',team:'Equipe',pipeline:'Pipeline',segment:'Segmento',loss:'Motivo da perda'};
 
 function csvCell(value){
  const raw=String(value??'');
@@ -12,7 +13,7 @@ function transitionPercent(count,entered){
 }
 
 function downloadReport(report,filters){
- const rows=[['Início','Fim','Filtro de origem','Carteira','Equipe','Pipeline','Segmento','Grupo','Descrição','Fechados','Ganhos','Perdidos','Receita (centavos)','Ticket médio (centavos)','Ciclo médio (dias)','Amostra do ciclo','Conversão (%)','Negócios que entraram','Saídas observadas','Destino','Negócios por destino','Conversão ao destino (%)','Atividades concluídas','Com vencimento','Concluídas no prazo','Pendentes no corte','Pontualidade (%)']];
+ const rows=[['Início','Fim','Filtro de origem','Canal comercial','Carteira','Equipe','Pipeline','Segmento','Grupo','Descrição','Fechados','Ganhos','Perdidos','Receita (centavos)','Ticket médio (centavos)','Ciclo médio (dias)','Amostra do ciclo','Conversão (%)','Negócios que entraram','Saídas observadas','Destino','Negócios por destino','Conversão ao destino (%)','Atividades concluídas','Com vencimento','Concluídas no prazo','Pendentes no corte','Pontualidade (%)']];
  for(const row of [report.total,...report.groups]){
   rows.push([report.period.from,report.period.to,...filters,groupNames[row.kind??'total'],row.label??'Total',row.closed,row.won,row.lost,row.revenue_cents,row.average_ticket_cents,row.average_cycle_days,row.cycle_sample,row.conversion_pct,'','','','','']);
  }
@@ -61,6 +62,7 @@ export function createRevenuePage({api,node,panel,pair,empty,money,getUser}){
    const page=await api('/teams?limit=100'+(cursor?'&cursor='+encodeURIComponent(cursor):''));
    teams.push(...page.items);cursor=page.nextCursor;
   }while(cursor);
+  selectFilter('channel','Canal comercial',Object.entries(options.sales_channel).map(([id,name])=>({id,name})));
   selectFilter('team','Equipe do negócio',teams);
   selectFilter('pipeline','Pipeline',(await api('/crm/pipelines')).items);
   if(getUser().role!=='seller')selectFilter('seller','Vendedor',(await api('/crm/members')).items);
@@ -78,15 +80,16 @@ export function createRevenuePage({api,node,panel,pair,empty,money,getUser}){
     pair('Ciclo médio dos ganhos',t.average_cycle_days===null?'Sem base':Number(t.average_cycle_days).toLocaleString('pt-BR')+' dias · '+t.cycle_sample+' ganhos'));
    const source=query.get('source')||'Todas';
    const segment=query.get('segment')||'Todos';
-   const filters=[source,seller,team,pipeline,segment];
-   const context=node('p','Fechamentos de '+report.period.from+' até '+report.period.to+' · Origem: '+source+' · Carteira: '+seller+' · Equipe: '+team+' · Pipeline: '+pipeline+' · Segmento: '+segment);
+   const channel=options.sales_channel[query.get('channel')]??'Todos';
+   const filters=[source,channel,seller,team,pipeline,segment];
+   const context=node('p','Fechamentos de '+report.period.from+' até '+report.period.to+' · Origem: '+source+' · Canal: '+channel+' · Carteira: '+seller+' · Equipe: '+team+' · Pipeline: '+pipeline+' · Segmento: '+segment);
    const actions=node('div',undefined,'toolbar revenue-actions');
    const csv=node('button','Exportar CSV'),print=node('button','Imprimir ou salvar PDF');
    csv.onclick=()=>downloadReport(report,filters);
    print.onclick=()=>window.print();
    actions.append(csv,print);
    output.replaceChildren(context,actions,totals);
-   for(const [kind,title] of [['source','Por origem'],['seller','Por vendedor'],['team','Por equipe'],['segment','Por segmento'],['pipeline','Por pipeline'],['stage','Etapa de fechamento'],['loss','Motivos de perda']]){
+   for(const [kind,title] of [['source','Por origem'],['channel','Por canal comercial'],['seller','Por vendedor'],['team','Por equipe'],['segment','Por segmento'],['pipeline','Por pipeline'],['stage','Etapa de fechamento'],['loss','Motivos de perda']]){
     const rows=report.groups.filter(r=>r.kind===kind);
     const entries=rows.map(r=>pair(r.label,kind==='loss'?r.lost+' perdas':r.won+' de '+r.closed+' ganhos · '+percent(r.conversion_pct)+' · '+money(r.revenue_cents)));
     output.append(panel(title,...(entries.length?entries:[empty('Sem fechamentos no período.')])));
