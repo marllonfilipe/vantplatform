@@ -1,3 +1,4 @@
+import {options} from '../public/crm-schema.js';
 import {executiveBrief,scopedDeals} from './revenue-executive.mjs';
 import {activityReport} from './revenue-activities.mjs';
 import {reject,textField} from './http.mjs';
@@ -24,11 +25,13 @@ export async function revenueRoutes(ctx){
  if((team!==null&&!isUuid(team))||(pipeline!==null&&!isUuid(pipeline)))reject(400,'filter','Equipe ou pipeline inválido.');
  const period=(await db.query(`SELECT coalesce($1::date,(now() AT TIME ZONE 'America/Sao_Paulo')::date-29) AS "from",
    coalesce($2::date,(now() AT TIME ZONE 'America/Sao_Paulo')::date) AS "to"`,[from,to])).rows[0];
- const filters=[tenant,period.from,period.to,member.role==='seller'?member.id:seller,origin===null?null:textField(origin,250),team,pipeline,segment===null?null:textField(segment,250)];
+ const channel=url.searchParams.get('channel');
+ if(channel!==null&&!Object.hasOwn(options.sales_channel,channel))reject(400,'channel','Canal comercial inválido.');
+ const filters=[tenant,period.from,period.to,member.role==='seller'?member.id:seller,origin===null?null:textField(origin,250),team,pipeline,segment===null?null:textField(segment,250),channel];
  const {rows:[report]}=await db.query(`WITH scoped AS NOT MATERIALIZED (
    ${scopedDeals}
   ), cohort AS (
-   SELECT d.id,d.status,d.amount_cents,d.owner_id,m.name AS seller,d.source,d.loss_reason,s.id AS stage_id,
+   SELECT d.id,d.status,d.amount_cents,d.owner_id,m.name AS seller,d.source,d.sales_channel,d.loss_reason,s.id AS stage_id,
     p.id AS pipeline_id,p.name AS pipeline,d.team_id,t.name AS team,
     d.segment,p.name||' · '||s.name AS stage,extract(epoch FROM (d.closed_at-d.created_at))/86400 AS cycle
    FROM scoped d JOIN vant.members m ON (m.tenant_id,m.id)=(d.tenant_id,d.owner_id)
@@ -49,7 +52,7 @@ export async function revenueRoutes(ctx){
    round(100.0*count(*) FILTER(WHERE status='won')/count(*),2)::text AS conversion_pct
   FROM cohort c CROSS JOIN LATERAL (VALUES
    ('total',null::text,'Total'),('seller',c.owner_id::text,c.seller),
-   ('source',c.source,coalesce(c.source,'Sem origem informada')),('stage',c.stage_id::text,c.stage),
+   ('channel',c.sales_channel,c.sales_channel),('source',c.source,coalesce(c.source,'Sem origem informada')),('stage',c.stage_id::text,c.stage),
    ('pipeline',c.pipeline_id::text,c.pipeline),('team',c.team_id::text,coalesce(c.team,'Sem equipe atribuída')),
    ('segment',c.segment,coalesce(c.segment,'Sem segmento informado')),('loss',c.loss_reason,coalesce(c.loss_reason,'Sem motivo informado'))) dim(kind,id,label)
   WHERE dim.kind<>'loss' OR c.status='lost' GROUP BY dim.kind,dim.id,dim.label
@@ -86,6 +89,7 @@ export async function revenueRoutes(ctx){
    coalesce((SELECT jsonb_agg(to_jsonb(t) ORDER BY t.label,t.stage_id) FROM transitions t),'[]') AS transitions`,
   filters);
  const empty={closed:0,won:0,lost:0,revenue_cents:'0',average_ticket_cents:null,average_cycle_days:null,cycle_sample:0,conversion_pct:null};
+ for(const row of report.metrics)if(row.kind==='channel')row.label=options.sales_channel[row.id];
  const result={period,total:report.metrics.find(r=>r.kind==='total')??empty,groups:report.metrics.filter(r=>r.kind!=='total'),transitions:report.transitions,activities:await activityReport(db,filters)};
  if(executive)return [200,await executiveBrief(ctx,filters,result)];
  return [200,result];
