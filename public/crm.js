@@ -212,13 +212,18 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
  async function page(name){
   if(name==='Planos comerciais'){
    active=name;
-   const catalog=await api('/billing/plans');
+   const [catalog,usage]=await Promise.all([api('/billing/plans'),api('/billing/usage')]);
    const number=value=>value===null?'Sob consulta':value.toLocaleString('pt-BR');
-   return catalog.items.map(plan=>panel(plan.name,
+   const assigned=usage.assignment;
+   const display=(used,limit)=>assigned?number(used)+' de '+number(limit):number(used);
+   const current=panel('Consumo da empresa',pair('Plano vinculado',assigned?catalog.items.find(p=>p.code===assigned.plan_code).name:'Sem vínculo'),
+    pair('Usuários ativos',display(usage.users,assigned?.user_limit)),pair('Leads cadastrados',display(usage.leads,assigned?.active_lead_limit)),
+    pair('Pipelines cadastrados',display(usage.pipelines,assigned?.pipeline_limit)));
+   return [current,...catalog.items.map(plan=>panel(plan.name,
     pair('Mensalidade',plan.custom_terms?'Sob consulta':money(plan.monthly_cents)+' / mês'),
     pair('Usuários',number(plan.user_limit)),pair('Leads ativos',number(plan.active_lead_limit)),
     pair('Pipelines',number(plan.pipeline_limit)),pair('Conexões WhatsApp previstas',number(plan.whatsapp_connection_limit)),
-    pair('Recursos previstos no plano',plan.features.join(' · '))));
+    pair('Recursos previstos no plano',plan.features.join(' · '))))];
   }
   if(name==='Metas comerciais'){active=name;return goalsPage();}
   if(name==='Previsão de receita'){active=name;return forecastPage();}

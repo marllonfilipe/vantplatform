@@ -112,6 +112,7 @@ export function createApp({pool,origin,environment='development',featureRoutes,s
       respond(res,...(typeof result==='function'?await result():result));
     } catch (err) {
       const mapped=err instanceof ApiError ? [err.status,err.code,err.message] :
+        err.code==='V4001' ? [409,'plan_limit','Limite contratado atingido. Consulte Financeiro.'] :
         err.code==='23505' ? [409,'conflict','Registro já existe.'] :
         ['23503','23514','22P02','22007','22008','22003'].includes(err.code) ? [400,'invalid_field','Dados inválidos.'] :
         path==='/health/ready' || ['ECONNREFUSED','57P01','08006'].includes(err.code) ? [503,'dependency','Serviço temporariamente indisponível.'] :
