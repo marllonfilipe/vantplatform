@@ -8,6 +8,7 @@ import {createApp} from '../src/app.mjs';
 import {hashPassword} from '../src/security.mjs';
 import {servePage} from '../src/pages.mjs';
 import {featureRoutes} from '../src/routes.mjs';
+import {assignPlan} from '../src/plan-assignment.mjs';
 
 test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de gestão',async()=>{
  assert.equal(process.env.APP_ENV,'test');
@@ -44,7 +45,49 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   await scale.getByText('10.000',{exact:true}).waitFor();assert.match(await scale.innerText(),/597,00/);
   const enterprise=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Enterprise',exact:true})});
   assert.match(await enterprise.innerText(),/Sob consulta/);
-  await login('vendedor@example.invalid');assert.equal((await call('billing/plans')).status,403);
+  const usage=async()=>{const r=await call('billing/usage');assert.equal(r.status,200);return r.json();};
+  assert.deepEqual(await usage(),{assignment:null,users:2,leads:0,pipelines:0});
+  // A empresa não pode contratar ou elevar o próprio limite pela conexão da aplicação.
+  assert.equal((await pool.query("SELECT has_table_privilege(current_user,'vant.plan_assignments','INSERT') AS allowed")).rows[0].allowed,false);
+  async function assign(code,revision,limits){
+   await admin.query('BEGIN');
+   try{
+    const row=await assignPlan(admin,tenant,code,revision,limits);
+    await admin.query('COMMIT');
+    return row;
+   }catch(error){await admin.query('ROLLBACK');throw error;}
+  }
+  const limits={user_limit:2,active_lead_limit:1,pipeline_limit:1};
+  assert.equal((await assign('start',0,limits)).revision,1);
+  assert.equal((await assign('start',0,limits)).revision,1);
+  await assert.rejects(assign('growth',0,limits),/vínculo mudou/);
+  await assert.rejects(assign('enterprise',1),/três limites/);
+  const other=randomUUID();
+  await admin.query("INSERT INTO vant.tenants(id,name) VALUES($1,'Outra empresa')",[other]);
+  await admin.query("INSERT INTO vant.pipelines(tenant_id,name) VALUES($1,'Separado')",[other]);
+  const responses=await Promise.all(['Principal','Secundário'].map(name=>call('crm/pipelines','POST',{name,stages:['Aberto']})));
+  assert.deepEqual(responses.map(r=>r.status).sort(),[201,409]);
+  assert.equal((await responses.find(r=>r.status===409).json()).error.code,'plan_limit');
+  const lead=await call('crm/leads','POST',{name:'Lead da franquia'});
+  assert.equal(lead.status,201);
+  assert.equal((await call('crm/leads','POST',{name:'Outro lead'})).status,409);
+  await admin.query("UPDATE vant.members SET active=false WHERE tenant_id=$1 AND role='seller'",[tenant]);
+  const lowered={...limits,user_limit:1,active_lead_limit:0};
+  assert.equal((await assign('enterprise',1,lowered)).revision,2);
+  await assert.rejects(admin.query("UPDATE vant.members SET active=true WHERE tenant_id=$1 AND role='seller'",[tenant]),{code:'V4001'});
+  const report=await usage();
+  assert.equal(report.assignment.revision,2);assert.equal(report.users,1);assert.equal(report.pipelines,1);assert.equal(report.leads,1);
+  assert.equal(report.assignment.active_lead_limit,0);
+  assert.equal((await call('crm/leads','POST',{name:'Fora da franquia'})).status,409);
+  await page.getByRole('button',{name:'Planos comerciais'}).click();
+  const consumption=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Consumo da empresa'})});
+  await consumption.getByText('1 de 0',{exact:true}).waitFor();
+  assert.equal((await assign('growth',2)).revision,3);
+  assert.equal((await call('crm/leads','POST',{name:'Depois da ampliação'})).status,201);
+  await admin.query("UPDATE vant.members SET active=true WHERE tenant_id=$1 AND role='seller'",[tenant]);
+  const history=await admin.query('SELECT revision FROM vant.plan_assignments WHERE tenant_id=$1 ORDER BY revision',[tenant]);
+  assert.deepEqual(history.rows.map(row=>row.revision),[1,2,3]);
+  await login('vendedor@example.invalid');assert.equal((await call('billing/plans')).status,403);assert.equal((await call('billing/usage')).status,403);
  }finally{
   await browser?.close();if(server.listening)await new Promise(resolve=>server.close(resolve));await pool.end();await admin.end();
  }

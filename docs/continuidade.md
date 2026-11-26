@@ -157,3 +157,7 @@ O relatório deste marco foi apresentado no ChatGPT. O Outlook confirmou a opera
 ## Missão 11 · Catálogo de planos
 
 A primeira entrega independente disponibiliza os quatro planos originais, preços, recursos previstos e limites em Financeiro. O [relatório](missoes/11-integracoes-cobranca.md) descreve o acesso e os testes de API, permissões no PostgreSQL e tela em Chromium. Conferir as duas suítes no PR desta entrega. A missão continua parcial. A próxima atividade é vincular planos às empresas e medir o consumo para aplicar os limites no backend.
+
+## Missão 11 · Vínculo e capacidade por empresa
+
+O [catálogo comercial](https://github.com/marllonfilipe/vantplatform/pull/7) foi integrado após sucesso das suítes de [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/45892858086) e [inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/45892858049) no [commit testado](https://github.com/marllonfilipe/vantplatform/commit/d2763fd8a083fcc1587603e5c064bb688999fbf5). A entrega seguinte implementa o vínculo comercial versionado, a medição e os limites de usuários, leads e pipelines. O [relatório técnico](missoes/11-integracoes-cobranca.md) descreve a operação e os testes. Conferir os checks do PR antes do merge. Na sequência, confrontar as demais franquias de uso com a medição já existente de agentes e documentos. O ciclo financeiro, o Integration Hub e a missão permanecem parciais.

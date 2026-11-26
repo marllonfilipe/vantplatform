@@ -1,10 +1,18 @@
 import {mayManageTeams} from './security.mjs';
 import {reject} from './http.mjs';
 
-export async function billingRoutes({db,member,url,method}){
- if(url.pathname!=='/api/v1/billing/plans')return;
+export async function billingRoutes({db,tenant,member,url,method}){
+ if(!['/api/v1/billing/plans','/api/v1/billing/usage'].includes(url.pathname))return;
  if(!mayManageTeams(member.role))reject(403,'permission','A consulta de planos exige gestão.');
  if(method!=='GET')reject(405,'method','A consulta de planos aceita GET.');
+ if(url.pathname==='/api/v1/billing/usage'){
+  const {rows}=await db.query(`SELECT
+   (SELECT to_jsonb(a) - 'tenant_id' FROM vant.plan_assignments a WHERE tenant_id=$1 ORDER BY revision DESC LIMIT 1) AS assignment,
+   (SELECT count(*)::integer FROM vant.members WHERE tenant_id=$1 AND active) AS users,
+   (SELECT count(*)::integer FROM vant.leads WHERE tenant_id=$1) AS leads,
+   (SELECT count(*)::integer FROM vant.pipelines WHERE tenant_id=$1) AS pipelines`,[tenant]);
+  return [200,rows[0]];
+ }
  const {rows}=await db.query(`SELECT code,name,monthly_cents,custom_terms,user_limit,active_lead_limit,pipeline_limit,
   whatsapp_connection_limit,features FROM vant.billing_plans ORDER BY display_order,code`);
  return [200,{currency:'BRL',interval:'month',items:rows}];
