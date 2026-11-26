@@ -147,3 +147,13 @@ O [PR #4](https://github.com/marllonfilipe/vantplatform/pull/4) integrou as meta
 ## Missão 10 · Canal comercial e cobertura dos critérios
 
 A [análise executiva](https://github.com/marllonfilipe/vantplatform/pull/5) entrou na main após sucesso da [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/45891730039) e do [Core com inferência em CPU, CSV e PDF](https://github.com/marllonfilipe/vantplatform/actions/runs/45891730139) na [revisão de código](https://github.com/marllonfilipe/vantplatform/commit/cc7d5d4947ab4e0b594a1e43b11d567bf1d34073). O incremento de canal atribuído pelo responsável mantém o histórico e separa canal e origem no relatório. A matriz dos sete critérios originais está no [relatório técnico](missoes/10-receita.md). Conferir as duas suítes desta revisão, o merge e o estado das notificações antes de registrar o marco integral de implementação. O aceite humano permanece pendente. A próxima frente independente é a Missão 11, começando pelo cadastro e controle dos planos.
+
+## Missão 10 · Implementação publicada em 26/11/2026
+
+O [PR #6](https://github.com/marllonfilipe/vantplatform/pull/6) entrou na main às 17h39 de Brasília pelo [merge](https://github.com/marllonfilipe/vantplatform/commit/0f396369d238fb99b8dac6c7a156a5f19b7a7aaa). Os testes da [fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/45892144179) e do [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/45892144256) passaram na [revisão da conversão por canal](https://github.com/marllonfilipe/vantplatform/commit/e7b4a6c4b51cb0adb4f893800485630a4676d8f6). O [relatório técnico](missoes/10-receita.md) mapeia os sete critérios originais. Aceite operacional pendente.
+
+O relatório deste marco foi apresentado no ChatGPT. O Outlook confirmou a operação de envio com cópia em Itens Enviados. O recebimento e a leitura pelo destinatário seguem sem confirmação.
+
+## Missão 11 · Catálogo de planos
+
+A primeira entrega independente disponibiliza os quatro planos originais, preços, recursos previstos e limites em Financeiro. O [relatório](missoes/11-integracoes-cobranca.md) descreve o acesso e os testes de API, permissões no PostgreSQL e tela em Chromium. Conferir as duas suítes no PR desta entrega. A missão continua parcial. A próxima atividade é vincular planos às empresas e medir o consumo para aplicar os limites no backend.
