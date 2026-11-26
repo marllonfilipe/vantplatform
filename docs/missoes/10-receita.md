@@ -63,3 +63,11 @@ Em **Inteligência → Receita comercial**, o quadro **Atividades comerciais** u
 O relatório discrimina as contagens por responsável e tipo de atividade. A carteira é a do responsável pela atividade. Os filtros comerciais usam a oportunidade vinculada ou o lead associado. Uma atividade avulsa aparece no total e na carteira de seu responsável quando os filtros comerciais não exigem um vínculo. As colunas do CSV identificam separadamente essas medidas. A versão para impressão inclui o mesmo quadro.
 
 Os indicadores medem volume e cumprimento dos prazos cadastrados. Reagendamentos e reatribuições usam os valores atuais do CRM.
+
+## Metas comerciais
+
+Em **Inteligência → Metas comerciais**, selecione o mês de referência. Proprietários e gestores podem definir ou revisar a meta de receita em reais para um responsável comercial ativo. A lista inclui responsáveis com histórico de meta ou receita no mês, inclusive após desativação. O vendedor consulta apenas sua carteira.
+
+A receita realizada soma as oportunidades ganhas por responsável, usando a data de fechamento no mês em São Paulo. Atingimento é a receita ganha dividida pela meta mensal. Pode superar 100%. Sem meta cadastrada, o painel apresenta a receita e indica ausência de meta e de base para o percentual. As revisões preservam uma única meta por empresa, mês e responsável. Alterações concorrentes exigem recarregar. Cada gravação bem-sucedida gera auditoria na mesma transação.
+
+O endpoint autenticado é `GET /api/v1/revenue/goals?month=AAAA-MM`. A gravação usa `PUT /api/v1/revenue/goals` com mês, responsável, centavos e revisão esperada. O teste de integração verifica concorrência, edição no navegador, percentuais reconciliados com ganhos do CRM, separação por empresa e acesso do vendedor.
