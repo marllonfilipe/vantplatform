@@ -1,0 +1,37 @@
+name: Verificar leitura do HubSpot
+on:
+  pull_request:
+    paths:
+      - src/hubspot.mjs
+      - scripts/verify-hubspot.mjs
+      - .github/workflows/hubspot.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resposta-publica:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/verify-hubspot.mjs --public
+
+  leitura-autorizada:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    environment: hubspot-homologacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Consultar empresas autorizadas
+        env:
+          VANT_HUBSPOT_CHECK: ${{ secrets.VANT_HUBSPOT_CHECK }}
+        run: node scripts/verify-hubspot.mjs --authenticated

@@ -1,7 +1,5 @@
-import {readFile} from 'node:fs/promises';
-import {isAbsolute,join} from 'node:path';
+import {readTenantConfig,boundedJson} from './integration-io.mjs';
 import {createPrivateKey,sign} from 'node:crypto';
-import {isUuid} from './security.mjs';
 import {ApiError} from './http.mjs';
 
 const tokenUrl = 'https://oauth2.googleapis.com/token';
@@ -17,19 +15,8 @@ export function serviceCredentials({client_email,private_key}) {
   return {client_email,key};
 }
 
-export async function privateGoogleConfig(tenant,directory,parse) {
-  if (!isUuid(tenant)) throw invalidGoogleConfig();
-  if (!directory) return null;
-  if (!isAbsolute(directory)) throw invalidGoogleConfig();
-  try {
-    const raw = await readFile(join(directory,tenant + '.json'),'utf8');
-    if (Buffer.byteLength(raw) > 32768) throw invalidGoogleConfig();
-    return parse(JSON.parse(raw));
-  } catch (error) {
-    if (error.code === 'ENOENT') return null;
-    throw invalidGoogleConfig();
-  }
-}
+export const privateGoogleConfig = (tenant,directory,parse) =>
+  readTenantConfig(tenant,directory,parse,invalidGoogleConfig);
 
 export function serviceAssertion(config,scope,now = Math.floor(Date.now()/1000)) {
   const encode = obj => Buffer.from(JSON.stringify(obj)).toString('base64url');
@@ -46,14 +33,7 @@ export async function googleJson(url,options,limit) {
     if (response.status === 429) throw fail(503,'quota','O Google limitou a consulta. Tente novamente mais tarde.');
     throw fail(502,'upstream','O Google não concluiu a consulta.');
   }
-  const parts = [];
-  let size = 0;
-  for await (const chunk of response.body) {
-    size += chunk.length;
-    if (size > limit) throw fail(502,'size','A resposta excede o limite. Reduza o intervalo configurado.');
-    parts.push(chunk);
-  }
-  return JSON.parse(Buffer.concat(parts).toString('utf8'));
+  return boundedJson(response,limit);
 }
 
 export async function googleToken(config,scope) {

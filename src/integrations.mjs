@@ -3,14 +3,16 @@ import {ApiError,reject} from './http.mjs';
 import {audit,withTenant} from './db.mjs';
 import {tenantSheet,readSheet} from './google-sheets.mjs';
 
+import {tenantHubspot,readHubspot} from './hubspot.mjs';
 import {tenantCalendar,readCalendar} from './google-calendar.mjs';
 
-const googleReaders = new Map([
+const readers = new Map([
+  ['/api/v1/integrations/hubspot/read',{name:'hubspot',configure:tenantHubspot,read:readHubspot}],
   ['/api/v1/integrations/google-sheets/read',{name:'sheets',configure:tenantSheet,read:async config=>({range:config.range,values:await readSheet(config)})}],
   ['/api/v1/integrations/google-calendar/read',{name:'calendar',configure:tenantCalendar,read:readCalendar}]
 ]);
 
-async function googleSettings(tenant,configure) {
+async function readerSettings(tenant,configure) {
   try {
     const config = await configure(tenant);
     return {status:config?'configured':'unconfigured',config};
@@ -20,10 +22,10 @@ async function googleSettings(tenant,configure) {
   }
 }
 
-async function googleRead({db,pool,tenant,member,requestId,method,body,url},reader) {
+async function runReader({db,pool,tenant,member,requestId,method,body,url},reader) {
   if (method !== 'POST') reject(405,'method','Use POST para consultar este recurso.');
   if (Object.keys(body).length || url.search) reject(400,'parameters','O recurso é definido pela configuração da empresa.');
-  const {config,status} = await googleSettings(tenant,reader.configure);
+  const {config,status} = await readerSettings(tenant,reader.configure);
   if (!config) reject(409,'configuration',status==='invalid'?'Revise a configuração privada.':'Configure a integração da empresa.');
   await audit(db,tenant,member.id,reader.name+'.read.started',null,requestId);
   // The HTTP handler releases the application transaction before the network call.
@@ -37,12 +39,23 @@ async function googleRead({db,pool,tenant,member,requestId,method,body,url},read
   };
 }
 
+async function readerSummary(db,tenant,name,configure) {
+  const {status,config}=await readerSettings(tenant,configure);
+  const prefix=name+'.read.';
+  const events=await db.query(`SELECT created_at,split_part(action,'.',3) AS outcome FROM vant.audit
+    WHERE tenant_id=$1 AND action LIKE $2 ORDER BY created_at DESC,id DESC LIMIT 10`,[tenant,prefix+'%']);
+  const last=await db.query('SELECT max(created_at) AS at FROM vant.audit WHERE tenant_id=$1 AND action=$2',[tenant,prefix+'success']);
+  const summary={status,last_read:last.rows[0].at,events:events.rows};
+  if(name==='sheets')summary.range=config?.range??null;
+  return summary;
+}
+
 export async function integrationRoutes(ctx){
   const {db,tenant,member,url,method}=ctx;
-  const reader=googleReaders.get(url.pathname);
+  const reader=readers.get(url.pathname);
   if(url.pathname!=='/api/v1/integrations' && !reader)return;
   if(!mayManageTeams(member.role))reject(403,'permission','A central de integrações exige perfil de gestão.');
-  if(reader)return googleRead(ctx,reader);
+  if(reader)return runReader(ctx,reader);
   if(method!=='GET')reject(405,'method','A consulta da central aceita GET.');
   const csv=await db.query(`SELECT created_at,
     CASE action WHEN 'crm.leads.import' THEN 'crm' ELSE 'prospecting' END AS source
@@ -57,13 +70,8 @@ export async function integrationRoutes(ctx){
     ORDER BY created_at DESC,job_id DESC,attempt DESC LIMIT 10`,[tenant]);
   const last=await db.query(`SELECT max(created_at) AS delivered_at FROM vant.automation_attempts
     WHERE tenant_id=$1 AND action_kind='webhook' AND outcome='delivered'`,[tenant]);
-  const sheets=await googleSettings(tenant,tenantSheet);
-  const events=await db.query(`SELECT created_at,split_part(action,'.',3) AS outcome FROM vant.audit
-    WHERE tenant_id=$1 AND action LIKE 'sheets.read.%' ORDER BY created_at DESC,id DESC LIMIT 10`,[tenant]);
-  const sync=await db.query("SELECT max(created_at) AS at FROM vant.audit WHERE tenant_id=$1 AND action='sheets.read.success'",[tenant]);
-  const calendar=await googleSettings(tenant,tenantCalendar);
-  const calendarEvents=await db.query(`SELECT created_at,split_part(action,'.',3) AS outcome FROM vant.audit
-    WHERE tenant_id=$1 AND action LIKE 'calendar.read.%' ORDER BY created_at DESC,id DESC LIMIT 10`,[tenant]);
-  const lastCalendar=await db.query("SELECT max(created_at) AS at FROM vant.audit WHERE tenant_id=$1 AND action='calendar.read.success'",[tenant]);
-  return [200,{google_calendar:{status:calendar.status,last_read:lastCalendar.rows[0].at,events:calendarEvents.rows},google_sheets:{status:sheets.status,range:sheets.config?.range??null,last_read:sync.rows[0].at,events:events.rows},csv:{imports:csv.rows,last_failure:failure.rows[0]??null},webhook:{last_delivery:last.rows[0].delivered_at,attempts:attempts.rows}}];
+  const sheets=await readerSummary(db,tenant,'sheets',tenantSheet);
+  const calendar=await readerSummary(db,tenant,'calendar',tenantCalendar);
+  const hubspot=await readerSummary(db,tenant,'hubspot',tenantHubspot);
+  return [200,{google_calendar:calendar,google_sheets:sheets,hubspot,csv:{imports:csv.rows,last_failure:failure.rows[0]??null},webhook:{last_delivery:last.rows[0].delivered_at,attempts:attempts.rows}}];
 }
