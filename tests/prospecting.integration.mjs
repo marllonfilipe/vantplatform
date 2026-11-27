@@ -93,6 +93,10 @@ test('perfil de cliente ideal seleciona empresas do CRM com fonte, permissões e
   assert.equal((await viewer(importPath,'POST',{csv})).status,403);
   assert.equal((await foreign(importPath,'POST',{csv})).status,404);
   assert.equal((await call(importPath,'POST',{csv:csv+'\nInválida;?;Catálogo;Recife'})).status,400);
+  const hub=await (await call('integrations')).json();
+  assert.equal(hub.csv.last_failure.source,'prospecting');
+  assert.equal(hub.csv.last_failure.category,'invalid');
+  assert.equal((await (await foreign('integrations')).json()).csv.last_failure,null);
   const before=await admin.query('SELECT count(*)::int AS n FROM vant.accounts WHERE tenant_id=$1 AND cnpj=$2',[tenant,newCode]);
   assert.equal(before.rows[0].n,0);
   const imports=await Promise.all([call(importPath,'POST',{csv}),seller(importPath,'POST',{csv:[header,lineB,lineA].join('\n')})]);

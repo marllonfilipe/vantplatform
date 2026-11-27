@@ -4,6 +4,7 @@ import {prospectAccountAction} from './prospect-people.mjs';
 import {assessProspect,priorities} from './prospect-fit.mjs';
 import {importProspectAccounts} from './prospect-import.mjs';
 import {audit} from './db.mjs';
+import {runCsvImport} from './csv-import-result.mjs';
 import {pagination,reject,textField} from './http.mjs';
 import {isUuid,mayManageTeams} from './security.mjs';
 
@@ -75,7 +76,7 @@ export async function prospectingRoutes(ctx){
  if(parts.length===2&&resource==='priority'&&method==='GET')return priorities(ctx,profile);
  if(parts.length===2&&resource==='import'&&method==='POST'){
   if(member.role==='viewer')reject(403,'permission','Esta conta permite apenas consulta.');
-  return [200,await importProspectAccounts(ctx,id)];
+  return runCsvImport(ctx,'prospecting',async()=>[200,await importProspectAccounts(ctx,id)]);
  }
  if(parts.length===2&&method==='GET'&&['accounts','targets'].includes(resource))return listAccounts(ctx,profile,resource==='targets');
  if(parts.length!==3||resource!=='targets'||!['PUT','DELETE'].includes(method))reject(404,'missing','Operação não encontrada.');

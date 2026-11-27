@@ -108,3 +108,9 @@ Em **Operação → Central de integrações**, proprietários e gestores consul
 O webhook de saída apresenta até dez tentativas do worker, com momento, resultado, motivo técnico e status HTTP quando disponível. A última entrega confirmada é calculada sobre todo o histórico da empresa. Quando faltam registros, a central informa isso. O painel oferece acesso aos fluxos e às telas de importação. O destino e a chave continuam configurados no worker. O endpoint autenticado `GET /api/v1/integrations` omite endereço de destino, corpo da mensagem, assinatura e credenciais.
 
 O teste do CRM confronta um lote aceito e outro revertido, verifica isolamento e abre o painel no Chromium. O cenário de webhook usa o receptor HTTPS de teste da suíte para confirmar uma tentativa HTTP 429 e a entrega posterior HTTP 204. Os demais conectores e suas respectivas homologações continuam em aberto.
+
+### Último erro de importação CSV
+
+O painel da empresa apresenta a hora, a origem e o motivo do último lote recusado por dados inválidos, conflito de registros ou limite do plano. Abrange leads no CRM e contas na prospecção. Uma importação posterior bem-sucedida preserva o último erro para consulta. O endpoint expõe esses três campos em `csv.last_failure` e retorna `null` quando não há ocorrência registrada.
+
+O PostgreSQL desfaz as alterações do lote antes de registrar a categoria na auditoria. A resposta HTTP mantém o erro original da importação. O registro dispensa valores das linhas, mensagens do banco e conteúdo do arquivo. Falhas anteriores à autorização, indisponibilidade do serviço e ocorrências anteriores a esta entrega ficam fora deste histórico.

@@ -215,6 +215,12 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   const csv=panel('Importação CSV',pair('Acesso','Cadastro de leads ou prospecção'));
   if(!result.csv.imports.length)csv.append(empty('Sem importação registrada.'));
   for(const entry of result.csv.imports)csv.append(pair(timestamp(entry.created_at),entry.source==='crm'?'Leads do CRM':'Contas de prospecção'));
+  const failure=result.csv.last_failure;
+  if(failure){
+   const categories={invalid:'Dados inválidos',conflict:'Conflito de registros',plan_limit:'Limite do plano atingido'};
+   const source=failure.source==='crm'?'Leads do CRM':'Contas de prospecção';
+   csv.append(pair('Último erro de importação',[timestamp(failure.created_at),source,categories[failure.category]].join(' · ')));
+  }
   csv.append(button('Abrir leads',()=>view('Leads')),button('Abrir prospecção',()=>view('Prospecção')));
   const hook=panel('Webhook de saída',pair('Configuração','Destino HTTPS e chave no worker'),
    pair('Última entrega confirmada',result.webhook.last_delivery?timestamp(result.webhook.last_delivery):'Sem entrega confirmada'));
