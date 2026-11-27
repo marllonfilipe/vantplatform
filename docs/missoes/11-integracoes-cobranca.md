@@ -118,3 +118,7 @@ O PostgreSQL desfaz as alterações do lote antes de registrar a categoria na au
 ## Leitura do Google Sheets
 
 A Central permite consultar o intervalo autorizado da empresa e acompanhar a última leitura e o histórico de tentativas. A configuração privada e a homologação externa constam do [roteiro do Google Sheets](11-google-sheets.md).
+
+## Consulta do Google Calendar
+
+A Central oferece uma prévia dos próximos sete dias da agenda da empresa e o histórico das consultas. A [documentação do Calendar](11-google-calendar.md) descreve as permissões, o limite de 50 ocorrências e a homologação externa.

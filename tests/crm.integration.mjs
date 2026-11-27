@@ -4,6 +4,8 @@ import {generateKeyPairSync,randomUUID,verify} from 'node:crypto';
 import {mkdtemp,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {calendarConfig,calendarPreview,calendarQuery,calendarScope} from '../src/google-calendar.mjs';
+import {serviceAssertion} from '../src/google-auth.mjs';
 import {sheetConfig,sheetAssertion,sheetValues} from '../src/google-sheets.mjs';
 import pg from 'pg';
 import {chromium} from 'playwright-core';
@@ -23,6 +25,24 @@ test('Valores formatados do intervalo preservam células vazias e os limites aut
  }
  assert.throws(()=>sheetValues({},bounds),{code:'upstream'});
 });
+test('Agenda empresarial limita a consulta e preserva datas civis',()=>{
+ const query=calendarQuery({calendar_id:'commercial@example.invalid'},new Date('2026-11-27T18:00:00Z'));
+ assert.equal(query.origin,'https://www.googleapis.com');
+ assert.equal(query.pathname,'/calendar/v3/calendars/commercial%40example.invalid/events');
+ assert.equal(query.searchParams.get('timeMax'),'2026-12-04T18:00:00.000Z');
+ assert.equal(query.searchParams.get('timeMin'),'2026-11-27T18:00:00.000Z');
+ assert.equal(query.searchParams.get('singleEvents'),'true');
+ assert.equal(query.searchParams.get('maxResults'),'50');
+ const allDay={summary:'Feriado',start:{date:'2026-12-01'},end:{date:'2026-12-02'}};
+ const timed={visibility:'private',summary:'Interno',description:'Privado',start:{dateTime:'2026-11-30T11:00:00-03:00'},end:{dateTime:'2026-11-30T12:00:00-03:00'}};
+ const kind='calendar#events';
+ assert.deepEqual(calendarPreview({kind,items:[timed,allDay,{status:'cancelled'}],nextPageToken:'more'}),{
+  has_more:true,events:[{title:'Reservado',start:timed.start.dateTime,end:timed.end.dateTime,all_day:false},
+   {title:'Feriado',start:'2026-12-01',end:'2026-12-02',all_day:true}]});
+ assert.deepEqual(calendarPreview({kind}),{has_more:false,events:[]});
+ assert.throws(()=>calendarPreview({}),{code:'upstream'});
+ assert.throws(()=>calendarPreview({kind,items:[{start:{date:'2026-11-30'}}]}),{code:'upstream'});
+});
 test('CSV com BOM, aspas e linha interna',()=>{
  assert.deepEqual(leadCsv('\uFEFFnome;observações\r\n"A; B";"linha 1\nlinha ""2"""'),[{name:'A; B',notes:'linha 1\nlinha "2"',source:'Importação CSV'}]);
  assert.throws(()=>leadCsv('nome\n"abc'));
@@ -35,9 +55,14 @@ test('CRM, persistência e navegação',async t=>{
  try{
   const root=await mkdtemp(join(tmpdir(),'vant-sheets-'));
   const previous=process.env.VANT_GOOGLE_SHEETS_DIR;
+  const previousCalendar=process.env.VANT_GOOGLE_CALENDAR_DIR;
+  const calendarRoot=await mkdtemp(join(tmpdir(),'vant-calendar-'));
+  process.env.VANT_GOOGLE_CALENDAR_DIR=calendarRoot;
   process.env.VANT_GOOGLE_SHEETS_DIR=root;
   t.after(async()=>{
    if(previous===undefined)delete process.env.VANT_GOOGLE_SHEETS_DIR;else process.env.VANT_GOOGLE_SHEETS_DIR=previous;
+   if(previousCalendar===undefined)delete process.env.VANT_GOOGLE_CALENDAR_DIR;else process.env.VANT_GOOGLE_CALENDAR_DIR=previousCalendar;
+   await rm(calendarRoot,{recursive:true,force:true});
    await rm(root,{recursive:true,force:true});
   });
   await admin.query("INSERT INTO vant.tenants(id,name) VALUES($1,'CRM A'),($2,'CRM B')",[a,b]);
@@ -68,10 +93,26 @@ test('CRM, persistência e navegação',async t=>{
   assert.deepEqual(JSON.parse(Buffer.from(parts[1],'base64url')),{
    iss:config.client_email,aud:'https://oauth2.googleapis.com/token',scope:'https://www.googleapis.com/auth/spreadsheets.readonly',iat:1000,exp:1300});
   await writeFile(configFile,JSON.stringify(config));
+  const calendarPath='integrations/google-calendar/read';
+  assert.equal((await req(calendarPath,'POST',{},cv)).status,403);
+  assert.equal((await req(calendarPath,'POST',{},ca)).status,409);
+  const calendarFile=join(calendarRoot,a+'.json');
+  await writeFile(calendarFile,'{}');
+  assert.equal((await (await integrations(ca)).json()).google_calendar.status,'invalid');
+  const calendar={client_email:config.client_email,private_key:config.private_key,calendar_id:'agenda@example.invalid'};
+  assert.throws(()=>calendarConfig({...calendar,calendar_id:'../other'}),{code:'configuration'});
+  await writeFile(calendarFile,JSON.stringify(calendar));
+  const claims=serviceAssertion(calendarConfig(calendar),calendarScope,1000).split('.')[1];
+  assert.equal(JSON.parse(Buffer.from(claims,'base64url')).scope,'https://www.googleapis.com/auth/calendar.events.readonly');
+  assert.equal((await req(calendarPath,'POST',{calendar_id:'other@example.invalid'},ca)).status,400);
+  assert.equal((await req(calendarPath,'GET',undefined,ca)).status,405);
+  assert.equal((await req(calendarPath,'POST',{},cb)).status,409);
+  assert.deepEqual((await (await integrations(cb)).json()).google_calendar,{status:'unconfigured',last_read:null,events:[]});
   assert.equal((await req(readSheet,'POST',{range:'A1:Z99'},ca)).status,400);
   assert.equal((await req(readSheet+'?tenant='+a,'POST',{},cb)).status,400);
   assert.deepEqual((await (await integrations(cb)).json()).google_sheets,{status:'unconfigured',range:null,last_read:null,events:[]});
   const summary=await (await integrations(ca)).json();
+  assert.deepEqual(summary.google_calendar,{status:'configured',last_read:null,events:[]});
   assert.deepEqual(summary.google_sheets,{status:'configured',range:"'Leads d''abril'!B2:D10",last_read:null,events:[]});
   const failure=summary.csv.last_failure;
   assert.deepEqual(Object.keys(failure).sort(),['category','created_at','source']);
@@ -100,6 +141,8 @@ test('CRM, persistência e navegação',async t=>{
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Central de integrações'}).click();
   await page.getByRole('heading',{name:'Google Sheets',exact:true}).waitFor();
   await page.getByRole('button',{name:'Consultar planilha'}).waitFor();
+  await page.getByRole('heading',{name:'Google Calendar',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Consultar próximos 7 dias'}).waitFor();
   await page.getByText('Sem leitura confirmada',{exact:true}).waitFor();
   await page.getByText('Leads do CRM',{exact:true}).waitFor();
   await page.getByText(/Conflito de registros/).waitFor();
