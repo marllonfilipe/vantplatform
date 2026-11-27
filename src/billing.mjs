@@ -1,7 +1,10 @@
 import {mayManageTeams} from './security.mjs';
+import {subscriptionRequests} from './subscription-requests.mjs';
 import {pagination,reject} from './http.mjs';
 
-export async function billingRoutes({db,tenant,member,url,method}){
+export async function billingRoutes(ctx){
+ const {db,tenant,member,url,method}=ctx;
+ if(url.pathname.startsWith('/api/v1/billing/subscription-requests'))return subscriptionRequests(ctx);
  if(!['/api/v1/billing/plans','/api/v1/billing/usage','/api/v1/billing/plan-history'].includes(url.pathname))return;
  if(!mayManageTeams(member.role))reject(403,'permission','A consulta de planos exige gestão.');
  if(method!=='GET')reject(405,'method','A consulta de planos aceita GET.');
