@@ -258,7 +258,38 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    });
    sheets.append(read);
   }
-  return [csv,hook,sheets];
+  const agenda=result.google_calendar;
+  const calendar=panel('Google Calendar',pair('Conexão',states[agenda.status]),
+   pair('Última consulta confirmada',agenda.last_read?timestamp(agenda.last_read):'Sem consulta confirmada'));
+  for(const event of agenda.events)calendar.append(pair(timestamp(event.created_at),labels[event.outcome]??'Falha na consulta'));
+  if(agenda.status==='configured'){
+   const open=button('Consultar próximos 7 dias',async()=>{
+    const tenant=getUser()?.tenantId;
+    open.disabled=true;
+    try{
+     const data=await api('/integrations/google-calendar/read','POST',{});
+     if(!open.isConnected || getUser()?.tenantId!==tenant)return;
+     const content=node('div');
+     const day=value=>value.split('-').reverse().join('/');
+     for(const event of data.events){
+      let period;
+      if(event.all_day){
+       const last=new Date(Date.parse(event.end)-86400000).toISOString().slice(0,10);
+       period='Dia inteiro · '+day(event.start)+(last===event.start?'':' a '+day(last));
+      }else{period=timestamp(event.start)+' a '+timestamp(event.end)+' (Brasília)';}
+      content.append(pair(event.title,period));
+     }
+     if(!data.events.length)content.append(empty('Sem eventos neste período.'));
+     if(data.has_more)content.append(empty('Há mais eventos no Google Calendar. A prévia mostra até 50.'));
+     modal('Agenda dos próximos 7 dias',content);
+    }finally{
+     open.disabled=false;
+     if(open.isConnected && getUser()?.tenantId===tenant)await view('Central de integrações');
+    }
+   });
+   calendar.append(open);
+  }
+  return [csv,hook,sheets,calendar];
  }
  async function subscriptionPage(){
   const path='/billing/subscription-requests';
