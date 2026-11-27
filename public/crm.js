@@ -233,7 +233,32 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    hook.append(pair(timestamp(entry.created_at),details.filter(Boolean).join(' · ')));
   }
   hook.append(button('Abrir automações',()=>view('Automações')));
-  return [csv,hook];
+  const settings=result.google_sheets;
+  const states={configured:'Configurado',unconfigured:'Aguardando configuração',invalid:'Revisar configuração privada'};
+  const sheets=panel('Google Sheets',pair('Conexão',states[settings.status]),
+   pair('Última leitura confirmada',settings.last_read?timestamp(settings.last_read):'Sem leitura confirmada'));
+  if(settings.range)sheets.append(pair('Intervalo autorizado',settings.range));
+  const labels={started:'Consulta iniciada',success:'Leitura confirmada',access:'Verificar acesso ou intervalo',
+   quota:'Limite do Google',upstream:'Falha no serviço',size:'Resposta excedeu o limite'};
+  for(const event of settings.events)sheets.append(pair(timestamp(event.created_at),labels[event.outcome]??'Falha na consulta'));
+  if(settings.status==='configured'){
+   const read=button('Consultar planilha',async()=>{
+    read.disabled=true;
+    const tenant=getUser()?.tenantId;
+    try{
+     const data=await api('/integrations/google-sheets/read','POST',{});
+     if(!read.isConnected || getUser()?.tenantId!==tenant)return;
+     const table=node('table');
+     for(const row of data.values){const tr=node('tr');for(const cell of row)tr.append(node('td',cell));table.append(tr);}
+     modal('Intervalo '+data.range,data.values.length?table:empty('Intervalo vazio.'));
+    }finally{
+     read.disabled=false;
+     if(read.isConnected && getUser()?.tenantId===tenant)await view('Central de integrações');
+    }
+   });
+   sheets.append(read);
+  }
+  return [csv,hook,sheets];
  }
  async function subscriptionPage(){
   const path='/billing/subscription-requests';
