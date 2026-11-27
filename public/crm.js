@@ -219,13 +219,16 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    const current=panel('Consumo da empresa',pair('Plano vinculado',assigned?catalog.items.find(p=>p.code===assigned.plan_code).name:'Sem vínculo'),
     pair('Usuários ativos',display(usage.users,assigned?.user_limit)),pair('Leads cadastrados',display(usage.leads,assigned?.active_lead_limit)),
     pair('Pipelines cadastrados',display(usage.pipelines,assigned?.pipeline_limit)));
+   const actions=usage.agent_actions;
+   current.append(pair('Ações de agentes hoje',number(actions.used_today)+' de '+number(actions.effective_limit)));
    const usedBytes=BigInt(usage.storage_bytes);
    const limitBytes=assigned?.storage_limit_bytes==null?null:BigInt(assigned.storage_limit_bytes);
    const bytes=value=>value.toLocaleString('pt-BR')+' bytes';
    current.append(pair('Conteúdo armazenado',limitBytes===null?bytes(usedBytes):bytes(usedBytes)+' de '+bytes(limitBytes)));
    for(const [label,used,limit] of [
     ['Usuários ativos',usage.users,assigned?.user_limit],['Leads cadastrados',usage.leads,assigned?.active_lead_limit],
-    ['Pipelines cadastrados',usage.pipelines,assigned?.pipeline_limit],['Armazenamento',usedBytes,limitBytes]
+    ['Pipelines cadastrados',usage.pipelines,assigned?.pipeline_limit],['Armazenamento',usedBytes,limitBytes],
+    ['Ações de agentes hoje',actions.used_today,actions.effective_limit]
    ]){
     if(limit!=null&&used>=limit)current.append(pair(label+' · alerta',used>limit?'Franquia excedida':'Limite atingido'));
    }

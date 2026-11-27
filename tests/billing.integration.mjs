@@ -46,7 +46,8 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   const enterprise=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Enterprise',exact:true})});
   assert.match(await enterprise.innerText(),/Sob consulta/);
   const usage=async()=>{const r=await call('billing/usage');assert.equal(r.status,200);return r.json();};
-  assert.deepEqual(await usage(),{assignment:null,users:2,leads:0,pipelines:0,storage_bytes:'0'});
+  assert.deepEqual(await usage(),{assignment:null,users:2,leads:0,pipelines:0,storage_bytes:'0',
+   agent_actions:{used_today:0,operational_limit:100,contract_limit:null,effective_limit:100}});
   // A empresa não pode contratar ou elevar o próprio limite pela conexão da aplicação.
   assert.equal((await pool.query("SELECT has_table_privilege(current_user,'vant.plan_assignments','INSERT') AS allowed")).rows[0].allowed,false);
   async function assign(code,revision,limits){
@@ -84,7 +85,7 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   await assert.rejects(admin.query('UPDATE vant.documents SET size_bytes=3 WHERE tenant_id=$1 AND id=$2',[tenant,document.id]),{code:'V4001'});
   assert.equal((await call('crm/leads','POST',{name:'Outro lead'})).status,409);
   await admin.query("UPDATE vant.members SET active=false WHERE tenant_id=$1 AND role='seller'",[tenant]);
-  const lowered={...limits,user_limit:1,active_lead_limit:0,storage_limit_bytes:5};
+  const lowered={...limits,user_limit:1,active_lead_limit:0,storage_limit_bytes:5,agent_actions_per_day:4};
   assert.equal((await assign('enterprise',1,lowered)).revision,2);
   await assert.rejects(admin.query("UPDATE vant.members SET active=true WHERE tenant_id=$1 AND role='seller'",[tenant]),{code:'V4001'});
   const report=await usage();
@@ -95,6 +96,7 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   const consumption=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Consumo da empresa'})});
   await consumption.getByText('1 de 0',{exact:true}).waitFor();
   await consumption.getByText('6 bytes de 5 bytes',{exact:true}).waitFor();
+  await consumption.getByText('0 de 4',{exact:true}).waitFor();
   assert.equal(await consumption.getByText('Franquia excedida',{exact:true}).count(),2);
   await admin.query('DELETE FROM vant.documents WHERE tenant_id=$1 AND id=$2',[tenant,document.id]);
   assert.equal((await usage()).storage_bytes,'4');

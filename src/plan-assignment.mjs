@@ -7,7 +7,7 @@ export async function assignPlan(db, tenant, code, expectedRevision, overrides =
   if (!isUuid(tenant) || !Number.isSafeInteger(expectedRevision) || expectedRevision < 0)
     throw new Error('Empresa ou revisão inválida.');
   if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides) ||
-      Object.keys(overrides).some(key => key !== 'storage_limit_bytes' && !limitKeys.includes(key)))
+      Object.keys(overrides).some(key => !['storage_limit_bytes', 'agent_actions_per_day', ...limitKeys].includes(key)))
     throw new Error('Campos de limite inválidos.');
   await db.query("SELECT set_config('vant.tenant_id',$1,true)", [tenant]);
   await db.query('SELECT vant.lock_plan_assignment($1)', [tenant]);
@@ -21,11 +21,15 @@ export async function assignPlan(db, tenant, code, expectedRevision, overrides =
   const storageLimit = Object.hasOwn(overrides, 'storage_limit_bytes') ? overrides.storage_limit_bytes : previousStorage;
   if (storageLimit !== null && (!Number.isSafeInteger(storageLimit) || storageLimit < 0))
     throw new Error('Franquia de armazenamento inválida.');
-  if (previous?.plan_code === code && previousStorage === storageLimit &&
+  const previousActions = previous?.agent_actions_per_day ?? null;
+  const actions = Object.hasOwn(overrides, 'agent_actions_per_day') ? overrides.agent_actions_per_day : previousActions;
+  if (actions !== null && (!Number.isInteger(actions) || actions < 0 || actions > 10000))
+    throw new Error('Franquia diária de ações inválida.');
+  if (previous?.plan_code === code && previousStorage === storageLimit && previousActions === actions &&
       limitKeys.every((key, i) => previous[key] === limits[i])) return previous;
   if ((previous?.revision ?? 0) !== expectedRevision)
     throw new Error('O vínculo mudou. Confira a revisão atual.');
   return (await db.query(`INSERT INTO vant.plan_assignments
-    (tenant_id,revision,plan_code,user_limit,active_lead_limit,pipeline_limit,storage_limit_bytes)
-    VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [tenant, expectedRevision + 1, code, ...limits, storageLimit])).rows[0];
+    (tenant_id,revision,plan_code,user_limit,active_lead_limit,pipeline_limit,storage_limit_bytes,agent_actions_per_day)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`, [tenant, expectedRevision + 1, code, ...limits, storageLimit, actions])).rows[0];
 }
