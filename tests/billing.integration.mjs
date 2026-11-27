@@ -46,7 +46,7 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   const enterprise=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Enterprise',exact:true})});
   assert.match(await enterprise.innerText(),/Sob consulta/);
   const usage=async()=>{const r=await call('billing/usage');assert.equal(r.status,200);return r.json();};
-  assert.deepEqual(await usage(),{assignment:null,users:2,leads:0,pipelines:0,active_flows:0,storage_bytes:'0',
+  assert.deepEqual(await usage(),{assignment:null,users:2,leads:0,pipelines:0,active_flows:0,flow_admissions:'0',storage_bytes:'0',
    flow_executions:{started:'0',attempts:'0',retries:'0',skipped:'0'},
    agent_actions:{used_today:0,operational_limit:100,contract_limit:null,effective_limit:100}});
   // A empresa não pode contratar ou elevar o próprio limite pela conexão da aplicação.

@@ -66,3 +66,11 @@ A área Financeiro apresenta quatro contagens para o dia de São Paulo, calculad
 A virada do dia usa meia-noite local como início inclusivo e a meia-noite seguinte como fim exclusivo. Uma nova tentativa hoje de uma execução iniciada ontem entra somente na contagem de tentativas de hoje. Jobs aguardando prazo ou capacidade ainda sem tentativa registrada ficam fora do consumo medido. A consulta também abrange o histórico anterior à migration. Esses totais não geram faturas.
 
 O cenário de integração cria leads pela API, executa processos reais do worker, produz uma avaliação sem ação e uma retentativa, confere a API de billing e abre o relatório no Chromium. O cenário reposiciona a primeira tentativa no banco de teste para verificar a fronteira diária.
+
+## Franquia diária de execuções de fluxos
+
+O operador pode atribuir `flow_starts_per_day` ao vínculo versionado da empresa. Zero impede novos inícios. A ausência do campo preserva a condição vigente, e `null` remove o teto. Em **Financeiro → Planos comerciais**, as vagas usadas no dia refletem as admissões do worker. A primeira ação elegível de um job reserva uma vaga. Etapas seguintes e novas tentativas do mesmo job podem continuar mesmo após uma redução do teto. O início do preparo de uma entrega externa também reserva a vaga.
+
+O worker deixa a execução excedente na fila antes de aplicar seu efeito. O monitor informa a espera por franquia, com nova consulta em até cinco minutos ou na virada do dia em São Paulo. Uma espera por liberação do agente desfaz a reserva recém-aberta. O consumo por admissão e o histórico de tentativas são consultáveis separadamente porque uma execução pode estar preparada e ainda aguardar a confirmação da ação.
+
+A atualização aproveita tentativas anteriores e entregas já preparadas para preservar a continuidade. O teste de integração cria dois leads em um fluxo de duas etapas, disputa uma vaga entre dois workers, reduz a franquia para zero, amplia o limite e confere as quatro atividades persistidas.

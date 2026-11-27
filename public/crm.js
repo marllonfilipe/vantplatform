@@ -228,6 +228,8 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    const executions=panel('Execução de automações hoje',pair('Execuções iniciadas',count(runs.started)),
     pair('Tentativas de ação',count(runs.attempts)),pair('Tentativas que exigiram repetição',count(runs.retries)),
     pair('Avaliações sem ação',count(runs.skipped)));
+   const admitted=BigInt(usage.flow_admissions),dailyFlows=assigned?.flow_starts_per_day;
+   current.append(pair('Vagas de execução usadas hoje',dailyFlows==null?count(admitted):count(admitted)+' de '+number(dailyFlows)));
    const usedBytes=BigInt(usage.storage_bytes);
    const limitBytes=assigned?.storage_limit_bytes==null?null:BigInt(assigned.storage_limit_bytes);
    const bytes=value=>value.toLocaleString('pt-BR')+' bytes';
@@ -235,7 +237,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    for(const [label,used,limit] of [
     ['Usuários ativos',usage.users,assigned?.user_limit],['Leads cadastrados',usage.leads,assigned?.active_lead_limit],
     ['Pipelines cadastrados',usage.pipelines,assigned?.pipeline_limit],['Armazenamento',usedBytes,limitBytes],
-    ['Ações de agentes hoje',actions.used_today,actions.effective_limit],['Automações ativas',usage.active_flows,flowLimit]
+    ['Ações de agentes hoje',actions.used_today,actions.effective_limit],['Automações ativas',usage.active_flows,flowLimit],['Vagas de execução',admitted,dailyFlows]
    ]){
     if(limit!=null&&used>=limit)current.append(pair(label+' · alerta',used>limit?'Franquia excedida':'Limite atingido'));
    }
