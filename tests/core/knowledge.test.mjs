@@ -5,6 +5,7 @@ import {promisify} from 'node:util';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { createApp } from '../../src/app.mjs';
+import {assignPlan} from '../../src/plan-assignment.mjs';
 import { createPool, checkRuntime } from '../../src/db.mjs';
 import { processNext } from '../../src/automation.mjs';
 import { featureRoutes } from '../../src/routes.mjs';
@@ -56,6 +57,20 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     };
     assert.equal((await search(seller))[0].document_id,id);
     assert.deepEqual(await search(other),[]);
+    await admin.query('BEGIN');
+    try {
+      await assignPlan(admin,tenants[1],'growth',0,{inference_texts_per_day:0});
+      await admin.query('COMMIT');
+    } catch(error){await admin.query('ROLLBACK');throw error;}
+    const exhausted=await call('core/search','POST',other,{query:invoice});
+    assert.equal(exhausted.status,429);
+    assert.equal((await exhausted.json()).error.code,'inference_daily_limit');
+    await admin.query('BEGIN');
+    try {
+      await assignPlan(admin,tenants[1],'growth',1,{inference_texts_per_day:null});
+      await admin.query('COMMIT');
+    } catch(error){await admin.query('ROLLBACK');throw error;}
+
     assert.equal((await call(path+'/'+id,'PUT',other,data)).status,404);
     assert.equal((await call(path+'/'+id,'DELETE',other)).status,404);
     assert.equal((await call(path+'/'+id,'PUT',owner,{...data,content:'Novo prazo de sessenta dias.'})).status,200);

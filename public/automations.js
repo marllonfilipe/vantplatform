@@ -201,7 +201,10 @@ export function createAutomationPage({api,node,button,panel,empty,modal,view,dat
   const history=runs.items.map(r=>{
    const details=node('details'),summary=node('summary',(names.get(r.payload.flow)??'Fluxo')+' · v'+r.payload.version+' · '+states[r.state]);
    details.append(summary,node('p',events[r.payload.event??'lead_created']),node('p',r.payload.source_activity?'Tarefa: '+r.payload.source_activity:r.payload.meeting?'Reunião: '+r.payload.meeting:r.payload.deal?'Oportunidade: '+r.payload.deal:'Lead: '+r.payload.lead),node('p','Disponível em '+date(r.available_at)));
-   if(r.payload.agent_wait)details.append(node('p',r.payload.agent_wait==='agent_daily_limit'?'Limite diário de ações atingido.':'Aguardando liberação na supervisão de agentes.'));
+   if(r.payload.agent_wait){
+    const reasons={agent_daily_limit:'Limite diário de ações atingido.',inference_daily_limit:'Aguardando franquia diária de inferências.'};
+    details.append(node('p',reasons[r.payload.agent_wait]??'Aguardando liberação na supervisão de agentes.'));
+   }
    if(r.payload.billing_wait)details.append(node('p','Aguardando franquia diária de execuções.'));
    if(r.payload.frequency_deferred)details.append(node('p','Aguardando o intervalo mínimo deste fluxo.'));
    for(const attempt of r.history){

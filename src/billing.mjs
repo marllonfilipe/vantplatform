@@ -8,6 +8,12 @@ export async function billingRoutes({db,tenant,member,url,method}){
  if(url.pathname==='/api/v1/billing/usage'){
   const {rows}=await db.query(`SELECT
    (SELECT (to_jsonb(a) - 'tenant_id') || jsonb_build_object('storage_limit_bytes', a.storage_limit_bytes::text) FROM vant.plan_assignments a WHERE tenant_id=$1 ORDER BY revision DESC LIMIT 1) AS assignment,
+   (SELECT jsonb_build_object(
+      'completed',coalesce(sum(input_count) FILTER (WHERE state='completed'),0)::text,
+      'reserved',coalesce(sum(input_count) FILTER (WHERE state='reserved'),0)::text,
+      'failed',coalesce(sum(input_count) FILTER (WHERE state='failed'),0)::text)
+    FROM vant.inference_batches WHERE tenant_id=$1
+    AND usage_day=(statement_timestamp() AT TIME ZONE 'America/Sao_Paulo')::date) AS inference_texts,
    (SELECT count(*)::integer FROM vant.members WHERE tenant_id=$1 AND active) AS users,
    (SELECT count(*)::integer FROM vant.leads WHERE tenant_id=$1) AS leads,
    (SELECT count(*)::integer FROM vant.pipelines WHERE tenant_id=$1) AS pipelines,

@@ -3,12 +3,12 @@ import {lastDealTouch} from './deal-context.mjs';
 import {questions} from '../public/copilot-questions.js';
 import {audit} from './db.mjs';
 import {reject,textField} from './http.mjs';
-import {embed,modelVersion} from './inference.mjs';
+import {embed,embedSharedTemplates,modelVersion} from './inference.mjs';
 
 const labels=Object.entries(questions).flatMap(([intent,phrases])=>phrases.map(phrase=>({intent,phrase})));
 let templates;
 async function classify(question){
-  if(!templates)templates=embed(labels.map(label=>label.phrase)).then(result=>result.vectors).catch(error=>{templates=undefined;throw error;});
+  if(!templates)templates=embedSharedTemplates(labels.map(label=>label.phrase)).then(result=>result.vectors).catch(error=>{templates=undefined;throw error;});
   const [references,encoded]=await Promise.all([templates,embed([question])]);
   const scores=new Map();
   for(const [index,vector] of references.entries()){
@@ -82,6 +82,7 @@ export async function copilotRoutes({db,tenant,member,requestId,url,method,body}
   let intent;
   try{intent=await classify(question);}
   catch(error){
+    if(error.code==='inference_daily_limit')throw error;
     if(error.code==='model_busy')reject(429,'model_busy','Fila do modelo cheia.');
     reject(503,'model_unavailable','Inferência local indisponível.');
   }

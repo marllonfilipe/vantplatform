@@ -1,5 +1,9 @@
 import pg from 'pg';
+import {AsyncLocalStorage} from 'node:async_hooks';
 import { isUuid } from './security.mjs';
+
+export const inferenceContext = new AsyncLocalStorage();
+const metering = new WeakMap();
 
 export function createPool(connectionString) {
   if (!connectionString) throw new Error('Defina DATABASE_URL.');
@@ -12,6 +16,11 @@ export function createPool(connectionString) {
   };
   const pool = new pg.Pool({ connectionString, types, max: 12, connectionTimeoutMillis: 4000, idleTimeoutMillis: 30000, statement_timeout: 10000 });
   pool.on('error', () => console.error(JSON.stringify({ event:'database.pool.error' })));
+  // A medição usa transações próprias mesmo quando todas as conexões do CRM estão ocupadas.
+  const meter = new pg.Pool({connectionString, max:2, connectionTimeoutMillis:4000,
+    statement_timeout:10000, idleTimeoutMillis:1000, allowExitOnIdle:true});
+  meter.on('error', () => console.error(JSON.stringify({event:'inference.meter.pool.error'})));
+  metering.set(pool,meter);
   return pool;
 }
 export async function checkRuntime(pool) {
@@ -32,7 +41,7 @@ export async function withTenant(pool, tenantId, callback) {
   try {
     await client.query('BEGIN');
     await client.query("SELECT set_config('vant.tenant_id',$1,true)",[tenantId]);
-    const result = await callback(client);
+    const result = await inferenceContext.run({tenant:tenantId, meter:metering.get(pool)}, callback, client);
     await client.query('COMMIT');
     return result;
   } catch (err) {

@@ -225,6 +225,11 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    current.append(pair('Automações ativas',flowLimit==null?number(usage.active_flows):display(usage.active_flows,flowLimit)));
    const runs=usage.flow_executions;
    const count=value=>BigInt(value).toLocaleString('pt-BR');
+   const inferred=usage.inference_texts, dailyTexts=assigned?.inference_texts_per_day;
+   const occupied=BigInt(inferred.completed)+BigInt(inferred.reserved);
+   const inference=panel('Inferências de hoje',pair('Textos processados',count(inferred.completed)),
+    pair('Textos aguardando confirmação',count(inferred.reserved)),pair('Textos sem vetor por falha',count(inferred.failed)),
+    pair('Franquia ocupada',dailyTexts==null?count(occupied):count(occupied)+' de '+number(dailyTexts)));
    const executions=panel('Execução de automações hoje',pair('Execuções iniciadas',count(runs.started)),
     pair('Tentativas de ação',count(runs.attempts)),pair('Tentativas que exigiram repetição',count(runs.retries)),
     pair('Avaliações sem ação',count(runs.skipped)));
@@ -237,11 +242,11 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    for(const [label,used,limit] of [
     ['Usuários ativos',usage.users,assigned?.user_limit],['Leads cadastrados',usage.leads,assigned?.active_lead_limit],
     ['Pipelines cadastrados',usage.pipelines,assigned?.pipeline_limit],['Armazenamento',usedBytes,limitBytes],
-    ['Ações de agentes hoje',actions.used_today,actions.effective_limit],['Automações ativas',usage.active_flows,flowLimit],['Vagas de execução',admitted,dailyFlows]
+    ['Ações de agentes hoje',actions.used_today,actions.effective_limit],['Automações ativas',usage.active_flows,flowLimit],['Vagas de execução',admitted,dailyFlows],['Textos para inferência',occupied,dailyTexts]
    ]){
     if(limit!=null&&used>=limit)current.append(pair(label+' · alerta',used>limit?'Franquia excedida':'Limite atingido'));
    }
-   return [current,executions,...catalog.items.map(plan=>panel(plan.name,
+   return [current,executions,inference,...catalog.items.map(plan=>panel(plan.name,
     pair('Mensalidade',plan.custom_terms?'Sob consulta':money(plan.monthly_cents)+' / mês'),
     pair('Usuários',number(plan.user_limit)),pair('Leads ativos',number(plan.active_lead_limit)),
     pair('Pipelines',number(plan.pipeline_limit)),pair('Conexões WhatsApp previstas',number(plan.whatsapp_connection_limit)),

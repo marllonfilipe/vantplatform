@@ -66,7 +66,7 @@ export async function executiveBrief({db,tenant,member,requestId,body},filters,r
  if(priorities.length){
   let encoded;
   try{encoded=await embed([focus,...priorities.map(p=>p.title+'. '+p.action)]);}
-  catch(error){reject(error.code==='model_busy'?429:503,'model_unavailable','Inferência local indisponível.');}
+  catch(error){if(error.code==='inference_daily_limit')throw error;reject(error.code==='model_busy'?429:503,'model_unavailable','Inferência local indisponível.');}
   const [query,...signals]=encoded.vectors;
   priorities.forEach((p,i)=>{p.relevance=similarity(query,signals[i]);});
   priorities.sort((a,b)=>b.relevance-a.relevance);
