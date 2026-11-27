@@ -221,6 +221,8 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
     pair('Pipelines cadastrados',display(usage.pipelines,assigned?.pipeline_limit)));
    const actions=usage.agent_actions;
    current.append(pair('Ações de agentes hoje',number(actions.used_today)+' de '+number(actions.effective_limit)));
+   const flowLimit=assigned?.active_flow_limit;
+   current.append(pair('Automações ativas',flowLimit==null?number(usage.active_flows):display(usage.active_flows,flowLimit)));
    const usedBytes=BigInt(usage.storage_bytes);
    const limitBytes=assigned?.storage_limit_bytes==null?null:BigInt(assigned.storage_limit_bytes);
    const bytes=value=>value.toLocaleString('pt-BR')+' bytes';
@@ -228,7 +230,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    for(const [label,used,limit] of [
     ['Usuários ativos',usage.users,assigned?.user_limit],['Leads cadastrados',usage.leads,assigned?.active_lead_limit],
     ['Pipelines cadastrados',usage.pipelines,assigned?.pipeline_limit],['Armazenamento',usedBytes,limitBytes],
-    ['Ações de agentes hoje',actions.used_today,actions.effective_limit]
+    ['Ações de agentes hoje',actions.used_today,actions.effective_limit],['Automações ativas',usage.active_flows,flowLimit]
    ]){
     if(limit!=null&&used>=limit)current.append(pair(label+' · alerta',used>limit?'Franquia excedida':'Limite atingido'));
    }
