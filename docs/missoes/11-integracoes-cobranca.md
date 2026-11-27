@@ -45,3 +45,11 @@ O operador global pode registrar `agent_actions_per_day` nas condições do cont
 O menor valor entre o teto operacional e a franquia comercial determina a capacidade disponível. Em **Financeiro → Planos comerciais**, a gestão consulta quanto já foi usado e o limite efetivo. O período acompanha o dia de São Paulo. Cada ação que passa pela reserva de ferramentas dos agentes e tem a transação confirmada consome uma unidade. Uma operação desfeita libera a reserva. As chamadas de inferência e o tráfego de mensagens exigem medições próprias.
 
 O teste de integração `tests/agent-capacity.integration.mjs` confronta duas reservas simultâneas com uma unidade disponível, uma transação desfeita, a virada do dia, o limite zero, a supervisão local e o isolamento entre empresas. O teste de billing verifica a leitura do consumo no Chromium.
+
+## Automações ativas por empresa
+
+A condição contratual opcional `active_flow_limit` define quantos fluxos podem estar habilitados ao mesmo tempo. Um fluxo pausado pode ser criado ou editado mesmo quando a franquia está cheia. Ativar um novo fluxo exige uma vaga disponível. Editar uma automação já ativa preserva sua vaga. A redução de um contrato conserva os fluxos existentes e o Financeiro informa o excesso. A pausa libera capacidade.
+
+Somente o operador global configura a franquia, usando um inteiro não negativo no vínculo versionado. Omitir o campo preserva o valor anterior. Um valor explícito `null` retira esse teto. O número de fluxos ativos é distinto da quantidade de vezes que o worker os executou.
+
+O teste em PostgreSQL usa a API autenticada para criar dois fluxos simultaneamente com apenas uma vaga, pausar, editar e reativar. Verifica a preservação da versão após uma tentativa recusada, o consumo exibido no Chromium, o limite zero e o isolamento entre empresas.
