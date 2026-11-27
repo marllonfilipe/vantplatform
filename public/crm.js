@@ -209,6 +209,26 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   for(const s of p.stages){const lane=node('section',undefined,'panel lane');lane.append(node('h2',s.name));for(const d of deals.filter(v=>v.stage_id===s.id)){const card=node('article');card.append(button(d.name,()=>detail('deals',d)),pair('Valor',money(d.amount_cents)));if(canWrite(d)){
     const stage=select(p.stages.map(v=>[v.id,v.name]),s.id,false);stage.setAttribute('aria-label','Mover '+d.name);stage.onchange=async()=>{try{await api(path('deals',d.id),'PATCH',{stage_id:stage.value});if(active==='Funil de vendas')await view(active);}catch(e){stage.value=s.id;modal('Movimentação',empty(e.message));}};card.append(stage);}lane.append(card);}board.append(lane);}return [bar,board];
  }
+ async function integrationsPage(){
+  const result=await api('/integrations');
+  const timestamp=value=>new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'medium',timeZone:'America/Sao_Paulo'}).format(new Date(value));
+  const csv=panel('Importação CSV',pair('Acesso','Cadastro de leads ou prospecção'));
+  if(!result.csv.imports.length)csv.append(empty('Sem importação registrada.'));
+  for(const entry of result.csv.imports)csv.append(pair(timestamp(entry.created_at),entry.source==='crm'?'Leads do CRM':'Contas de prospecção'));
+  csv.append(button('Abrir leads',()=>view('Leads')),button('Abrir prospecção',()=>view('Prospecção')));
+  const hook=panel('Webhook de saída',pair('Configuração','Destino HTTPS e chave no worker'),
+   pair('Última entrega confirmada',result.webhook.last_delivery?timestamp(result.webhook.last_delivery):'Sem entrega confirmada'));
+  const outcomes={delivered:'Entregue',retry:'Nova tentativa prevista',failed:'Falhou',skipped:'Sem envio'};
+  const reasons={webhook_config:'Configuração indisponível',webhook_network:'Falha de conexão',
+   webhook_destination_changed:'Destino alterado',webhook_http:'Resposta HTTP',author_unavailable:'Autor indisponível',action_failed:'Falha na ação'};
+  if(!result.webhook.attempts.length)hook.append(empty('Sem tentativa registrada.'));
+  for(const entry of result.webhook.attempts){
+   const details=[outcomes[entry.outcome]??entry.outcome,reasons[entry.reason],entry.http_status==null?null:'HTTP '+entry.http_status];
+   hook.append(pair(timestamp(entry.created_at),details.filter(Boolean).join(' · ')));
+  }
+  hook.append(button('Abrir automações',()=>view('Automações')));
+  return [csv,hook];
+ }
  async function subscriptionPage(){
   const path='/billing/subscription-requests';
   const {latest}=await api(path);
@@ -271,6 +291,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   return [container];
  }
  async function page(name){
+  if(name==='Central de integrações'){active=name;return integrationsPage();}
   if(name==='Solicitação de assinatura'){active=name;return subscriptionPage();}
   if(name==='Histórico de planos'){active=name;return planHistory();}
   if(name==='Planos comerciais'){
@@ -337,5 +358,5 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   if(previous.length)pager.append(button('Página anterior',()=>{cursor=previous.pop();return view(active);}));if(result.nextCursor)pager.append(button('Próxima página',()=>{previous.push(cursor);cursor=result.nextCursor;return view(active);}));
   return [bar,filter,wrap,pager];
  }
- return {get groups(){return manager()?{...groups,Financeiro:['Planos comerciais','Histórico de planos','Solicitação de assinatura'],Operação:[...groups.Operação,'Automações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
+ return {get groups(){return manager()?{...groups,Financeiro:['Planos comerciais','Histórico de planos','Solicitação de assinatura'],Operação:[...groups.Operação,'Automações','Central de integrações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
 }

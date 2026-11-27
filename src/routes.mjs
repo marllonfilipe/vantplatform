@@ -1,3 +1,4 @@
+import {integrationRoutes} from './integrations.mjs';
 import {billingRoutes} from './billing.mjs';
 import {goalRoutes} from './revenue-goals.mjs';
 import {forecastRoutes} from './revenue-forecast.mjs';
@@ -15,4 +16,4 @@ import {knowledgeRoutes} from './knowledge.mjs';
 import {inboxRoutes} from './inbox.mjs';
 import {dashboardRoutes} from './dashboard.mjs';
 import {crmRoutes} from './crm.mjs';
-export async function featureRoutes(ctx){return (await billingRoutes(ctx))??(await goalRoutes(ctx))??(await forecastRoutes(ctx))??(await revenueRoutes(ctx))??(await prospectingRoutes(ctx))??(await notificationRoutes(ctx))??(await automationRoutes(ctx))??(await supervisionRoutes(ctx))??(await minutesRoutes(ctx))??(await meetingRoutes(ctx))??(await copilotRoutes(ctx))??(await agentRoutes(ctx))??(await analysisRoutes(ctx))??(await knowledgeRoutes(ctx))??(await inboxRoutes(ctx))??(await crmRoutes(ctx))??(await dashboardRoutes(ctx));}
+export async function featureRoutes(ctx){return (await integrationRoutes(ctx))??(await billingRoutes(ctx))??(await goalRoutes(ctx))??(await forecastRoutes(ctx))??(await revenueRoutes(ctx))??(await prospectingRoutes(ctx))??(await notificationRoutes(ctx))??(await automationRoutes(ctx))??(await supervisionRoutes(ctx))??(await minutesRoutes(ctx))??(await meetingRoutes(ctx))??(await copilotRoutes(ctx))??(await agentRoutes(ctx))??(await analysisRoutes(ctx))??(await knowledgeRoutes(ctx))??(await inboxRoutes(ctx))??(await crmRoutes(ctx))??(await dashboardRoutes(ctx));}

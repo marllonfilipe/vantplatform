@@ -28,6 +28,11 @@ test('CRM, persistência e navegação',async t=>{
   async function call(p,m='GET',body,expected=200,c=ca){const r=await req('crm/'+p,m,body,c);const data=r.status===204?null:await r.json();assert.equal(r.status,expected,JSON.stringify(data));return data;}
   await call('leads/import','POST',{csv:'nome,email,segmento\nLead A,a@vant.invalid,Tech'},201);
   await call('leads/import','POST',{csv:'nome,email\nDescartar,b@vant.invalid\nRepetido,a@vant.invalid'},409);
+  const integrations=async cookie=>req('integrations','GET',undefined,cookie);
+  assert.equal((await integrations(cv)).status,403);
+  const summary=await (await integrations(ca)).json();
+  assert.deepEqual(summary.csv.imports.map(r=>r.source),['crm']);
+  assert.deepEqual((await (await integrations(cb)).json()).csv.imports,[]);
   assert.deepEqual((await call('leads?q=Descartar')).items,[]);const lead=(await call('leads?segment=Tech')).items[0];
   await call('leads/'+lead.id,'GET',undefined,404,cb);await call('leads','POST',{name:'Vedado'},403,cv);
   const account=await call('accounts','POST',{name:'Empresa'},201),contact=await call('contacts','POST',{name:'Decisor',account_id:account.id,decision_maker:true},201);
@@ -44,7 +49,10 @@ test('CRM, persistência e navegação',async t=>{
   const activity=await call('activities','POST',{title:'Reunião',kind:'meeting',lead_id:lead.id},201);await call('activities/'+activity.id,'PATCH',{done_at:new Date().toISOString()});
   assert.ok((await call('leads/'+lead.id)).last_contact_at);await call('leads/'+lead.id,'DELETE',undefined,409);
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});const ctx=await browser.newContext();await ctx.addCookies([{name:'vant_session',value:ca.slice(13),url:origin}]);
-  const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Leads',exact:true}).click();
+  const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Central de integrações'}).click();
+  await page.getByText('Leads do CRM',{exact:true}).waitFor();
+  await page.getByText('Sem entrega confirmada',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Abrir leads'}).click();
   await page.getByRole('button',{name:'Cadastrar registro'}).click();await page.getByLabel('Nome',{exact:true}).fill('Lead pelo navegador');await page.getByRole('button',{name:'Salvar'}).click();
   await page.getByRole('button',{name:'Lead pelo navegador'}).waitFor();await page.getByRole('button',{name:'Funil de vendas',exact:true}).click();
   const updated=page.waitForResponse(r=>r.url().endsWith('/deals/'+deal.id)&&r.request().method()==='PATCH');await page.getByLabel('Mover Contrato anual').selectOption(pipe.stages[0].id);assert.equal((await updated).status(),200);await page.locator('.lane').filter({has:page.getByRole('heading',{name:'Contato',exact:true})}).getByRole('button',{name:'Contrato anual'}).waitFor();

@@ -100,3 +100,11 @@ Em **Financeiro → Solicitação de assinatura**, o proprietário pode registra
 A API autenticada `GET /api/v1/billing/subscription-requests` retorna a última solicitação da empresa. O `POST` recebe um identificador UUID estável e o código do plano. O `DELETE /api/v1/billing/subscription-requests/{id}` registra o cancelamento. O mesmo identificador e plano retornam o registro existente inclusive após cancelamento. Uma referência reapresentada com outro plano gera conflito. O banco permite uma pendência por empresa e conserva as revisões comerciais e a auditoria. A ativação de uma assinatura real exige a confirmação do gateway.
 
 O teste verifica solicitações concorrentes, consulta pelo gestor, ações restritas ao proprietário, isolamento entre empresas, idempotência e uso de preço definido pelo servidor. O Chromium exercita cancelamento e criação de uma solicitação Enterprise. A assinatura efetivada pelo provedor e o pagamento seguem pendentes.
+
+## Central de integrações
+
+Em **Operação → Central de integrações**, proprietários e gestores consultam evidências de dois recursos já disponíveis. A importação CSV apresenta até dez lotes confirmados de leads ou contas de prospecção. A auditoria do CRM é gravada na mesma transação do lote. Se uma linha causar rollback, nenhuma entrada de lote aparece no painel. O histórico anterior de prospecção permanece disponível. Os lotes antigos de leads sem auditoria de importação não são reconstruídos a partir de cadastros individuais.
+
+O webhook de saída apresenta até dez tentativas do worker, com momento, resultado, motivo técnico e status HTTP quando disponível. A última entrega confirmada é calculada sobre todo o histórico da empresa. Quando faltam registros, a central informa isso. O painel oferece acesso aos fluxos e às telas de importação. O destino e a chave continuam configurados no worker. O endpoint autenticado `GET /api/v1/integrations` omite endereço de destino, corpo da mensagem, assinatura e credenciais.
+
+O teste do CRM confronta um lote aceito e outro revertido, verifica isolamento e abre o painel no Chromium. O cenário de webhook usa o receptor HTTPS de teste da suíte para confirmar uma tentativa HTTP 429 e a entrega posterior HTTP 204. Os demais conectores e suas respectivas homologações continuam em aberto.
