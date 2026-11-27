@@ -4,6 +4,7 @@ import {generateKeyPairSync,randomUUID,verify} from 'node:crypto';
 import {mkdtemp,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {hubspotConfig} from '../src/hubspot.mjs';
 import {calendarConfig,calendarPreview,calendarQuery,calendarScope} from '../src/google-calendar.mjs';
 import {serviceAssertion} from '../src/google-auth.mjs';
 import {sheetConfig,sheetAssertion,sheetValues} from '../src/google-sheets.mjs';
@@ -55,6 +56,9 @@ test('CRM, persistência e navegação',async t=>{
  try{
   const root=await mkdtemp(join(tmpdir(),'vant-sheets-'));
   const previous=process.env.VANT_GOOGLE_SHEETS_DIR;
+  const previousHubspot=process.env.VANT_HUBSPOT_DIR;
+  const hubspotRoot=await mkdtemp(join(tmpdir(),'vant-hubspot-'));
+  process.env.VANT_HUBSPOT_DIR=hubspotRoot;
   const previousCalendar=process.env.VANT_GOOGLE_CALENDAR_DIR;
   const calendarRoot=await mkdtemp(join(tmpdir(),'vant-calendar-'));
   process.env.VANT_GOOGLE_CALENDAR_DIR=calendarRoot;
@@ -62,6 +66,8 @@ test('CRM, persistência e navegação',async t=>{
   t.after(async()=>{
    if(previous===undefined)delete process.env.VANT_GOOGLE_SHEETS_DIR;else process.env.VANT_GOOGLE_SHEETS_DIR=previous;
    if(previousCalendar===undefined)delete process.env.VANT_GOOGLE_CALENDAR_DIR;else process.env.VANT_GOOGLE_CALENDAR_DIR=previousCalendar;
+   if(previousHubspot===undefined)delete process.env.VANT_HUBSPOT_DIR;else process.env.VANT_HUBSPOT_DIR=previousHubspot;
+   await rm(hubspotRoot,{recursive:true,force:true});
    await rm(calendarRoot,{recursive:true,force:true});
    await rm(root,{recursive:true,force:true});
   });
@@ -93,6 +99,18 @@ test('CRM, persistência e navegação',async t=>{
   assert.deepEqual(JSON.parse(Buffer.from(parts[1],'base64url')),{
    iss:config.client_email,aud:'https://oauth2.googleapis.com/token',scope:'https://www.googleapis.com/auth/spreadsheets.readonly',iat:1000,exp:1300});
   await writeFile(configFile,JSON.stringify(config));
+  const companyPath='integrations/hubspot/read';
+  assert.equal((await req(companyPath,'POST',{},cv)).status,403);
+  assert.equal((await req(companyPath,'POST',{},ca)).status,409);
+  assert.equal((await req(companyPath,'GET',undefined,ca)).status,405);
+  assert.equal((await req(companyPath,'POST',{url:'outra-conta'},ca)).status,400);
+  const companyConfig=join(hubspotRoot,a+'.json');
+  await writeFile(companyConfig,'{}');
+  assert.equal((await (await integrations(ca)).json()).hubspot.status,'invalid');
+  assert.throws(()=>hubspotConfig({access_token:'duas palavras'}),{code:'configuration'});
+  await writeFile(companyConfig,JSON.stringify({access_token:randomUUID()}));
+  assert.equal((await req(companyPath,'POST',{},cb)).status,409);
+  assert.deepEqual((await (await integrations(cb)).json()).hubspot,{status:'unconfigured',events:[],last_read:null});
   const calendarPath='integrations/google-calendar/read';
   assert.equal((await req(calendarPath,'POST',{},cv)).status,403);
   assert.equal((await req(calendarPath,'POST',{},ca)).status,409);
@@ -112,6 +130,7 @@ test('CRM, persistência e navegação',async t=>{
   assert.equal((await req(readSheet+'?tenant='+a,'POST',{},cb)).status,400);
   assert.deepEqual((await (await integrations(cb)).json()).google_sheets,{status:'unconfigured',range:null,last_read:null,events:[]});
   const summary=await (await integrations(ca)).json();
+  assert.deepEqual(summary.hubspot,{status:'configured',last_read:null,events:[]});
   assert.deepEqual(summary.google_calendar,{status:'configured',last_read:null,events:[]});
   assert.deepEqual(summary.google_sheets,{status:'configured',range:"'Leads d''abril'!B2:D10",last_read:null,events:[]});
   const failure=summary.csv.last_failure;
@@ -141,6 +160,8 @@ test('CRM, persistência e navegação',async t=>{
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Central de integrações'}).click();
   await page.getByRole('heading',{name:'Google Sheets',exact:true}).waitFor();
   await page.getByRole('button',{name:'Consultar planilha'}).waitFor();
+  await page.getByRole('heading',{name:'HubSpot',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Consultar empresas do HubSpot'}).waitFor();
   await page.getByRole('heading',{name:'Google Calendar',exact:true}).waitFor();
   await page.getByRole('button',{name:'Consultar próximos 7 dias'}).waitFor();
   await page.getByText('Sem leitura confirmada',{exact:true}).waitFor();

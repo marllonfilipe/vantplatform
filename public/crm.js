@@ -289,7 +289,32 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    });
    calendar.append(open);
   }
-  return [csv,hook,sheets,calendar];
+  const crm=result.hubspot;
+  const hubspot=panel('HubSpot',pair('Conexão',states[crm.status]),
+   pair('Última consulta de empresas',crm.last_read?timestamp(crm.last_read):'Sem consulta de empresas confirmada'));
+  const crmLabels={started:'Consulta iniciada',success:'Leitura confirmada',access:'Revisar token ou permissão',
+   quota:'Limite de consultas',upstream:'Falha no serviço',size:'Resposta excedeu o limite'};
+  for(const event of crm.events)hubspot.append(pair(timestamp(event.created_at),crmLabels[event.outcome]??'Falha na consulta'));
+  if(crm.status==='configured'){
+   const open=button('Consultar empresas do HubSpot',async()=>{
+    const tenant=getUser()?.tenantId;
+    open.disabled=true;
+    try{
+     const data=await api('/integrations/hubspot/read','POST',{});
+     if(!open.isConnected || getUser()?.tenantId!==tenant)return;
+     const content=node('div');
+     for(const company of data.companies)content.append(pair(company.name??'Sem nome',company.domain??'Sem domínio'));
+     if(!data.companies.length)content.append(empty('Nenhuma empresa retornada.'));
+     if(data.has_more)content.append(empty('Há mais empresas no HubSpot. A prévia mostra até 50.'));
+     modal('Empresas do HubSpot',content);
+    }finally{
+     open.disabled=false;
+     if(open.isConnected && getUser()?.tenantId===tenant)await view('Central de integrações');
+    }
+   });
+   hubspot.append(open);
+  }
+  return [csv,hook,sheets,calendar,hubspot];
  }
  async function subscriptionPage(){
   const path='/billing/subscription-requests';

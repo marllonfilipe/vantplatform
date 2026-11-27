@@ -122,3 +122,7 @@ A Central permite consultar o intervalo autorizado da empresa e acompanhar a úl
 ## Consulta do Google Calendar
 
 A Central oferece uma prévia dos próximos sete dias da agenda da empresa e o histórico das consultas. A [documentação do Calendar](11-google-calendar.md) descreve as permissões, o limite de 50 ocorrências e a homologação externa.
+
+## Consulta do HubSpot
+
+A Central oferece uma prévia de empresas ativas por conta autorizada. O [roteiro do HubSpot](11-hubspot.md) documenta a permissão, o acesso, o histórico de tentativas e a homologação real.
