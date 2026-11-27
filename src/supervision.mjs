@@ -18,7 +18,8 @@ export async function reserveAgentAction(db,tenant,tool){
  if(config.paused||!config[tool])reject(409,'agent_paused','A supervisão da empresa pausou esta ferramenta.');
  const usage=await db.query(`UPDATE vant.agent_controls SET usage_day=${day},
    used=CASE WHEN usage_day=${day} THEN used+1 ELSE 1 END
-   WHERE tenant_id=$1 AND (usage_day IS DISTINCT FROM ${day} OR used<daily_limit) RETURNING used`,[tenant]);
+   FROM vant.daily_agent_capacity($1) capacity
+   WHERE tenant_id=$1 AND capacity.used_today<capacity.effective_limit RETURNING used`,[tenant]);
  if(!usage.rowCount)reject(429,'agent_daily_limit','Limite diário de ações dos agentes atingido.');
 }
 

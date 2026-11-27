@@ -37,3 +37,11 @@ A franquia opcional `storage_limit_bytes` no comando administrativo aceita um in
 O total soma os bytes lógicos dos documentos cadastrados e o conteúdo binário dos anexos dos leads. Índices, vetores e backups ficam fora dessa medida. O PostgreSQL controla o aumento dos dois tipos de conteúdo com uma única franquia por empresa. Exclusões e reduções liberam espaço. A consulta identifica limites atingidos e franquias já excedidas após uma redução de capacidade para usuários, leads, pipelines e armazenamento.
 
 O teste de integração usa arquivos UTF-8 enviados pela API, dois uploads concorrentes na última vaga, alterações e exclusões de documentos, isolamento entre empresas e a leitura dos alertas no Chromium.
+
+## Franquia diária de ações dos agentes
+
+O operador global pode registrar `agent_actions_per_day` nas condições do contrato. A quantidade aceita vai de zero a 10.000. Zero bloqueia novas ações desde o início do dia. A omissão preserva a franquia vigente. Um valor explícito `null` mantém somente o limite operacional que o proprietário configura em Supervisão. Para definir a franquia, o operador usa a revisão vigente no comando descrito acima. O plano original não fixa uma quantidade diária por faixa comercial.
+
+O menor valor entre o teto operacional e a franquia comercial determina a capacidade disponível. Em **Financeiro → Planos comerciais**, a gestão consulta quanto já foi usado e o limite efetivo. O período acompanha o dia de São Paulo. Cada ação que passa pela reserva de ferramentas dos agentes e tem a transação confirmada consome uma unidade. Uma operação desfeita libera a reserva. As chamadas de inferência e o tráfego de mensagens exigem medições próprias.
+
+O teste de integração `tests/agent-capacity.integration.mjs` confronta duas reservas simultâneas com uma unidade disponível, uma transação desfeita, a virada do dia, o limite zero, a supervisão local e o isolamento entre empresas. O teste de billing verifica a leitura do consumo no Chromium.
