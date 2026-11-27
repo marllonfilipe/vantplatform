@@ -4,7 +4,7 @@ Diretriz do proprietário de 19/11/2026. O cronograma original, as entregas já 
 
 A Missão 05 permanece pendente do pareamento e da troca de mensagens entre aparelhos autorizados. Para reconhecer seu aceite, conferir o job de homologação ao vivo efetivamente executado e aprovado, ou evidência equivalente registrada pelo proprietário. Uma execução ignorada e a suíte de infraestrutura não comprovam esse aceite. Até lá, os incrementos seguintes usam dados do CRM e da própria plataforma. Concluída a homologação, retomar a primeira entrega pendente na ordem original e integrar os itens de canal adiados.
 
-## Situação das 13 missões em 26/11/2026
+## Situação das 13 missões em 27/11/2026
 
 Esta é uma revisão de continuidade. Os critérios originais de aceite constam do [cronograma](cronograma.md). A auditoria final ainda precisa confrontar cada requisito do plano original com código, testes, publicação e homologação.
 
@@ -20,7 +20,7 @@ Esta é uma revisão de continuidade. Os critérios originais de aceite constam 
 | [08 · Motor de automações](missoes/08-automacoes.md) | Editor, versões, worker, condições, espera, ações de CRM, ações do Core e webhook de saída. | Implementação parcial. Eventos de assinatura dependem da 11 e os de mensageria dependem da 05. |
 | [09 · Prospecção](missoes/09-prospeccao.md) | Implementação publicada com ICP, listas, importação, decisores, classificação e conversão no CRM. | Aceite do proprietário pendente. Marco já relatado. |
 | [10 · Receita e inteligência executiva](missoes/10-receita.md) | Implementação publicada com filtros, metas, projeções, conversão por canal, análise contextual e exportação. | Aceite operacional pendente. Relatório e envio já registrados. |
-| [11 · Integrações e assinaturas](missoes/11-integracoes-cobranca.md) | Catálogo, vínculo versionado, limites de usuários, leads, pipelines, armazenamento, ações de agentes e fluxos. O worker e o Financeiro reconciliam as execuções. | Implementação parcial. Restam medição e controle de outros recursos, central de integrações e ciclo de assinatura e cobrança. |
+| [11 · Integrações e assinaturas](missoes/11-integracoes-cobranca.md) | Catálogo, vínculo versionado, limites de usuários, leads, pipelines, armazenamento, ações de agentes e fluxos. O Financeiro mostra consumo, histórico de planos e solicitações comerciais. A Central de integrações mostra lotes CSV e tentativas de webhook. | Implementação parcial. Restam os demais conectores, a ativação de assinaturas, as faturas e a conciliação com o gateway. |
 | 12 · Enterprise e produção | A fundação já oferece isolamento, auditoria e restauração. Ainda não há marco integral da 12. | Implementar e validar multiunidade, governança e APIs corporativas, carga, observabilidade e preparação de produção. |
 | 13 · Control Center | O provisionamento administrativo existente cobre parte das operações internas. Ainda não há marco integral da 13. | Desenvolver o controle global com identidade separada, operações por empresa, auditoria e monitoramento dos módulos. |
 
@@ -225,3 +225,9 @@ O incremento independente registra, consulta e cancela o interesse de assinatura
 ## Missão 11 · Central de integrações para CSV e webhook
 
 A solicitação comercial foi integrada pelo [PR #16](https://github.com/marllonfilipe/vantplatform/pull/16). A [revisão testada](https://github.com/marllonfilipe/vantplatform/commit/2935aa119d5c1cc0c32e6f82155c69ee8ad1453f) passou na [fundação com PostgreSQL e Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/45960378924) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/45960378941). O incremento seguinte reúne as evidências de importação e entrega de webhooks por empresa. Os testes verificam rollback de lote, isolamento, acesso pelo navegador e resultados HTTP do worker. O [relatório técnico](missoes/11-integracoes-cobranca.md) descreve o acesso à central. Conferir as suítes do PR. A Missão 11 continua parcial. A próxima atividade independente é ampliar as evidências operacionais da central e prosseguir com os conectores previstos no plano.
+
+## Resultado de 27/11/2026 · Missão 11
+
+O [PR #16](https://github.com/marllonfilipe/vantplatform/pull/16) entrou na `main` no [commit da solicitação de assinatura](https://github.com/marllonfilipe/vantplatform/commit/9ded46c921e83a63648744dce5351d94b4c3aea1). O [PR #17](https://github.com/marllonfilipe/vantplatform/pull/17) entrou no [commit da Central de integrações](https://github.com/marllonfilipe/vantplatform/commit/fe173350824ac8241c26317e8fb6f19fae6222e5). Na [revisão testada](https://github.com/marllonfilipe/vantplatform/commit/778c151991b5db5bf055e2486708f2b3afcdaffc), passaram a [fundação com PostgreSQL e Chromium](https://github.com/marllonfilipe/vantplatform/actions/runs/46001784255) e o [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/46001784207). A suíte verificou lote CSV confirmado, reversão de lote com erro, isolamento por empresa, acesso no navegador e duas respostas do receptor HTTPS de teste do worker (429 e 204).
+
+A próxima atividade independente é registrar o último erro de importação CSV por empresa na Central, preservando a reversão integral do lote e omitindo os valores das linhas importadas. A conexão autenticada do Asaas aguarda a execução descrita no [roteiro de homologação](missoes/11-asaas-sandbox.md). A Missão 11 continua parcial. O marco é um incremento interno da plataforma, sem envio de relatório integral por e-mail.
