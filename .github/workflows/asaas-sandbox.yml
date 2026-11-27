@@ -1,0 +1,36 @@
+name: Verificar conexão Asaas Sandbox
+on:
+  pull_request:
+    paths:
+      - scripts/verify-asaas-sandbox.mjs
+      - .github/workflows/asaas-sandbox.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  consulta-publica:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/verify-asaas-sandbox.mjs --public
+
+  consulta-autenticada:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    environment: asaas-homologacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Consultar situação da conta no sandbox
+        env:
+          VANT_ASAAS_SANDBOX_API_KEY: ${{ secrets.VANT_ASAAS_SANDBOX_API_KEY }}
+        run: node scripts/verify-asaas-sandbox.mjs --authenticated

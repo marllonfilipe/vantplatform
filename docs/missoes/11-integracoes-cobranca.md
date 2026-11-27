@@ -84,3 +84,11 @@ O vínculo aceita `inference_texts_per_day` em unidades inteiras. A omissão pre
 A reserva e a confirmação usam transações separadas da operação comercial. Mesmo que a gravação no CRM seja desfeita, os vetores efetivamente processados continuam computados. Uma falha conhecida libera a reserva. Uma interrupção de processo após reservar e antes de confirmar deixa uma reserva identificável, que ocupa capacidade no dia de origem até conciliação. O catálogo fixo de frases do copiloto é compartilhado e fica fora do consumo dos clientes. A medição armazena a empresa, o dia, a versão do modelo, a quantidade e o resultado. Textos, vetores, dados de contato e preços ficam fora desse registro.
 
 O cenário `tests/core/inference-capacity.test.mjs` disputa capacidade entre duas chamadas ao modelo real em CPU e verifica isolamento, rollback comercial, teto zero e virada do período. A suíte de memória verifica a resposta HTTP de limite atingido. O Chromium verifica o painel de consumo. Cobrança, fatura, tarifação por custo e homologação com o gateway continuam pendentes.
+
+## Histórico das condições comerciais
+
+Em **Financeiro → Histórico de planos**, proprietários e gestores podem consultar as revisões do vínculo da própria empresa. Cada revisão identifica o plano, a data e a hora de registro em Brasília e os limites vigentes na ocasião. A tela apresenta dez revisões por página, a partir da mais recente. A API `GET /api/v1/billing/plan-history` aceita `limit` e a revisão exclusiva `before`. Novas revisões preservam as anteriores.
+
+O histórico é de condições contratadas. Valores pagos e faturas dependem dos registros financeiros do gateway. Campos de franquia sem teto definido permanecem distintos de um limite zero. A conta operacional da aplicação tem acesso de leitura ao histórico. O teste de integração verifica valores anteriores, paginação, isolamento entre empresas, restrições a vendedores, limites nulos e zero e os dois sentidos da navegação no Chromium.
+
+A seleção do primeiro provedor e o procedimento de consulta estão no [roteiro do sandbox do Asaas](11-asaas-sandbox.md).
