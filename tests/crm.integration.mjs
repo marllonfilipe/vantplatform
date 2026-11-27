@@ -4,7 +4,7 @@ import {generateKeyPairSync,randomUUID,verify} from 'node:crypto';
 import {mkdtemp,writeFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {sheetConfig,sheetAssertion} from '../src/google-sheets.mjs';
+import {sheetConfig,sheetAssertion,sheetValues} from '../src/google-sheets.mjs';
 import pg from 'pg';
 import {chromium} from 'playwright-core';
 import {createPool} from '../src/db.mjs';
@@ -13,6 +13,16 @@ import {createApp} from '../src/app.mjs';
 import {featureRoutes} from '../src/routes.mjs';
 import {servePage} from '../src/pages.mjs';
 import {leadCsv} from '../src/csv.mjs';
+test('Valores formatados do intervalo preservam células vazias e os limites autorizados',()=>{
+ const bounds={rows:2,columns:3};
+ const range='Leads!B2:D3', rows=[['Nome','','Total'],['Conta A','01/02/2026','0,00']];
+ assert.deepEqual(sheetValues({range,values:rows},bounds),rows);
+ assert.deepEqual(sheetValues({range},bounds),[]);
+ for(const values of [null,[['a','b','c','d']],[[],[],[]],[[{}]],['linha']]){
+  assert.throws(()=>sheetValues({range,values},bounds),{code:'upstream'});
+ }
+ assert.throws(()=>sheetValues({},bounds),{code:'upstream'});
+});
 test('CSV com BOM, aspas e linha interna',()=>{
  assert.deepEqual(leadCsv('\uFEFFnome;observações\r\n"A; B";"linha 1\nlinha ""2"""'),[{name:'A; B',notes:'linha 1\nlinha "2"',source:'Importação CSV'}]);
  assert.throws(()=>leadCsv('nome\n"abc'));

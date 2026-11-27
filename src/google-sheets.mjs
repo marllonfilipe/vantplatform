@@ -68,6 +68,15 @@ async function googleJson(url,options,limit) {
   return JSON.parse(Buffer.concat(parts).toString('utf8'));
 }
 
+export function sheetValues(data,config) {
+  const values = data?.values === undefined ? [] : data.values;
+  if (typeof data?.range !== 'string' || !data.range || !Array.isArray(values) || values.length > config.rows ||
+      !values.every(row=>Array.isArray(row) && row.length <= config.columns && row.every(value=>typeof value === 'string'))) {
+    throw fail(502,'upstream','O Google retornou dados incompatíveis com o intervalo.');
+  }
+  return values;
+}
+
 export async function readSheet(config) {
   try {
     const token = await googleJson(tokenUrl,{method:'POST',body:new URLSearchParams({
@@ -78,10 +87,7 @@ export async function readSheet(config) {
     url.searchParams.set('majorDimension','ROWS');
     url.searchParams.set('valueRenderOption','FORMATTED_VALUE');
     const data = await googleJson(url,{headers:{Authorization:'Bearer '+token.access_token}},512000);
-    const values = data.values ?? [];
-    if (typeof data.range !== 'string' || !Array.isArray(values) || values.length > config.rows ||
-        !values.every(row=>Array.isArray(row) && row.length <= config.columns && row.every(value=>typeof value === 'string'))) throw new Error('range');
-    return values;
+    return sheetValues(data,config);
   } catch (error) {
     if (error instanceof ApiError) throw error;
     throw fail(502,'upstream','Falha ao consultar o Google Sheets.');
