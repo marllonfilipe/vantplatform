@@ -12,6 +12,9 @@ export async function billingRoutes({db,tenant,member,url,method}){
    (SELECT count(*)::integer FROM vant.leads WHERE tenant_id=$1) AS leads,
    (SELECT count(*)::integer FROM vant.pipelines WHERE tenant_id=$1) AS pipelines,
    (SELECT count(*)::integer FROM vant.automation_flows WHERE tenant_id=$1 AND enabled) AS active_flows,
+   (SELECT jsonb_build_object('started',r.started::text,'attempts',r.attempts::text,
+      'retries',r.retries::text,'skipped',r.skipped::text)
+    FROM vant.flow_execution_usage($1,(statement_timestamp() AT TIME ZONE 'America/Sao_Paulo')::date) r) AS flow_executions,
    (SELECT to_jsonb(c) FROM vant.daily_agent_capacity($1) c) AS agent_actions,
    vant.stored_content_bytes($1)::text AS storage_bytes`,[tenant]);
   return [200,rows[0]];

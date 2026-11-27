@@ -53,3 +53,16 @@ A condição contratual opcional `active_flow_limit` define quantos fluxos podem
 Somente o operador global configura a franquia, usando um inteiro não negativo no vínculo versionado. Omitir o campo preserva o valor anterior. Um valor explícito `null` retira esse teto. O número de fluxos ativos é distinto da quantidade de vezes que o worker os executou.
 
 O teste em PostgreSQL usa a API autenticada para criar dois fluxos simultaneamente com apenas uma vaga, pausar, editar e reativar. Verifica a preservação da versão após uma tentativa recusada, o consumo exibido no Chromium, o limite zero e o isolamento entre empresas.
+
+## Execuções do worker
+
+A área Financeiro apresenta quatro contagens para o dia de São Paulo, calculadas sobre o histórico persistido pela automação da própria empresa.
+
+- **Execuções iniciadas** conta cada job uma vez, no dia da primeira tentativa com ação. Etapas posteriores e retentativas preservam a mesma execução.
+- **Tentativas de ação** conta cada tentativa registrada com ação, inclusive uma tentativa que falhou ou exigiu repetição.
+- **Tentativas que exigiram repetição** conta as tentativas com resultado `retry`.
+- **Avaliações sem ação** conta os registros `skipped`, inclusive condições sem ação aplicável.
+
+A virada do dia usa meia-noite local como início inclusivo e a meia-noite seguinte como fim exclusivo. Uma nova tentativa hoje de uma execução iniciada ontem entra somente na contagem de tentativas de hoje. Jobs aguardando prazo ou capacidade ainda sem tentativa registrada ficam fora do consumo medido. A consulta também abrange o histórico anterior à migration. Esses totais não geram faturas.
+
+O cenário de integração cria leads pela API, executa processos reais do worker, produz uma avaliação sem ação e uma retentativa, confere a API de billing e abre o relatório no Chromium. O cenário reposiciona a primeira tentativa no banco de teste para verificar a fronteira diária.

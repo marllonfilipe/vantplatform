@@ -48,6 +48,10 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   const processed=await runs();
   assert.deepEqual(processed.map(r=>r.history[0].outcome).sort(),['created','skipped']);
   assert.ok(processed.every(r=>r.state==='done'&&r.attempts===1&&r.payload.version===1));
+  const metered=async()=>{
+   const r=await call('billing/usage');assert.equal(r.status,200);return (await r.json()).flow_executions;
+  };
+  assert.deepEqual(await metered(),{started:'1',attempts:'1',retries:'0',skipped:'1'});
   const tasks=await admin.query('SELECT title,owner_id FROM vant.activities WHERE tenant_id=$1 AND lead_id=$2',[tenant,lead]);
   assert.deepEqual(tasks.rows,[{title:'Contato inicial',owner_id:actor}]);
   assert.equal((await call(path,'PUT',{...spec,wait_minutes:30,expected_version:3})).status,200);
@@ -64,6 +68,12 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   await admin.query("UPDATE vant.jobs SET available_at=now() WHERE tenant_id=$1 AND id=$2",[tenant,retry.id]);
   await worker(tenant);
   assert.deepEqual((await runs()).find(r=>r.id===retry.id).history.map(h=>h.outcome),['retry','created']);
+  assert.deepEqual(await metered(),{started:'2',attempts:'3',retries:'1',skipped:'1'});
+  // A tentativa original ocorreu no dia anterior; a repetição de hoje mantém a mesma execução.
+  await admin.query(`UPDATE vant.automation_attempts SET created_at=
+   ((now() AT TIME ZONE 'America/Sao_Paulo')::date::timestamp AT TIME ZONE 'America/Sao_Paulo')-interval '1 second'
+   WHERE tenant_id=$1 AND job_id=$2 AND attempt=1`,[tenant,retry.id]);
+  assert.deepEqual(await metered(),{started:'1',attempts:'2',retries:'0',skipped:'1'});
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});
   const page=await browser.newPage();
   await page.goto(origin);
@@ -71,6 +81,9 @@ test('evento real do CRM executa versão publicada no worker, com pausa, condiç
   await page.getByLabel('E-mail',{exact:true}).fill(email);
   await page.getByLabel('Senha').fill(password);
   await page.getByRole('button',{name:'Entrar'}).click();
+  await page.getByRole('button',{name:'Planos comerciais'}).click();
+  const usagePanel=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Execução de automações hoje'})});
+  await usagePanel.getByText('2',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Automações',exact:true}).click();
   await page.getByRole('button',{name:'Criar fluxo'}).click();
   await page.getByLabel('Nome do fluxo').fill('Retorno de evento');

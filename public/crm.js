@@ -223,6 +223,11 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    current.append(pair('Ações de agentes hoje',number(actions.used_today)+' de '+number(actions.effective_limit)));
    const flowLimit=assigned?.active_flow_limit;
    current.append(pair('Automações ativas',flowLimit==null?number(usage.active_flows):display(usage.active_flows,flowLimit)));
+   const runs=usage.flow_executions;
+   const count=value=>BigInt(value).toLocaleString('pt-BR');
+   const executions=panel('Execução de automações hoje',pair('Execuções iniciadas',count(runs.started)),
+    pair('Tentativas de ação',count(runs.attempts)),pair('Tentativas que exigiram repetição',count(runs.retries)),
+    pair('Avaliações sem ação',count(runs.skipped)));
    const usedBytes=BigInt(usage.storage_bytes);
    const limitBytes=assigned?.storage_limit_bytes==null?null:BigInt(assigned.storage_limit_bytes);
    const bytes=value=>value.toLocaleString('pt-BR')+' bytes';
@@ -234,7 +239,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    ]){
     if(limit!=null&&used>=limit)current.append(pair(label+' · alerta',used>limit?'Franquia excedida':'Limite atingido'));
    }
-   return [current,...catalog.items.map(plan=>panel(plan.name,
+   return [current,executions,...catalog.items.map(plan=>panel(plan.name,
     pair('Mensalidade',plan.custom_terms?'Sob consulta':money(plan.monthly_cents)+' / mês'),
     pair('Usuários',number(plan.user_limit)),pair('Leads ativos',number(plan.active_lead_limit)),
     pair('Pipelines',number(plan.pipeline_limit)),pair('Conexões WhatsApp previstas',number(plan.whatsapp_connection_limit)),
