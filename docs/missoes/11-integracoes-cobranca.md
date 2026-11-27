@@ -126,3 +126,7 @@ A Central oferece uma prévia dos próximos sete dias da agenda da empresa e o h
 ## Consulta do HubSpot
 
 A Central oferece uma prévia de empresas ativas por conta autorizada. O [roteiro do HubSpot](11-hubspot.md) documenta a permissão, o acesso, o histórico de tentativas e a homologação real.
+
+## Consulta do Pipedrive
+
+A gestão pode consultar ID e nome de até 50 organizações da conta da empresa. O [roteiro do Pipedrive](11-pipedrive.md) descreve configuração, permissões, histórico e homologação externa.

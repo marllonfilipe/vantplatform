@@ -1,0 +1,22 @@
+name: Homologar leitura do Pipedrive
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  leitura-autorizada:
+    if: github.ref == 'refs/heads/main'
+    environment: pipedrive-homologacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Consultar organizações autorizadas
+        env:
+          VANT_PIPEDRIVE_CHECK: ${{ secrets.VANT_PIPEDRIVE_CHECK }}
+        run: node scripts/verify-pipedrive.mjs
