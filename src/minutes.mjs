@@ -12,6 +12,7 @@ async function summarize(notes) {
   let encoded;
   try { encoded=await embed([...themes,...sentences]); }
   catch(error) {
+    if(error.code==='inference_daily_limit')throw error;
     if(error.code==='model_busy') reject(429,'model_busy','Fila do modelo cheia.');
     reject(503,'model_unavailable','Inferência local indisponível.');
   }

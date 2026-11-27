@@ -279,11 +279,11 @@ export function processNext(pool,tenant){
    const deliveryFailure=kind==='webhook'&&['webhook_config','webhook_destination_changed','webhook_network','webhook_http'].includes(error.code);
    reason=deliveryFailure||['author_unavailable','owner_unavailable'].includes(error.code)?error.code:'action_failed';
    if(deliveryFailure)webhook={id:job.id+'.'+step,status:error.status??null};
-   const waitingForAgent=error.code==='agent_paused'||error.code==='agent_daily_limit';
+   const waitingForAgent=['agent_paused','agent_daily_limit','inference_daily_limit'].includes(error.code);
    await db.query(admissionReserved&&!waitingForAgent?'ROLLBACK TO SAVEPOINT flow_action':'ROLLBACK TO SAVEPOINT flow_effect');
    if(waitingForAgent){
     await db.query(`UPDATE vant.jobs SET payload=(payload-'frequency_deferred')||jsonb_build_object('agent_wait',$3::text),
-      available_at=CASE WHEN $3='agent_daily_limit' THEN
+      available_at=CASE WHEN $3 IN ('agent_daily_limit','inference_daily_limit') THEN
        (date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo')+interval '1 day') AT TIME ZONE 'America/Sao_Paulo'
        ELSE now()+interval '1 minute' END WHERE tenant_id=$1 AND id=$2`,[tenant,job.id,error.code]);
     return true;

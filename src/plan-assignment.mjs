@@ -5,7 +5,8 @@ const optionalQuotas = [
   {key: 'storage_limit_bytes', max: Number.MAX_SAFE_INTEGER, error: 'Franquia de armazenamento inválida.'},
   {key: 'agent_actions_per_day', max: 10000, error: 'Franquia diária de ações inválida.'},
   {key: 'active_flow_limit', max: 2147483647, error: 'Franquia de automações inválida.'},
-  {key: 'flow_starts_per_day', max: 2147483647, error: 'Franquia de execuções inválida.'}
+  {key: 'flow_starts_per_day', max: 2147483647, error: 'Franquia de execuções inválida.'},
+  {key: 'inference_texts_per_day', max: 2147483647, error: 'Franquia de inferências inválida.'}
 ];
 const supportedLimits = new Set([...limitKeys, ...optionalQuotas.map(quota => quota.key)]);
 
@@ -35,6 +36,6 @@ export async function assignPlan(db, tenant, code, expectedRevision, overrides =
   if ((previous?.revision ?? 0) !== expectedRevision)
     throw new Error('O vínculo mudou. Confira a revisão atual.');
   return (await db.query(`INSERT INTO vant.plan_assignments
-    (tenant_id,revision,plan_code,user_limit,active_lead_limit,pipeline_limit,storage_limit_bytes,agent_actions_per_day,active_flow_limit,flow_starts_per_day)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`, [tenant, expectedRevision + 1, code, ...limits, ...quotas])).rows[0];
+    (tenant_id,revision,plan_code,user_limit,active_lead_limit,pipeline_limit,storage_limit_bytes,agent_actions_per_day,active_flow_limit,flow_starts_per_day,inference_texts_per_day)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [tenant, expectedRevision + 1, code, ...limits, ...quotas])).rows[0];
 }

@@ -41,12 +41,14 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   const page=await browser.newPage();await page.goto(origin);
   await page.getByLabel('Identificador da empresa').fill(tenant);await page.getByLabel('E-mail',{exact:true}).fill('gestor@example.invalid');await page.getByLabel('Senha').fill(password);
   await page.getByRole('button',{name:'Entrar'}).click();await page.getByRole('button',{name:'Planos comerciais'}).click();
+  await page.getByRole('heading',{name:'Inferências de hoje'}).waitFor();
   const scale=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Scale',exact:true})});
   await scale.getByText('10.000',{exact:true}).waitFor();assert.match(await scale.innerText(),/597,00/);
   const enterprise=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Enterprise',exact:true})});
   assert.match(await enterprise.innerText(),/Sob consulta/);
   const usage=async()=>{const r=await call('billing/usage');assert.equal(r.status,200);return r.json();};
   assert.deepEqual(await usage(),{assignment:null,users:2,leads:0,pipelines:0,active_flows:0,flow_admissions:'0',storage_bytes:'0',
+   inference_texts:{completed:'0',reserved:'0',failed:'0'},
    flow_executions:{started:'0',attempts:'0',retries:'0',skipped:'0'},
    agent_actions:{used_today:0,operational_limit:100,contract_limit:null,effective_limit:100}});
   // A empresa não pode contratar ou elevar o próprio limite pela conexão da aplicação.

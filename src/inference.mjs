@@ -1,3 +1,4 @@
+import {reserveInference,settleInference} from './inference-usage.mjs';
 import {spawn} from 'node:child_process';
 import {createInterface} from 'node:readline';
 import {fileURLToPath} from 'node:url';
@@ -8,6 +9,7 @@ export const model=JSON.parse(readFileSync(new URL('../core/model.json',import.m
 export const modelVersion=model.repository+'@'+model.revision;
 const queue=[];
 let child,active;
+let admissions=0, generation=0;
 function failure(code){
  console.warn(JSON.stringify({event:'core.inference.failure',code,model:modelVersion,queued:queue.length}));
  return Object.assign(new Error(code),{code});
@@ -50,13 +52,35 @@ function schedule(){
  active.timer=setTimeout(()=>{const proc=child;child=null;proc.kill();finish(failure('model_timeout'));schedule();},30000);
  child.stdin.write(JSON.stringify({texts:active.texts})+'\n');
 }
-export function embed(texts){
- if(!process.env.VANT_MODEL_ROOT)return Promise.reject(failure('model_unavailable'));
- if(!Array.isArray(texts)||!texts.length||texts.length>64||texts.some(s=>typeof s!=='string'||s.length>10000))return Promise.reject(failure('model_input'));
- if(queue.length>=8)return Promise.reject(failure('model_busy'));
- return new Promise((resolve,reject)=>{queue.push({texts,resolve,reject,start:performance.now()});schedule();});
+// O catálogo fixo do copiloto é compartilhado entre empresas e aquecido uma vez por processo.
+export function embedSharedTemplates(texts){return encodeBatch(texts,false);}
+export function embed(texts){return encodeBatch(texts,true);}
+
+async function encodeBatch(texts,metered){
+ if(!process.env.VANT_MODEL_ROOT)throw failure('model_unavailable');
+ if(!Array.isArray(texts)||!texts.length||texts.length>64||texts.some(s=>typeof s!=='string'||s.length>10000))throw failure('model_input');
+ // Uma inferência ativa e oito na fila, incluindo as reservas em curso.
+ if(queue.length+admissions+(active?1:0)>=9)throw failure('model_busy');
+ const epoch=generation;
+ let batch;
+ if(metered){
+  admissions++;
+  try{batch=await reserveInference(texts.length,modelVersion);}finally{admissions--;}
+ }
+ let result;
+ try{
+  if(epoch!==generation)throw failure('model_stopped');
+  result=await new Promise((resolve,reject)=>{queue.push({texts,resolve,reject,start:performance.now()});schedule();});
+ }catch(error){
+  await settleInference(batch,'failed');
+  throw error;
+ }
+ // Se a confirmação no banco falhar, a reserva segue pendente para conciliação.
+ await settleInference(batch,'completed');
+ return result;
 }
 export function stopInference(){
+ generation++;
  for(const task of queue.splice(0))task.reject(failure('model_stopped'));
  const proc=child;child=null;proc?.kill();finish(failure('model_stopped'));
 }

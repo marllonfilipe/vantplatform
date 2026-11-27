@@ -74,3 +74,13 @@ O operador pode atribuir `flow_starts_per_day` ao vínculo versionado da empresa
 O worker deixa a execução excedente na fila antes de aplicar seu efeito. O monitor informa a espera por franquia, com nova consulta em até cinco minutos ou na virada do dia em São Paulo. Uma espera por liberação do agente desfaz a reserva recém-aberta. O consumo por admissão e o histórico de tentativas são consultáveis separadamente porque uma execução pode estar preparada e ainda aguardar a confirmação da ação.
 
 A atualização aproveita tentativas anteriores e entregas já preparadas para preservar a continuidade. O teste de integração cria dois leads em um fluxo de duas etapas, disputa uma vaga entre dois workers, reduz a franquia para zero, amplia o limite e confere as quatro atividades persistidas.
+
+## Inferências locais e franquia diária
+
+Em **Financeiro → Planos comerciais → Inferências de hoje**, a gestão pode conferir quantos textos do tenant retornaram vetores válidos, aguardam confirmação ou terminaram sem vetor. Um lote de três textos com três vetores válidos conta como três unidades. A medição começa com a migration 048. O histórico anterior do CRM não permite reconstruir todas as chamadas ao modelo.
+
+O vínculo aceita `inference_texts_per_day` em unidades inteiras. A omissão preserva o valor vigente, zero suspende novas inferências e `null` remove o teto contratual. Não foram atribuídas quantidades ou preços de IA aos planos originais. O backend verifica todos os textos do lote antes de encaminhá-lo ao modelo. Empresas e dias de São Paulo têm contagens próprias. No limite, a API retorna HTTP 429 com o código `inference_daily_limit`. Fluxos dependentes aguardam na fila.
+
+A reserva e a confirmação usam transações separadas da operação comercial. Mesmo que a gravação no CRM seja desfeita, os vetores efetivamente processados continuam computados. Uma falha conhecida libera a reserva. Uma interrupção de processo após reservar e antes de confirmar deixa uma reserva identificável, que ocupa capacidade no dia de origem até conciliação. O catálogo fixo de frases do copiloto é compartilhado e fica fora do consumo dos clientes. A medição armazena a empresa, o dia, a versão do modelo, a quantidade e o resultado. Textos, vetores, dados de contato e preços ficam fora desse registro.
+
+O cenário `tests/core/inference-capacity.test.mjs` disputa capacidade entre duas chamadas ao modelo real em CPU e verifica isolamento, rollback comercial, teto zero e virada do período. A suíte de memória verifica a resposta HTTP de limite atingido. O Chromium verifica o painel de consumo. Cobrança, fatura, tarifação por custo e homologação com o gateway continuam pendentes.
