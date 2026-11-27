@@ -59,7 +59,8 @@ export function embed(texts){return encodeBatch(texts,true);}
 async function encodeBatch(texts,metered){
  if(!process.env.VANT_MODEL_ROOT)throw failure('model_unavailable');
  if(!Array.isArray(texts)||!texts.length||texts.length>64||texts.some(s=>typeof s!=='string'||s.length>10000))throw failure('model_input');
- if(queue.length+admissions>=8)throw failure('model_busy');
+ // Uma inferência ativa e oito na fila, incluindo as reservas em curso.
+ if(queue.length+admissions+(active?1:0)>=9)throw failure('model_busy');
  const epoch=generation;
  let batch;
  if(metered){
