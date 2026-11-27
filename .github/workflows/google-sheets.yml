@@ -1,0 +1,22 @@
+name: Homologar leitura do Google Sheets
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  leitura:
+    if: github.ref == 'refs/heads/main'
+    environment: google-sheets-homologacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Ler intervalo autorizado
+        env:
+          VANT_SHEETS_CHECK: ${{ secrets.VANT_SHEETS_CHECK }}
+        run: node scripts/verify-google-sheets.mjs

@@ -1,6 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {generateKeyPairSync,randomUUID,verify} from 'node:crypto';
+import {mkdtemp,writeFile,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {sheetConfig,sheetAssertion,sheetValues} from '../src/google-sheets.mjs';
 import pg from 'pg';
 import {chromium} from 'playwright-core';
 import {createPool} from '../src/db.mjs';
@@ -9,6 +13,16 @@ import {createApp} from '../src/app.mjs';
 import {featureRoutes} from '../src/routes.mjs';
 import {servePage} from '../src/pages.mjs';
 import {leadCsv} from '../src/csv.mjs';
+test('Valores formatados do intervalo preservam células vazias e os limites autorizados',()=>{
+ const bounds={rows:2,columns:3};
+ const range='Leads!B2:D3', rows=[['Nome','','Total'],['Conta A','01/02/2026','0,00']];
+ assert.deepEqual(sheetValues({range,values:rows},bounds),rows);
+ assert.deepEqual(sheetValues({range},bounds),[]);
+ for(const values of [null,[['a','b','c','d']],[[],[],[]],[[{}]],['linha']]){
+  assert.throws(()=>sheetValues({range,values},bounds),{code:'upstream'});
+ }
+ assert.throws(()=>sheetValues({},bounds),{code:'upstream'});
+});
 test('CSV com BOM, aspas e linha interna',()=>{
  assert.deepEqual(leadCsv('\uFEFFnome;observações\r\n"A; B";"linha 1\nlinha ""2"""'),[{name:'A; B',notes:'linha 1\nlinha "2"',source:'Importação CSV'}]);
  assert.throws(()=>leadCsv('nome\n"abc'));
@@ -19,6 +33,13 @@ test('CRM, persistência e navegação',async t=>{
  const origin='http://127.0.0.1:3190',server=createApp({pool,origin,featureRoutes,servePage,environment:'test'});
  let browser;const a=randomUUID(),b=randomUUID(),pw=randomUUID(),owner=randomUUID(),other=randomUUID(),viewer=randomUUID(),email='crm@vant.invalid';
  try{
+  const root=await mkdtemp(join(tmpdir(),'vant-sheets-'));
+  const previous=process.env.VANT_GOOGLE_SHEETS_DIR;
+  process.env.VANT_GOOGLE_SHEETS_DIR=root;
+  t.after(async()=>{
+   if(previous===undefined)delete process.env.VANT_GOOGLE_SHEETS_DIR;else process.env.VANT_GOOGLE_SHEETS_DIR=previous;
+   await rm(root,{recursive:true,force:true});
+  });
   await admin.query("INSERT INTO vant.tenants(id,name) VALUES($1,'CRM A'),($2,'CRM B')",[a,b]);
   await admin.query("INSERT INTO vant.members(tenant_id,id,email,name,role,password_hash) VALUES($1,$2,$3,'Gestão','owner',$4),($5,$6,$3,'Outro','owner',$4),($1,$7,'viewer@vant.invalid','Leitura','viewer',$4)",[a,owner,email,await hashPassword(pw),b,other,viewer]);
   await new Promise((ok,fail)=>{server.once('error',fail);server.listen(3190,'127.0.0.1',ok);});
@@ -31,7 +52,27 @@ test('CRM, persistência e navegação',async t=>{
   const integrations=async cookie=>req('integrations','GET',undefined,cookie);
   assert.equal((await integrations(cv)).status,403);
   await call('leads/import','POST',{csv:'inválido'},403,cv);
+  const readSheet='integrations/google-sheets/read';
+  assert.equal((await req(readSheet,'POST',{},cv)).status,403);
+  assert.equal((await req(readSheet,'POST',{},cb)).status,409);
+  assert.equal((await req(readSheet,'GET',undefined,ca)).status,405);
+  const configFile=join(root,a+'.json');
+  await writeFile(configFile,'{}');
+  assert.equal((await (await integrations(ca)).json()).google_sheets.status,'invalid');
+  const keys=generateKeyPairSync('rsa',{modulusLength:2048});
+  const config={client_email:'reader@example.iam.gserviceaccount.com',spreadsheet_id:'testId',tab:"Leads d'abril",range:'B2:D10',
+   private_key:keys.privateKey.export({format:'pem',type:'pkcs8'}).toString()};
+  for(const range of ['B2:D102','D1:A1','A1:ZZ1','A1:B','B8:B2'])assert.throws(()=>sheetConfig({...config,range}));
+  const parts=sheetAssertion(sheetConfig(config),1000).split('.');
+  assert.ok(verify('RSA-SHA256',Buffer.from(parts.slice(0,2).join('.')),keys.publicKey,Buffer.from(parts[2],'base64url')));
+  assert.deepEqual(JSON.parse(Buffer.from(parts[1],'base64url')),{
+   iss:config.client_email,aud:'https://oauth2.googleapis.com/token',scope:'https://www.googleapis.com/auth/spreadsheets.readonly',iat:1000,exp:1300});
+  await writeFile(configFile,JSON.stringify(config));
+  assert.equal((await req(readSheet,'POST',{range:'A1:Z99'},ca)).status,400);
+  assert.equal((await req(readSheet+'?tenant='+a,'POST',{},cb)).status,400);
+  assert.deepEqual((await (await integrations(cb)).json()).google_sheets,{status:'unconfigured',range:null,last_read:null,events:[]});
   const summary=await (await integrations(ca)).json();
+  assert.deepEqual(summary.google_sheets,{status:'configured',range:"'Leads d''abril'!B2:D10",last_read:null,events:[]});
   const failure=summary.csv.last_failure;
   assert.deepEqual(Object.keys(failure).sort(),['category','created_at','source']);
   assert.equal(failure.source,'crm');
@@ -57,6 +98,9 @@ test('CRM, persistência e navegação',async t=>{
   assert.ok((await call('leads/'+lead.id)).last_contact_at);await call('leads/'+lead.id,'DELETE',undefined,409);
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});const ctx=await browser.newContext();await ctx.addCookies([{name:'vant_session',value:ca.slice(13),url:origin}]);
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Central de integrações'}).click();
+  await page.getByRole('heading',{name:'Google Sheets',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Consultar planilha'}).waitFor();
+  await page.getByText('Sem leitura confirmada',{exact:true}).waitFor();
   await page.getByText('Leads do CRM',{exact:true}).waitFor();
   await page.getByText(/Conflito de registros/).waitFor();
   await page.getByText('Sem entrega confirmada',{exact:true}).waitFor();
