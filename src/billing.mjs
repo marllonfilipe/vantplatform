@@ -1,10 +1,23 @@
 import {mayManageTeams} from './security.mjs';
-import {reject} from './http.mjs';
+import {pagination,reject} from './http.mjs';
 
 export async function billingRoutes({db,tenant,member,url,method}){
- if(!['/api/v1/billing/plans','/api/v1/billing/usage'].includes(url.pathname))return;
+ if(!['/api/v1/billing/plans','/api/v1/billing/usage','/api/v1/billing/plan-history'].includes(url.pathname))return;
  if(!mayManageTeams(member.role))reject(403,'permission','A consulta de planos exige gestão.');
  if(method!=='GET')reject(405,'method','A consulta de planos aceita GET.');
+ if(url.pathname==='/api/v1/billing/plan-history'){
+  const limit=pagination(url.searchParams);
+  const before=url.searchParams.get('before');
+  if(before!==null&&(!/^[1-9][0-9]{0,9}$/.test(before)||Number(before)>2147483647))
+   reject(400,'revision','Revisão inválida.');
+  const {rows}=await db.query(`SELECT a.revision,a.assigned_at,a.plan_code,p.name,
+    a.user_limit,a.active_lead_limit,a.pipeline_limit,a.storage_limit_bytes::text,
+    a.agent_actions_per_day,a.active_flow_limit,a.flow_starts_per_day,a.inference_texts_per_day
+    FROM vant.plan_assignments a JOIN vant.billing_plans p ON p.code=a.plan_code
+    WHERE a.tenant_id=$1 AND ($2::integer IS NULL OR a.revision<$2)
+    ORDER BY a.revision DESC LIMIT $3`,[tenant,before,limit+1]);
+  return [200,{items:rows.slice(0,limit),nextCursor:rows.length>limit?rows[limit-1].revision:null}];
+ }
  if(url.pathname==='/api/v1/billing/usage'){
   const {rows}=await db.query(`SELECT
    (SELECT (to_jsonb(a) - 'tenant_id') || jsonb_build_object('storage_limit_bytes', a.storage_limit_bytes::text) FROM vant.plan_assignments a WHERE tenant_id=$1 ORDER BY revision DESC LIMIT 1) AS assignment,

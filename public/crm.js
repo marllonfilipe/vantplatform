@@ -209,7 +209,37 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   for(const s of p.stages){const lane=node('section',undefined,'panel lane');lane.append(node('h2',s.name));for(const d of deals.filter(v=>v.stage_id===s.id)){const card=node('article');card.append(button(d.name,()=>detail('deals',d)),pair('Valor',money(d.amount_cents)));if(canWrite(d)){
     const stage=select(p.stages.map(v=>[v.id,v.name]),s.id,false);stage.setAttribute('aria-label','Mover '+d.name);stage.onchange=async()=>{try{await api(path('deals',d.id),'PATCH',{stage_id:stage.value});if(active==='Funil de vendas')await view(active);}catch(e){stage.value=s.id;modal('Movimentação',empty(e.message));}};card.append(stage);}lane.append(card);}board.append(lane);}return [bar,board];
  }
+ async function planHistory(){
+  const container=node('div');
+  async function render(cursor,previous){
+   const result=await api('/billing/plan-history?limit=10'+(cursor?'&before='+cursor:''));
+   const cards=result.items.map(row=>{
+    const format=value=>value==null?'Sem teto contratual':BigInt(value).toLocaleString('pt-BR');
+    const when=new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short',timeZone:'America/Sao_Paulo'}).format(new Date(row.assigned_at));
+    return panel(row.name+' · Revisão '+row.revision,pair('Registrado em Brasília',when),
+     pair('Usuários',format(row.user_limit)),pair('Leads ativos',format(row.active_lead_limit)),
+     pair('Pipelines',format(row.pipeline_limit)),pair('Armazenamento em bytes',format(row.storage_limit_bytes)),
+     pair('Ações de agentes por dia',format(row.agent_actions_per_day)),pair('Automações ativas',format(row.active_flow_limit)),
+     pair('Execuções por dia',format(row.flow_starts_per_day)),pair('Textos para inferência por dia',format(row.inference_texts_per_day)));
+   });
+   const bar=node('div',undefined,'toolbar');
+   function navigate(label,next,trail){
+    bar.append(button(label,async()=>{
+     for(const control of bar.querySelectorAll('button'))control.disabled=true;
+     try{await render(next,trail);}
+     catch(error){modal('Histórico de planos',empty(error.message));}
+     finally{for(const control of bar.querySelectorAll('button'))control.disabled=false;}
+    }));
+   }
+   if(previous.length)navigate('Mais recentes',previous.at(-1),previous.slice(0,-1));
+   if(result.nextCursor!==null)navigate('Mais antigas',result.nextCursor,[...previous,cursor]);
+   container.replaceChildren(...(cards.length?cards:[empty('Nenhum plano vinculado à empresa.')]),bar);
+  }
+  await render(null,[]);
+  return [container];
+ }
  async function page(name){
+  if(name==='Histórico de planos'){active=name;return planHistory();}
   if(name==='Planos comerciais'){
    active=name;
    const [catalog,usage]=await Promise.all([api('/billing/plans'),api('/billing/usage')]);
@@ -274,5 +304,5 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   if(previous.length)pager.append(button('Página anterior',()=>{cursor=previous.pop();return view(active);}));if(result.nextCursor)pager.append(button('Próxima página',()=>{previous.push(cursor);cursor=result.nextCursor;return view(active);}));
   return [bar,filter,wrap,pager];
  }
- return {get groups(){return manager()?{...groups,Financeiro:['Planos comerciais'],Operação:[...groups.Operação,'Automações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
+ return {get groups(){return manager()?{...groups,Financeiro:['Planos comerciais','Histórico de planos'],Operação:[...groups.Operação,'Automações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
 }

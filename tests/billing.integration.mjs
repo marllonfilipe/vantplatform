@@ -27,7 +27,9 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
    const r=await call('auth/login','POST',{tenantId:tenant,email,password});assert.equal(r.status,200);cookie=r.headers.get('set-cookie').split(';')[0];
   }
   assert.equal((await call('billing/plans')).status,401);
+  assert.equal((await call('billing/plan-history')).status,401);
   await login('gestor@example.invalid');
+  assert.deepEqual(await (await call('billing/plan-history')).json(),{items:[],nextCursor:null});
   const res=await call('billing/plans');assert.equal(res.status,200);
   const catalog=await res.json();
   assert.equal(catalog.currency,'BRL');assert.equal(catalog.interval,'month');
@@ -126,7 +128,27 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   await admin.query("UPDATE vant.members SET active=true WHERE tenant_id=$1 AND role='seller'",[tenant]);
   const history=await admin.query('SELECT revision FROM vant.plan_assignments WHERE tenant_id=$1 ORDER BY revision',[tenant]);
   assert.deepEqual(history.rows.map(row=>row.revision),[1,2,3]);
+  await admin.query(`INSERT INTO vant.plan_assignments(tenant_id,revision,plan_code,user_limit,active_lead_limit,pipeline_limit)
+   VALUES($1,44,'enterprise',15,20000,12)`,[other]);
+  const pageOne=await (await call('billing/plan-history?limit=2')).json();
+  assert.deepEqual(pageOne.items.map(v=>v.revision),[3,2]);
+  assert.equal(pageOne.nextCursor,2);assert.equal(pageOne.items[0].storage_limit_bytes,'5');
+  assert.equal(pageOne.items[1].plan_code,'enterprise');
+  assert.equal(pageOne.items[1].active_lead_limit,0);
+  const pageTwo=await (await call('billing/plan-history?limit=2&before=2')).json();
+  assert.deepEqual(pageTwo.items.map(v=>v.revision),[1]);assert.equal(pageTwo.nextCursor,null);
+  assert.equal(pageTwo.items[0].inference_texts_per_day,null);
+  assert.equal((await call('billing/plan-history?before=4294967295')).status,400);
+  for(let revision=3;revision<11;revision++)await assign('growth',revision,{inference_texts_per_day:revision});
+  await page.getByRole('button',{name:'Histórico de planos'}).click();
+  await page.getByRole('heading',{name:'Growth · Revisão 11',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Mais antigas'}).click();
+  await page.getByRole('heading',{name:'Start · Revisão 1',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Mais antigas'}).count(),0);
+  await page.getByRole('button',{name:'Mais recentes'}).click();
+  await page.getByRole('heading',{name:'Growth · Revisão 11',exact:true}).waitFor();
   await login('vendedor@example.invalid');assert.equal((await call('billing/plans')).status,403);assert.equal((await call('billing/usage')).status,403);
+  assert.equal((await call('billing/plan-history')).status,403);
  }finally{
   await browser?.close();if(server.listening)await new Promise(resolve=>server.close(resolve));await pool.end();await admin.end();
  }
