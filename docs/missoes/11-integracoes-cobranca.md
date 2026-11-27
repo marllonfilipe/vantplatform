@@ -92,3 +92,11 @@ Em **Financeiro → Histórico de planos**, proprietários e gestores podem cons
 O histórico é de condições contratadas. Valores pagos e faturas dependem dos registros financeiros do gateway. Campos de franquia sem teto definido permanecem distintos de um limite zero. A conta operacional da aplicação tem acesso de leitura ao histórico. O teste de integração verifica valores anteriores, paginação, isolamento entre empresas, restrições a vendedores, limites nulos e zero e os dois sentidos da navegação no Chromium.
 
 A seleção do primeiro provedor e o procedimento de consulta estão no [roteiro do sandbox do Asaas](11-asaas-sandbox.md).
+
+## Solicitação comercial de assinatura
+
+Em **Financeiro → Solicitação de assinatura**, o proprietário pode registrar o plano desejado e cancelar uma solicitação pendente. O gestor consulta o estado atual. O valor de referência vem do catálogo no momento da solicitação e o Enterprise mantém o preço sob consulta. Registrar interesse não dispara cobrança nem altera as permissões da empresa.
+
+A API autenticada `GET /api/v1/billing/subscription-requests` retorna a última solicitação da empresa. O `POST` recebe um identificador UUID estável e o código do plano. O `DELETE /api/v1/billing/subscription-requests/{id}` registra o cancelamento. O mesmo identificador e plano retornam o registro existente inclusive após cancelamento. Uma referência reapresentada com outro plano gera conflito. O banco permite uma pendência por empresa e conserva as revisões comerciais e a auditoria. A ativação de uma assinatura real exige a confirmação do gateway.
+
+O teste verifica solicitações concorrentes, consulta pelo gestor, ações restritas ao proprietário, isolamento entre empresas, idempotência e uso de preço definido pelo servidor. O Chromium exercita cancelamento e criação de uma solicitação Enterprise. A assinatura efetivada pelo provedor e o pagamento seguem pendentes.

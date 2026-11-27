@@ -147,8 +147,45 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   assert.equal(await page.getByRole('button',{name:'Mais antigas'}).count(),0);
   await page.getByRole('button',{name:'Mais recentes'}).click();
   await page.getByRole('heading',{name:'Growth · Revisão 11',exact:true}).waitFor();
+  const requests='billing/subscription-requests',id=randomUUID();
+  assert.deepEqual(await (await call(requests)).json(),{latest:null});
+  const body={id,plan_code:'growth',monthly_cents:1};
+  const concurrent=await Promise.all([call(requests,'POST',body),call(requests,'POST',body)]);
+  assert.deepEqual(concurrent.map(r=>r.status).sort(),[200,201]);
+  const registered=await concurrent[0].json();
+  assert.equal(registered.monthly_cents,'39700');assert.equal(registered.cancelled_at,null);
+  assert.equal((await call(requests,'POST',{id,plan_code:'scale'})).status,409);
+  assert.equal((await call(requests,'POST',{id:randomUUID(),plan_code:'enterprise'})).status,409);
+  assert.equal((await call(requests+'/'+randomUUID(),'DELETE')).status,404);
+  await page.getByRole('button',{name:'Solicitação de assinatura'}).click();
+  await page.getByText('Pendente',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Cancelar solicitação'}).click();
+  await page.getByText('Cancelada',{exact:true}).waitFor();
+  const cancelled=await (await call(requests+'/'+id,'DELETE')).json();
+  assert.ok(cancelled.cancelled_at);
+  const replay=await (await call(requests,'POST',body)).json();
+  assert.equal(replay.cancelled_at,cancelled.cancelled_at);
+  await page.getByLabel('Plano solicitado').selectOption('enterprise');
+  await page.getByRole('button',{name:'Solicitar assinatura',exact:true}).click();
+  await page.getByText('Pendente',{exact:true}).waitFor();
+  const enterpriseRequest=(await (await call(requests)).json()).latest;
+  assert.equal(enterpriseRequest.plan_code,'enterprise');assert.equal(enterpriseRequest.monthly_cents,null);
+  assert.equal((await usage()).assignment.revision,11);
+  const audit=await admin.query(`SELECT action,count(*)::integer AS count FROM vant.audit
+   WHERE tenant_id=$1 AND action LIKE 'billing.subscription_%' GROUP BY action ORDER BY action`,[tenant]);
+  assert.deepEqual(audit.rows,[{action:'billing.subscription_request_cancelled',count:1},{action:'billing.subscription_requested',count:2}]);
   await login('vendedor@example.invalid');assert.equal((await call('billing/plans')).status,403);assert.equal((await call('billing/usage')).status,403);
   assert.equal((await call('billing/plan-history')).status,403);
+  assert.equal((await call(requests)).status,403);
+  await admin.query("UPDATE vant.members SET role='manager' WHERE tenant_id=$1 AND role='seller'",[tenant]);
+  assert.equal((await call(requests)).status,200);
+  assert.equal((await call(requests,'POST',{id:randomUUID(),plan_code:'start'})).status,403);
+  assert.equal((await call(requests+'/'+enterpriseRequest.id,'DELETE')).status,403);
+  await admin.query("INSERT INTO vant.members(tenant_id,email,name,role,password_hash) VALUES($1,'outro@example.invalid','Outro','owner',$2)",[other,await hashPassword(password)]);
+  const isolatedLogin=await call('auth/login','POST',{tenantId:other,email:'outro@example.invalid',password});
+  assert.equal(isolatedLogin.status,200);cookie=isolatedLogin.headers.get('set-cookie').split(';')[0];
+  assert.deepEqual(await (await call(requests)).json(),{latest:null});
+  assert.equal((await call(requests+'/'+enterpriseRequest.id,'DELETE')).status,404);
  }finally{
   await browser?.close();if(server.listening)await new Promise(resolve=>server.close(resolve));await pool.end();await admin.end();
  }

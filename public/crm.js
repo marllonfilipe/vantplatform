@@ -209,6 +209,38 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   for(const s of p.stages){const lane=node('section',undefined,'panel lane');lane.append(node('h2',s.name));for(const d of deals.filter(v=>v.stage_id===s.id)){const card=node('article');card.append(button(d.name,()=>detail('deals',d)),pair('Valor',money(d.amount_cents)));if(canWrite(d)){
     const stage=select(p.stages.map(v=>[v.id,v.name]),s.id,false);stage.setAttribute('aria-label','Mover '+d.name);stage.onchange=async()=>{try{await api(path('deals',d.id),'PATCH',{stage_id:stage.value});if(active==='Funil de vendas')await view(active);}catch(e){stage.value=s.id;modal('Movimentação',empty(e.message));}};card.append(stage);}lane.append(card);}board.append(lane);}return [bar,board];
  }
+ async function subscriptionPage(){
+  const path='/billing/subscription-requests';
+  const {latest}=await api(path);
+  const {items}=await api('/billing/plans');
+  const name=code=>items.find(plan=>plan.code===code)?.name??code;
+  const card=latest?panel('Última solicitação',pair('Plano solicitado',name(latest.plan_code)),
+   pair('Mensalidade de referência',latest.monthly_cents===null?'Sob consulta':money(latest.monthly_cents)),
+   pair('Situação',latest.cancelled_at?'Cancelada':'Pendente'),pair('Solicitada em',date(latest.created_at))):
+   empty('Nenhuma solicitação de assinatura registrada.');
+  if(getUser().role!=='owner')return [card];
+  const form=node('form',undefined,'stack'),note=node('p');
+  note.setAttribute('role','status');
+  const pending=latest&&!latest.cancelled_at;
+  let plan;
+  if(!pending){
+   plan=select(items.map(item=>[item.code,item.name]));plan.required=true;
+   field(form,'Plano solicitado',plan);
+  }
+  const submit=node('button',pending?'Cancelar solicitação':'Solicitar assinatura');
+  form.append(node('p','A solicitação registra o interesse comercial. A cobrança depende da contratação no gateway.'),submit,note);
+  const id=crypto.randomUUID();
+  form.onsubmit=async event=>{
+   event.preventDefault();submit.disabled=true;
+   try{
+    if(pending)await api(path+'/'+latest.id,'DELETE');
+    else await api(path,'POST',{id,plan_code:plan.value});
+    if(active==='Solicitação de assinatura')await view(active);
+   }catch(error){note.textContent=error.message;}
+   finally{submit.disabled=false;}
+  };
+  return [card,form];
+ }
  async function planHistory(){
   const container=node('div');
   async function render(cursor,previous){
@@ -239,6 +271,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   return [container];
  }
  async function page(name){
+  if(name==='Solicitação de assinatura'){active=name;return subscriptionPage();}
   if(name==='Histórico de planos'){active=name;return planHistory();}
   if(name==='Planos comerciais'){
    active=name;
@@ -304,5 +337,5 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   if(previous.length)pager.append(button('Página anterior',()=>{cursor=previous.pop();return view(active);}));if(result.nextCursor)pager.append(button('Próxima página',()=>{previous.push(cursor);cursor=result.nextCursor;return view(active);}));
   return [bar,filter,wrap,pager];
  }
- return {get groups(){return manager()?{...groups,Financeiro:['Planos comerciais','Histórico de planos'],Operação:[...groups.Operação,'Automações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
+ return {get groups(){return manager()?{...groups,Financeiro:['Planos comerciais','Histórico de planos','Solicitação de assinatura'],Operação:[...groups.Operação,'Automações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
 }
