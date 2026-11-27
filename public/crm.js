@@ -289,32 +289,39 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    });
    calendar.append(open);
   }
-  const crm=result.hubspot;
-  const hubspot=panel('HubSpot',pair('Conexão',states[crm.status]),
-   pair('Última consulta de empresas',crm.last_read?timestamp(crm.last_read):'Sem consulta de empresas confirmada'));
-  const crmLabels={started:'Consulta iniciada',success:'Leitura confirmada',access:'Revisar token ou permissão',
-   quota:'Limite de consultas',upstream:'Falha no serviço',size:'Resposta excedeu o limite'};
-  for(const event of crm.events)hubspot.append(pair(timestamp(event.created_at),crmLabels[event.outcome]??'Falha na consulta'));
-  if(crm.status==='configured'){
-   const open=button('Consultar empresas do HubSpot',async()=>{
+  function crmPanel(settings,{provider,title,lastLabel,emptyHistory,buttonText,dialogTitle,emptyList,rows}){
+   const card=panel(title,pair('Conexão',states[settings.status]),
+    pair(lastLabel,settings.last_read?timestamp(settings.last_read):emptyHistory));
+   const outcomes={started:'Consulta iniciada',success:'Leitura confirmada',access:'Revisar token ou permissão',
+    quota:'Limite de consultas',upstream:'Falha no serviço',size:'Resposta excedeu o limite'};
+   for(const event of settings.events)card.append(pair(timestamp(event.created_at),outcomes[event.outcome]??'Falha na consulta'));
+   if(settings.status!=='configured')return card;
+   const open=button(buttonText,async()=>{
     const tenant=getUser()?.tenantId;
     open.disabled=true;
     try{
-     const data=await api('/integrations/hubspot/read','POST',{});
+     const data=await api('/integrations/'+provider+'/read','POST',{});
      if(!open.isConnected || getUser()?.tenantId!==tenant)return;
-     const content=node('div');
-     for(const company of data.companies)content.append(pair(company.name??'Sem nome',company.domain??'Sem domínio'));
-     if(!data.companies.length)content.append(empty('Nenhuma empresa retornada.'));
-     if(data.has_more)content.append(empty('Há mais empresas no HubSpot. A prévia mostra até 50.'));
-     modal('Empresas do HubSpot',content);
+     const content=node('div'),items=rows(data);
+     for(const [label,value] of items)content.append(pair(label,value));
+     if(!items.length)content.append(empty(emptyList));
+     if(data.has_more)content.append(empty('Há mais registros no '+title+'. A prévia mostra até 50.'));
+     modal(dialogTitle,content);
     }finally{
      open.disabled=false;
      if(open.isConnected && getUser()?.tenantId===tenant)await view('Central de integrações');
     }
    });
-   hubspot.append(open);
+   card.append(open);
+   return card;
   }
-  return [csv,hook,sheets,calendar,hubspot];
+  const hubspot=crmPanel(result.hubspot,{provider:'hubspot',title:'HubSpot',lastLabel:'Última consulta de empresas',
+   emptyHistory:'Sem consulta de empresas confirmada',buttonText:'Consultar empresas do HubSpot',dialogTitle:'Empresas do HubSpot',
+   emptyList:'Nenhuma empresa retornada.',rows:data=>data.companies.map(c=>[c.name??'Sem nome',c.domain??'Sem domínio'])});
+  const pipedrive=crmPanel(result.pipedrive,{provider:'pipedrive',title:'Pipedrive',lastLabel:'Última consulta de organizações',
+   emptyHistory:'Sem consulta de organizações confirmada',buttonText:'Consultar organizações do Pipedrive',dialogTitle:'Organizações do Pipedrive',
+   emptyList:'Nenhuma organização retornada.',rows:data=>data.organizations.map(org=>[org.name,'ID '+org.id])});
+  return [csv,hook,sheets,calendar,hubspot,pipedrive];
  }
  async function subscriptionPage(){
   const path='/billing/subscription-requests';

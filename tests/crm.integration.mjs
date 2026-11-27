@@ -56,6 +56,9 @@ test('CRM, persistência e navegação',async t=>{
  try{
   const root=await mkdtemp(join(tmpdir(),'vant-sheets-'));
   const previous=process.env.VANT_GOOGLE_SHEETS_DIR;
+  const previousPipedrive=process.env.VANT_PIPEDRIVE_DIR;
+  const pipedriveRoot=await mkdtemp(join(tmpdir(),'vant-pipedrive-'));
+  process.env.VANT_PIPEDRIVE_DIR=pipedriveRoot;
   const previousHubspot=process.env.VANT_HUBSPOT_DIR;
   const hubspotRoot=await mkdtemp(join(tmpdir(),'vant-hubspot-'));
   process.env.VANT_HUBSPOT_DIR=hubspotRoot;
@@ -67,6 +70,8 @@ test('CRM, persistência e navegação',async t=>{
    if(previous===undefined)delete process.env.VANT_GOOGLE_SHEETS_DIR;else process.env.VANT_GOOGLE_SHEETS_DIR=previous;
    if(previousCalendar===undefined)delete process.env.VANT_GOOGLE_CALENDAR_DIR;else process.env.VANT_GOOGLE_CALENDAR_DIR=previousCalendar;
    if(previousHubspot===undefined)delete process.env.VANT_HUBSPOT_DIR;else process.env.VANT_HUBSPOT_DIR=previousHubspot;
+   if(previousPipedrive===undefined)delete process.env.VANT_PIPEDRIVE_DIR;else process.env.VANT_PIPEDRIVE_DIR=previousPipedrive;
+   await rm(pipedriveRoot,{recursive:true,force:true});
    await rm(hubspotRoot,{recursive:true,force:true});
    await rm(calendarRoot,{recursive:true,force:true});
    await rm(root,{recursive:true,force:true});
@@ -99,6 +104,19 @@ test('CRM, persistência e navegação',async t=>{
   assert.deepEqual(JSON.parse(Buffer.from(parts[1],'base64url')),{
    iss:config.client_email,aud:'https://oauth2.googleapis.com/token',scope:'https://www.googleapis.com/auth/spreadsheets.readonly',iat:1000,exp:1300});
   await writeFile(configFile,JSON.stringify(config));
+  const orgPath='integrations/pipedrive/read';
+  const missing={status:'unconfigured',last_read:null,events:[]};
+  assert.deepEqual((await (await integrations(ca)).json()).pipedrive,missing);
+  assert.equal((await req(orgPath,'POST',{},cv)).status,403);
+  assert.equal((await req(orgPath,'POST',{},ca)).status,409);
+  assert.equal((await req(orgPath,'GET',undefined,ca)).status,405);
+  assert.equal((await req(orgPath,'POST',{company_domain:'another'},ca)).status,400);
+  const orgFile=join(pipedriveRoot,a+'.json');
+  await writeFile(orgFile,'{}');
+  assert.equal((await (await integrations(ca)).json()).pipedrive.status,'invalid');
+  await writeFile(orgFile,JSON.stringify({company_domain:'example',api_token:randomUUID()}));
+  assert.equal((await req(orgPath,'POST',{},cb)).status,409);
+  assert.deepEqual((await (await integrations(cb)).json()).pipedrive,missing);
   const companyPath='integrations/hubspot/read';
   assert.equal((await req(companyPath,'POST',{},cv)).status,403);
   assert.equal((await req(companyPath,'POST',{},ca)).status,409);
@@ -130,6 +148,7 @@ test('CRM, persistência e navegação',async t=>{
   assert.equal((await req(readSheet+'?tenant='+a,'POST',{},cb)).status,400);
   assert.deepEqual((await (await integrations(cb)).json()).google_sheets,{status:'unconfigured',range:null,last_read:null,events:[]});
   const summary=await (await integrations(ca)).json();
+  assert.deepEqual(summary.pipedrive,{status:'configured',last_read:null,events:[]});
   assert.deepEqual(summary.hubspot,{status:'configured',last_read:null,events:[]});
   assert.deepEqual(summary.google_calendar,{status:'configured',last_read:null,events:[]});
   assert.deepEqual(summary.google_sheets,{status:'configured',range:"'Leads d''abril'!B2:D10",last_read:null,events:[]});
@@ -160,6 +179,8 @@ test('CRM, persistência e navegação',async t=>{
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Central de integrações'}).click();
   await page.getByRole('heading',{name:'Google Sheets',exact:true}).waitFor();
   await page.getByRole('button',{name:'Consultar planilha'}).waitFor();
+  await page.getByRole('heading',{name:'Pipedrive',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Consultar organizações do Pipedrive'}).waitFor();
   await page.getByRole('heading',{name:'HubSpot',exact:true}).waitFor();
   await page.getByRole('button',{name:'Consultar empresas do HubSpot'}).waitFor();
   await page.getByRole('heading',{name:'Google Calendar',exact:true}).waitFor();
