@@ -90,6 +90,12 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   const lead=await call('crm/leads','POST',{name:'Lead da franquia'});
   assert.equal(lead.status,201);
   const {id:leadId}=await lead.json();
+  const refusedCsv=await call('crm/leads/import','POST',{csv:'nome\nLead excedente'});
+  assert.equal(refusedCsv.status,409);
+  assert.equal((await refusedCsv.json()).error.code,'plan_limit');
+  const afterRefusal=await (await call('integrations')).json();
+  assert.equal(afterRefusal.csv.last_failure.category,'plan_limit');
+  assert.equal(afterRefusal.csv.imports.length,0);
   const document=(await admin.query(`INSERT INTO vant.documents(tenant_id,filename,media_type,size_bytes) VALUES($1,'Descrição','text/plain',3) RETURNING id`,[tenant])).rows[0];
   await admin.query(`INSERT INTO vant.documents(tenant_id,filename,media_type,size_bytes) VALUES($1,'Separado','text/plain',10)`,[other]);
   const addFile=filename=>call('crm/leads/'+leadId+'/files','POST',{filename,base64:Buffer.from('Olá'.normalize('NFC')).toString('base64')});

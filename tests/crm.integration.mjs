@@ -30,7 +30,14 @@ test('CRM, persistência e navegação',async t=>{
   await call('leads/import','POST',{csv:'nome,email\nDescartar,b@vant.invalid\nRepetido,a@vant.invalid'},409);
   const integrations=async cookie=>req('integrations','GET',undefined,cookie);
   assert.equal((await integrations(cv)).status,403);
+  await call('leads/import','POST',{csv:'inválido'},403,cv);
   const summary=await (await integrations(ca)).json();
+  const failure=summary.csv.last_failure;
+  assert.deepEqual(Object.keys(failure).sort(),['category','created_at','source']);
+  assert.equal(failure.source,'crm');
+  assert.equal(failure.category,'conflict');
+  assert.ok(Number.isFinite(Date.parse(failure.created_at)));
+  assert.equal((await (await integrations(cb)).json()).csv.last_failure,null);
   assert.deepEqual(summary.csv.imports.map(r=>r.source),['crm']);
   assert.deepEqual((await (await integrations(cb)).json()).csv.imports,[]);
   assert.deepEqual((await call('leads?q=Descartar')).items,[]);const lead=(await call('leads?segment=Tech')).items[0];
@@ -51,6 +58,7 @@ test('CRM, persistência e navegação',async t=>{
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});const ctx=await browser.newContext();await ctx.addCookies([{name:'vant_session',value:ca.slice(13),url:origin}]);
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Central de integrações'}).click();
   await page.getByText('Leads do CRM',{exact:true}).waitFor();
+  await page.getByText(/Conflito de registros/).waitFor();
   await page.getByText('Sem entrega confirmada',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Abrir leads'}).click();
   await page.getByRole('button',{name:'Cadastrar registro'}).click();await page.getByLabel('Nome',{exact:true}).fill('Lead pelo navegador');await page.getByRole('button',{name:'Salvar'}).click();

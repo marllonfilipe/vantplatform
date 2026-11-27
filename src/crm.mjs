@@ -5,6 +5,7 @@ import {leadCsv} from './csv.mjs';
 import {pagination,reject,textField} from './http.mjs';
 import {isUuid,mayManageTeams} from './security.mjs';
 import {audit} from './db.mjs';
+import {runCsvImport} from './csv-import-result.mjs';
 
 function invalid(key){reject(400,'field','Campo inválido: '+key);}
 function writable(user,row){
@@ -166,10 +167,12 @@ export async function crmRoutes(ctx){
  if(!Object.hasOwn(entities,kind))reject(404,'module','Módulo não encontrado.');
  if(kind==='leads'&&id==='import'&&method==='POST'){
   writable(member);
-  const rows=leadCsv(body.csv);
-  for(const row of rows)await save(ctx,kind,row);
-  await audit(db,tenant,member.id,'crm.leads.import',null,ctx.requestId);
-  return [201,{imported:rows.length}];
+  return runCsvImport(ctx,'crm',async()=>{
+   const rows=leadCsv(body.csv);
+   for(const row of rows)await save(ctx,kind,row);
+   await audit(db,tenant,member.id,'crm.leads.import',null,ctx.requestId);
+   return [201,{imported:rows.length}];
+  });
  }
  if(!id&&method==='GET')return [200,await list(ctx,kind)];
  if(!id&&method==='POST')return [201,await save(ctx,kind,body)];

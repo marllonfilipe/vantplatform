@@ -9,10 +9,14 @@ export async function integrationRoutes({db,tenant,member,url,method}){
     CASE action WHEN 'crm.leads.import' THEN 'crm' ELSE 'prospecting' END AS source
     FROM vant.audit WHERE tenant_id=$1 AND action IN ('crm.leads.import','prospecting.import')
     ORDER BY created_at DESC,id DESC LIMIT 10`,[tenant]);
+  const failure=await db.query(`SELECT created_at,split_part(action,'.',3) AS source,
+    split_part(action,'.',4) AS category FROM vant.audit
+    WHERE tenant_id=$1 AND action LIKE 'csv.failure.%'
+    ORDER BY created_at DESC,id DESC LIMIT 1`,[tenant]);
   const attempts=await db.query(`SELECT created_at,outcome,reason,(webhook->>'status')::integer AS http_status
     FROM vant.automation_attempts WHERE tenant_id=$1 AND action_kind='webhook'
     ORDER BY created_at DESC,job_id DESC,attempt DESC LIMIT 10`,[tenant]);
   const last=await db.query(`SELECT max(created_at) AS delivered_at FROM vant.automation_attempts
     WHERE tenant_id=$1 AND action_kind='webhook' AND outcome='delivered'`,[tenant]);
-  return [200,{csv:{imports:csv.rows},webhook:{last_delivery:last.rows[0].delivered_at,attempts:attempts.rows}}];
+  return [200,{csv:{imports:csv.rows,last_failure:failure.rows[0]??null},webhook:{last_delivery:last.rows[0].delivered_at,attempts:attempts.rows}}];
 }
