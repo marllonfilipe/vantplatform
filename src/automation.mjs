@@ -181,9 +181,25 @@ async function admitStart(db,tenant,job){
  return false;
 }
 
+async function reserveFlowExecution(db,tenant,jobId){
+ // A linha do job já está bloqueada pelo worker. Apenas as primeiras admissões competem entre si.
+ await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1::text,47011))',[tenant]);
+ const admitted=await db.query(`UPDATE vant.jobs job SET
+   flow_admitted_on=(statement_timestamp() AT TIME ZONE 'America/Sao_Paulo')::date,
+   payload=payload-'billing_wait'
+  WHERE job.tenant_id=$1 AND job.id=$2 AND NOT EXISTS (
+   SELECT FROM (SELECT flow_starts_per_day AS maximum FROM vant.plan_assignments
+                WHERE tenant_id=$1 ORDER BY revision DESC LIMIT 1) contract
+   WHERE contract.maximum IS NOT NULL AND contract.maximum <=
+    (SELECT count(*) FROM vant.jobs used WHERE used.tenant_id=$1
+     AND used.flow_admitted_on=(statement_timestamp() AT TIME ZONE 'America/Sao_Paulo')::date)
+  ) RETURNING job.id`,[tenant,jobId]);
+ return admitted.rowCount===1;
+}
+
 export function processNext(pool,tenant){
  return withTenant(pool,tenant,async db=>{
-  const job=(await db.query(`SELECT j.id,j.payload,j.attempts,v.action_changes,v.else_changes,v.action_owner_id,v.else_owner_id,v.cooldown_minutes,v.steps,v.conditions,v.task_title,v.source_filter,v.author_id,v.action_kind,v.else_kind,v.else_title,v.due_minutes
+  const job=(await db.query(`SELECT j.id,j.payload,j.attempts,j.flow_admitted_on,v.action_changes,v.else_changes,v.action_owner_id,v.else_owner_id,v.cooldown_minutes,v.steps,v.conditions,v.task_title,v.source_filter,v.author_id,v.action_kind,v.else_kind,v.else_title,v.due_minutes
     FROM vant.jobs j JOIN vant.automation_flows f ON f.tenant_id=j.tenant_id AND f.id=(j.payload->>'flow')::uuid
     JOIN vant.automation_versions v ON (v.tenant_id,v.flow_id,v.version)=(f.tenant_id,f.id,(j.payload->>'version')::int)
     WHERE j.tenant_id=$1 AND j.kind=ANY($2::text[]) AND j.state='queued' AND j.available_at<=now() AND f.enabled
@@ -198,6 +214,7 @@ export function processNext(pool,tenant){
   const {kind,title}=current;
   const stepAttempt=(job.payload.step_attempts??(step===0?job.attempts:0))+1;
   const attempt=job.attempts+1;
+  let admissionReserved=false;
   await db.query('SAVEPOINT flow_effect');
   try{
    if(kind){
@@ -206,7 +223,19 @@ export function processNext(pool,tenant){
      const member=(await db.query('SELECT id,role FROM vant.members WHERE tenant_id=$1 AND id=$2 AND active',[tenant,job.author_id])).rows[0];
      if(!member||!mayManageTeams(member.role))throw Object.assign(new Error('author_unavailable'),{code:'author_unavailable'});
      const prepared=job.payload.webhook_delivery;
-     if(step===0&&!prepared&&!await admitStart(db,tenant,job))return true;
+     if(!job.flow_admitted_on){
+      if(step===0&&!prepared&&!await admitStart(db,tenant,job))return true;
+      if(!await reserveFlowExecution(db,tenant,job.id)){
+       await db.query('ROLLBACK TO SAVEPOINT flow_effect');
+       await db.query(`UPDATE vant.jobs SET payload=(payload-'frequency_deferred'-'agent_wait')||'{"billing_wait":true}'::jsonb,
+        available_at=least(now()+interval '5 minutes',
+        (date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo')+interval '1 day') AT TIME ZONE 'America/Sao_Paulo')
+        WHERE tenant_id=$1 AND id=$2`,[tenant,job.id]);
+       return true;
+      }
+      await db.query('SAVEPOINT flow_action');
+      admissionReserved=true;
+     }
      const ctx={db,tenant,member,requestId:randomUUID()};
      if(kind==='webhook'){
       const destination=webhookDestination(tenant);
@@ -250,8 +279,9 @@ export function processNext(pool,tenant){
    const deliveryFailure=kind==='webhook'&&['webhook_config','webhook_destination_changed','webhook_network','webhook_http'].includes(error.code);
    reason=deliveryFailure||['author_unavailable','owner_unavailable'].includes(error.code)?error.code:'action_failed';
    if(deliveryFailure)webhook={id:job.id+'.'+step,status:error.status??null};
-   await db.query('ROLLBACK TO SAVEPOINT flow_effect');
-   if(error.code==='agent_paused'||error.code==='agent_daily_limit'){
+   const waitingForAgent=error.code==='agent_paused'||error.code==='agent_daily_limit';
+   await db.query(admissionReserved&&!waitingForAgent?'ROLLBACK TO SAVEPOINT flow_action':'ROLLBACK TO SAVEPOINT flow_effect');
+   if(waitingForAgent){
     await db.query(`UPDATE vant.jobs SET payload=(payload-'frequency_deferred')||jsonb_build_object('agent_wait',$3::text),
       available_at=CASE WHEN $3='agent_daily_limit' THEN
        (date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo')+interval '1 day') AT TIME ZONE 'America/Sao_Paulo'
@@ -264,7 +294,7 @@ export function processNext(pool,tenant){
   const state=outcome==='retry'||next?'queued':outcome==='failed'?'failed':'done';
   const delay=next?next.wait_minutes*60:stepAttempt*30;
   const progress={step:next?step+1:step,step_attempts:next?0:stepAttempt};
-  await db.query(`UPDATE vant.jobs SET state=$3,attempts=$4,payload=(CASE WHEN $7 THEN payload ELSE payload-'webhook_delivery' END)-'agent_wait'-'frequency_deferred'||$6::jsonb,available_at=CASE WHEN $3='queued' THEN now()+make_interval(secs=>$5::integer) ELSE available_at END
+  await db.query(`UPDATE vant.jobs SET state=$3,attempts=$4,payload=(CASE WHEN $7 THEN payload ELSE payload-'webhook_delivery' END)-'agent_wait'-'frequency_deferred'-'billing_wait'||$6::jsonb,available_at=CASE WHEN $3='queued' THEN now()+make_interval(secs=>$5::integer) ELSE available_at END
     WHERE tenant_id=$1 AND id=$2`,[tenant,job.id,state,attempt,delay,progress,outcome==='retry']);
   await db.query('INSERT INTO vant.automation_attempts(tenant_id,job_id,attempt,outcome,activity_id,reason,branch,action_kind,step_index,assignment,record_change,summary,agent_run_id,webhook) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)',[tenant,job.id,attempt,outcome,activity,reason,branch,kind,step,assignment,change,summary===null?null:JSON.stringify(summary),agentRun,webhook]);
   return true;
