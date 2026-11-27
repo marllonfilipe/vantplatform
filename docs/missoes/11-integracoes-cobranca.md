@@ -103,7 +103,7 @@ O teste verifica solicitações concorrentes, consulta pelo gestor, ações rest
 
 ## Central de integrações
 
-Em **Operação → Central de integrações**, proprietários e gestores consultam evidências de dois recursos já disponíveis. A importação CSV apresenta até dez lotes confirmados de leads ou contas de prospecção. A auditoria do CRM é gravada na mesma transação do lote. Se uma linha causar rollback, nenhuma entrada de lote aparece no painel. O histórico anterior de prospecção permanece disponível. Os lotes antigos de leads sem auditoria de importação não são reconstruídos a partir de cadastros individuais.
+Em **Operação → Central de integrações**, proprietários e gestores consultam evidências de dois recursos já disponíveis. A importação CSV apresenta até dez lotes confirmados de leads ou contas de prospecção. A auditoria do CRM é gravada na mesma transação do lote. Se uma linha causar rollback, o lote fica fora da lista de importações confirmadas. O histórico anterior de prospecção permanece disponível. Os lotes antigos de leads sem auditoria de importação não são reconstruídos a partir de cadastros individuais.
 
 O webhook de saída apresenta até dez tentativas do worker, com momento, resultado, motivo técnico e status HTTP quando disponível. A última entrega confirmada é calculada sobre todo o histórico da empresa. Quando faltam registros, a central informa isso. O painel oferece acesso aos fluxos e às telas de importação. O destino e a chave continuam configurados no worker. O endpoint autenticado `GET /api/v1/integrations` omite endereço de destino, corpo da mensagem, assinatura e credenciais.
 

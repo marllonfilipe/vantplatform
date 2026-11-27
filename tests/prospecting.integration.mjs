@@ -117,6 +117,7 @@ test('perfil de cliente ideal seleciona empresas do CRM com fonte, permissões e
   const refs=await admin.query('SELECT source_reference FROM vant.prospect_account_sources WHERE tenant_id=$1 AND account_id=$2',[tenant,viaCsv.id]);
   assert.equal(refs.rowCount,2);
   const otherProfile=(await (await foreign(profiles,'POST',spec)).json()).id;
+  assert.deepEqual((await (await call('integrations')).json()).csv.last_failure,hub.csv.last_failure);
   const otherImport=await foreign(profiles+'/'+otherProfile+'/import','POST',{csv:[header,lineB].join('\n')});
   assert.equal(otherImport.status,200);assert.equal((await otherImport.json()).created,1);
   const context=path+'/targets/'+account,peoplePath=context+'/people';
