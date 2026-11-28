@@ -274,3 +274,5 @@ E-mail · conexão autenticada e mensagem diagnóstica de conteúdo e destino re
 Missão 11 · histórico das solicitações de assinatura implementado em `src/subscription-requests.mjs` e `public/crm.js`. O campo `latest` segue disponível para os clientes existentes. A nova rota lista a movimentação anterior com isolamento por empresa. Ver [documentação e critérios](missoes/11-integracoes-cobranca.md#histórico-de-solicitações-comerciais).
 
 Missões 05/11 · leitura do estado persistido das conexões implementada na Central e coberta no cenário da Inbox. A homologação em aparelhos segue pendente. Consulte o [roteiro da Central](missoes/11-integracoes-cobranca.md#estado-das-instâncias-de-whatsapp).
+
+Missão 11 · franquia de conexões implementada no backend, no Financeiro e no vínculo de plano. Migration 062 e cenário de concorrência em `tests/billing.integration.mjs`. A contabilização de mensagens de saída é a próxima subetapa de consumo.

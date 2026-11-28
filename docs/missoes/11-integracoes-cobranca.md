@@ -154,3 +154,9 @@ A rota de leitura `GET /api/v1/billing/subscription-requests/history` oferece `l
 A Central apresenta o número de instâncias cadastradas e a distribuição dos últimos estados gravados para a empresa. A contagem exclui instâncias removidas. A data mais recente vem de uma consulta de estado ao provedor ou de um evento de conexão autenticado, entre as instâncias ainda cadastradas. Registros antigos sem data de observação conservam o estado e exibem a ausência dessa evidência temporal.
 
 A abertura da Central apenas lê o banco. O botão **Gerenciar instâncias de WhatsApp** leva à configuração existente. Os totais não comprovam pareamento, envio nem recebimento em um aparelho.
+
+## Franquia de conexões WhatsApp
+
+Cada instância cadastrada reserva uma vaga até a remoção, inclusive durante desconexão ou espera por pareamento. Os planos Start, Growth e Scale usam respectivamente zero, uma e três vagas como referência. No vínculo, o operador global pode ajustar `whatsapp_connection_limit` a um inteiro não negativo. Uma nova revisão do mesmo plano conserva o valor contratado quando omitido. Uma troca de plano adota o novo catálogo na ausência de valor explícito. Para Enterprise, o operador pode registrar um teto negociado. Na ausência desse teto, a tela apresenta somente o consumo.
+
+O Financeiro informa a ocupação, o teto e o excesso quando uma redução deixa mais instâncias cadastradas que vagas. A instância existente continua disponível e novas reservas aguardam capacidade. Registros comerciais anteriores à migration 062 usam o catálogo para a franquia vigente. O histórico identifica revisões sem valor específico registrado.

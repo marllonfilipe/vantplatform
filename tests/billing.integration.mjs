@@ -49,7 +49,7 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   const enterprise=page.locator('.panel').filter({has:page.getByRole('heading',{name:'Enterprise',exact:true})});
   assert.match(await enterprise.innerText(),/Sob consulta/);
   const usage=async()=>{const r=await call('billing/usage');assert.equal(r.status,200);return r.json();};
-  assert.deepEqual(await usage(),{assignment:null,users:2,leads:0,pipelines:0,active_flows:0,flow_admissions:'0',storage_bytes:'0',
+  assert.deepEqual(await usage(),{assignment:null,whatsapp_connections:0,users:2,leads:0,pipelines:0,active_flows:0,flow_admissions:'0',storage_bytes:'0',
    inference_texts:{completed:'0',reserved:'0',failed:'0'},
    flow_executions:{started:'0',attempts:'0',retries:'0',skipped:'0'},
    agent_actions:{used_today:0,operational_limit:100,contract_limit:null,effective_limit:100}});
@@ -68,6 +68,10 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   assert.equal((await assign('start',0,limits)).revision,1);
   await assert.rejects(assign('growth',0,limits),/vínculo mudou/);
   await assert.rejects(assign('enterprise',1),/três limites/);
+  assert.equal((await usage()).assignment.whatsapp_connection_limit,0);
+  const instancePath='inbox/instances',addChannel=label=>call(instancePath,'POST',{label});
+  assert.equal((await addChannel('Bloqueado pelo Start')).status,409);
+  await assert.rejects(assign('growth',1,{whatsapp_connection_limit:-1}),/Franquia de conexões inválida/);
   const other=randomUUID();
   await admin.query("INSERT INTO vant.tenants(id,name) VALUES($1,'Outra empresa')",[other]);
   await admin.query("INSERT INTO vant.pipelines(tenant_id,name) VALUES($1,'Separado')",[other]);
@@ -130,6 +134,14 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   await assert.rejects(assign('growth',2,{storage_limit_bytes:-1}),/armazenamento inválida/);
   assert.equal((await assign('growth',2)).storage_limit_bytes,'5');
   assert.equal((await usage()).assignment.revision,3);
+  assert.equal((await usage()).assignment.whatsapp_connection_limit,1);
+  const seats=await Promise.all([addChannel('Canal A'),addChannel('Canal B')]);
+  assert.deepEqual(seats.map(r=>r.status).sort(),[201,409]);
+  const channel=await seats.find(r=>r.status===201).json();
+  assert.equal((await usage()).whatsapp_connections,1);
+  assert.equal((await call(instancePath+'/'+channel.id+'/remove','POST',{})).status,200);
+  assert.equal((await usage()).whatsapp_connections,0);
+  assert.equal((await addChannel('Canal C')).status,201);
   assert.equal((await call('crm/leads','POST',{name:'Depois da ampliação'})).status,201);
   await admin.query("UPDATE vant.members SET active=true WHERE tenant_id=$1 AND role='seller'",[tenant]);
   const history=await admin.query('SELECT revision FROM vant.plan_assignments WHERE tenant_id=$1 ORDER BY revision',[tenant]);
@@ -145,7 +157,10 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   assert.deepEqual(pageTwo.items.map(v=>v.revision),[1]);assert.equal(pageTwo.nextCursor,null);
   assert.equal(pageTwo.items[0].inference_texts_per_day,null);
   assert.equal((await call('billing/plan-history?before=4294967295')).status,400);
-  for(let revision=3;revision<11;revision++)await assign('growth',revision,{inference_texts_per_day:revision});
+  for(let revision=3;revision<11;revision++)await assign('growth',revision,{inference_texts_per_day:revision,...(revision===3?{whatsapp_connection_limit:0}:{})});
+  const reduced=await usage();assert.equal(reduced.whatsapp_connections,1);assert.equal(reduced.assignment.whatsapp_connection_limit,0);
+  assert.equal((await addChannel('Excedente')).status,409);
+  assert.equal((await (await call('billing/plan-history?limit=1')).json()).items[0].whatsapp_connection_limit,0);
   await page.getByRole('button',{name:'Histórico de planos'}).click();
   await page.getByRole('heading',{name:'Growth · Revisão 11',exact:true}).waitFor();
   await page.getByRole('button',{name:'Mais antigas'}).click();
