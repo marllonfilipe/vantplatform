@@ -72,11 +72,11 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
     } catch(error){await admin.query('ROLLBACK');throw error;}
 
     const seed=await admin.query("update vant.documents set updated_at='2026-11-01T00:00:00.123456Z' where tenant_id=$1 and purpose='commercial_memory' returning id", [tenants[0]]);
-    const first=await (await call(path+'?limit=1','GET',owner)).json();
-    assert.ok(first.nextCursor);
-    const page2=await (await call(path+'?limit=1&cursor='+encodeURIComponent(first.nextCursor),'GET',owner)).json();
+    const firstPage=await (await call(path+'?limit=1','GET',owner)).json();
+    assert.ok(firstPage.nextCursor);
+    const page2=await (await call(path+'?limit=1&cursor='+encodeURIComponent(firstPage.nextCursor),'GET',owner)).json();
     assert.equal(page2.nextCursor,null);
-    assert.deepEqual([first.items[0].id,page2.items[0].id],seed.rows.map(r=>r.id).sort());
+    assert.deepEqual([firstPage.items[0].id,page2.items[0].id],seed.rows.map(r=>r.id).sort());
     assert.equal((await call(path+'?cursor=inválido','GET',owner)).status,400);
     assert.equal((await call(path+'?limit=101','GET',owner)).status,400);
     assert.equal((await call(path+'/'+id,'PUT',other,data)).status,404);
