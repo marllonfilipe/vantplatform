@@ -202,7 +202,8 @@ Critérios originais de aceite
 |---|---|---|---|
 | Planos, histórico de contratos, consumo e franquias | Testada | [tests/billing.integration.mjs](../tests/billing.integration.mjs) | Controles ativos. Conferir excedentes, catálogo de recursos e cobrança contra os requisitos. |
 | Central, CSV, webhooks e consultas de leitura | Parcial | [src/integrations.mjs](../src/integrations.mjs) | Sheets, Calendar, HubSpot e Pipedrive têm código. Homologações autenticadas estão individualizadas nos roteiros. |
-| RD Station, Kommo e e-mail | Não iniciada | [docs/missoes/11-integracoes-cobranca.md](../docs/missoes/11-integracoes-cobranca.md) | Sem adaptador na árvore da base. Retomar RD Station depois das correções prioritárias. |
+| RD Station CRM | Testada, homologação externa pendente | [PR #24](https://github.com/marllonfilipe/vantplatform/pull/24) · [roteiro](missoes/11-rd-station.md) | Consulta de empresas integrada à main. Fundação e Inteligência passaram. Falta verificar uma conta autorizada. |
+| Kommo e e-mail | Não iniciada | [docs/missoes/11-integracoes-cobranca.md](../docs/missoes/11-integracoes-cobranca.md) | Retomar pela próxima integração independente do plano original. |
 | Gateway, cobrança e conciliação | Parcial | [scripts/verify-asaas-sandbox.mjs](../scripts/verify-asaas-sandbox.mjs) | Configuração de sandbox é separada das lacunas de faturas, renovação e eventos de pagamento. |
 
 ## 12 · ENTERPRISE, GOVERNANÇA E PREPARAÇÃO PARA PRODUÇÃO
