@@ -272,3 +272,5 @@ Kommo · consulta por empresa implementada com prévia de 50 registros. A base d
 E-mail · conexão autenticada e mensagem diagnóstica de conteúdo e destino restritos implementadas na Central. A suíte SMTP de loopback diferencia aceite do relay, falha e resultado indeterminado. Homologação em caixa autorizada pendente. Histórico das solicitações comerciais de assinatura: o banco conserva a movimentação e a gestão ainda consulta somente a mais recente. Gateway e conciliação mantêm suas dependências documentadas.
 
 Missão 11 · histórico das solicitações de assinatura implementado em `src/subscription-requests.mjs` e `public/crm.js`. O campo `latest` segue disponível para os clientes existentes. A nova rota lista a movimentação anterior com isolamento por empresa. Ver [documentação e critérios](missoes/11-integracoes-cobranca.md#histórico-de-solicitações-comerciais).
+
+Missões 05/11 · leitura do estado persistido das conexões implementada na Central e coberta no cenário da Inbox. A homologação em aparelhos segue pendente. Consulte o [roteiro da Central](missoes/11-integracoes-cobranca.md#estado-das-instâncias-de-whatsapp).

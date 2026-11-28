@@ -362,7 +362,13 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    });
    smtp.append(send);
   }
-  return [csv,hook,sheets,calendar,hubspot,pipedrive,rdStation,kommo,smtp];
+  const wa=result.whatsapp;
+  const whatsapp=panel('WhatsApp · Evolution API',pair('Instâncias cadastradas',wa.registered),
+   pair('Último estado conectado',wa.connected),pair('Em conexão',wa.connecting),
+   pair('Desconectadas',wa.disconnected),pair('Demais estados',wa.registered-wa.connected-wa.connecting-wa.disconnected),
+   pair('Última observação do provedor',wa.last_observed_at?timestamp(wa.last_observed_at):'Sem observação registrada'));
+  whatsapp.append(button('Gerenciar instâncias de WhatsApp',()=>view('WhatsApp')));
+  return [csv,hook,whatsapp,sheets,calendar,hubspot,pipedrive,rdStation,kommo,smtp];
  }
  async function subscriptionPage(){
   const path='/billing/subscription-requests';

@@ -92,5 +92,11 @@ export async function integrationRoutes(ctx){
   const rd_station=await readerSummary(db,tenant,'rdstation',tenantRdStation);
   const kommo=await readerSummary(db,tenant,'kommo',tenantKommo);
   const smtp=await readerSummary(db,tenant,'smtp',tenantSmtp);
-  return [200,{smtp,kommo,rd_station,google_calendar:calendar,google_sheets:sheets,hubspot,pipedrive,csv:{imports:csv.rows,last_failure:failure.rows[0]??null},webhook:{last_delivery:last.rows[0].delivered_at,attempts:attempts.rows}}];
+  const {rows:[whatsapp]}=await db.query(`SELECT count(*)::integer AS registered,
+    count(*) FILTER (WHERE state='open')::integer AS connected,
+    count(*) FILTER (WHERE state='connecting')::integer AS connecting,
+    count(*) FILTER (WHERE state='close')::integer AS disconnected,
+    max(last_observed_at) AS last_observed_at FROM vant.wa_instances
+    WHERE tenant_id=$1 AND disabled_at IS NULL`,[tenant]);
+  return [200,{whatsapp,smtp,kommo,rd_station,google_calendar:calendar,google_sheets:sheets,hubspot,pipedrive,csv:{imports:csv.rows,last_failure:failure.rows[0]??null},webhook:{last_delivery:last.rows[0].delivered_at,attempts:attempts.rows}}];
 }

@@ -27,6 +27,22 @@ test('inbox: webhooks HTTP, duplicação, CRM, mídia, falhas e segregação',as
   async function api(path,method='GET',body,status=200,cookie=ca){const r=await fetch(origin+'/api/v1/'+path,{method,headers:{origin,cookie,'content-type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});const data=await r.json();assert.equal(r.status,status,JSON.stringify(data));return data;}
   const inst=await api('inbox/instances','POST',{label:'Canal de testes'},201);const token=webhookToken(a,inst.id);
   async function hook(event,data,key=token){const r=await fetch(origin+'/hooks/evolution/'+a+'/'+inst.id,{method:'POST',headers:{'Content-Type':'application/json',authorization:'Bearer '+key},body:JSON.stringify({instance:instanceName(inst.id),event,data})});return r.status;}
+  const summary=async cookie=>(await api('integrations','GET',undefined,200,cookie)).whatsapp;
+  const none={registered:0,connected:0,connecting:0,disconnected:0,last_observed_at:null};
+  assert.deepEqual(await summary(ca),{...none,registered:1});
+  assert.deepEqual(await summary(cb),none);
+  const disposable=await api('inbox/instances','POST',{label:'Removível'},201);
+  await api('inbox/instances/'+disposable.id+'/remove','POST',{});
+  assert.deepEqual(await summary(ca),{...none,registered:1});
+  assert.equal(await hook('connection.update',{state:'open'},'errada'),401);
+  assert.equal((await summary(ca)).last_observed_at,null);
+  assert.equal(await hook('connection.update',{state:'open'}),200);
+  const observed=await summary(ca);
+  assert.ok(Number.isFinite(Date.parse(observed.last_observed_at)));
+  assert.deepEqual(observed,{...none,registered:1,connected:1,last_observed_at:observed.last_observed_at});
+  assert.equal(await hook('connection.update',{state:'close'}),200);
+  const closed=await summary(ca);assert.equal(closed.connected,0);assert.equal(closed.disconnected,1);
+  assert.deepEqual(await summary(cb),none);
   const key={id:'fixture-entrada',remoteJid:'5511999000111@s.whatsapp.net',fromMe:false};
   const msg={key,pushName:'Cliente Inbox',message:{conversation:'Gostaria de uma proposta.'}};
   assert.equal(await hook('messages.upsert',msg,'errada'),401);
@@ -59,5 +75,9 @@ test('inbox: webhooks HTTP, duplicação, CRM, mídia, falhas e segregação',as
   }finally{await new Promise(ok=>interrupted.close(ok));delete process.env.EVOLUTION_URL;delete process.env.EVOLUTION_API_KEY;}
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});const ctx=await browser.newContext();await ctx.addCookies([{name:'vant_session',value:ca.slice(13),url:origin}]);
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Caixa de entrada',exact:true}).click();await page.getByRole('button',{name:/Cliente Inbox/}).click();await page.getByText('Gostaria de uma proposta.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Central de integrações',exact:true}).click();
+  const wa=page.locator('section').filter({has:page.getByRole('heading',{name:'WhatsApp · Evolution API',exact:true})});
+  await wa.getByRole('button',{name:'Gerenciar instâncias de WhatsApp'}).click();
+  await page.getByRole('button',{name:'Cadastrar instância',exact:true}).waitFor();
  }finally{await browser?.close();if(server.listening)await new Promise(ok=>server.close(ok));await pool.end();await admin.end();}
 });

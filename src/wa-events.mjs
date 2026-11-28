@@ -7,7 +7,7 @@ const states=['pending','sent','delivered','read','played'];
 export async function ingest(db,tenant,instance,event,data){
  if(!data||typeof data!=='object')reject(400,'event','Evento inválido.');
  if(event==='connection.update'){
-  const state=data.state??data.status;if(['open','close','connecting'].includes(state))await db.query('UPDATE vant.wa_instances SET state=$1 WHERE id=$2',[state,instance.id]);return;
+  const state=data.state??data.status;if(['open','close','connecting'].includes(state))await db.query('UPDATE vant.wa_instances SET state=$1,last_observed_at=clock_timestamp() WHERE id=$2',[state,instance.id]);return;
  }
  const items=Array.isArray(data)?data:[data];
  if(items.length>500)reject(413,'events','Lote excede o limite.');

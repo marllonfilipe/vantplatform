@@ -148,3 +148,9 @@ O [painel de e-mail](11-email.md) permite que gestores verifiquem a autenticaç�
 Em **Financeiro → Solicitação de assinatura**, a gestão consulta a última solicitação e pode carregar as anteriores em páginas de dez registros. Cada entrada apresenta plano, preço de referência na ocasião, data de criação e data de cancelamento quando aplicável. Os registros anteriores à atualização também aparecem.
 
 A rota de leitura `GET /api/v1/billing/subscription-requests/history` oferece `limit` (1 a 100) e `before` (UUID da última linha exibida). A ordenação combina data e UUID e usa o índice existente por empresa. Uma referência inexistente ou de outra empresa retorna página vazia. O histórico registra o interesse comercial e os cancelamentos da solicitação. Para comprovar um pagamento, a plataforma precisa de conciliação com o gateway.
+
+## Estado das instâncias de WhatsApp
+
+A Central apresenta o número de instâncias cadastradas e a distribuição dos últimos estados gravados para a empresa. A contagem exclui instâncias removidas. A data mais recente vem de uma consulta de estado ao provedor ou de um evento de conexão autenticado, entre as instâncias ainda cadastradas. Registros antigos sem data de observação conservam o estado e exibem a ausência dessa evidência temporal.
+
+A abertura da Central apenas lê o banco. O botão **Gerenciar instâncias de WhatsApp** leva à configuração existente. Os totais não comprovam pareamento, envio nem recebimento em um aparelho.

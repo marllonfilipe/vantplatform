@@ -23,10 +23,14 @@ async function instances(ctx,id,action){
  const inst=await instance(db,id),name=instanceName(id);
  if(method==='GET'&&action==='status'){
   const list=await remoteInstances(name);
-  const remote=Array.isArray(list)?list.find(x=>(x.name??x.instance?.instanceName)===name):null;
-  if(!remote)return [200,{state:'local',phone:null}];
+  if(!Array.isArray(list))reject(502,'provider_response','Lista de instâncias inválida.');
+  const remote=list.find(x=>(x?.name??x?.instance?.instanceName)===name);
+  if(!remote){
+   await db.query("UPDATE vant.wa_instances SET state='local',phone=NULL,last_observed_at=clock_timestamp() WHERE id=$1",[id]);
+   return [200,{state:'local',phone:null}];
+  }
   const status=await evolution('/instance/connectionState/'+name),state=status.instance?.state??'unknown',phone=remote.ownerJid?.split('@')[0]??null;
-  await db.query('UPDATE vant.wa_instances SET state=$1,phone=$2 WHERE id=$3',[state,phone,id]);return [200,{state,phone}];
+  await db.query('UPDATE vant.wa_instances SET state=$1,phone=$2,last_observed_at=clock_timestamp() WHERE id=$3',[state,phone,id]);return [200,{state,phone}];
  }
  if(method!=='POST')missing();
  if(action==='activate'){await configureInstance(tenant,id);await db.query("UPDATE vant.wa_instances SET state='configured' WHERE id=$1",[id]);}
