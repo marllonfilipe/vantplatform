@@ -268,3 +268,5 @@ O [PR #23](https://github.com/marllonfilipe/vantplatform/pull/23) foi incorporad
 ### Atualização da Missão 11 em 28/11/2026
 
 Kommo · consulta por empresa implementada com prévia de 50 registros. A base desta integração é `d9b9c7ee7617a90d09522728960ed4dbf844d04f`. Testes dos adaptadores e da fundação passaram localmente. A comprovação com credenciais da conta usa o [roteiro de homologação](missoes/11-kommo.md). E-mail, cobrança e conciliação seguem como lacunas de implementação.
+
+E-mail · conexão autenticada e mensagem diagnóstica de conteúdo e destino restritos implementadas na Central. A suíte SMTP de loopback diferencia aceite do relay, falha e resultado indeterminado. Homologação em caixa autorizada pendente. Histórico das solicitações comerciais de assinatura: o banco conserva a movimentação e a gestão ainda consulta somente a mais recente. Gateway e conciliação mantêm suas dependências documentadas.

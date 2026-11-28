@@ -345,6 +345,23 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    });
    smtp.append(verify);
   }
+  const receipt=mail.last_diagnostic;
+  if(receipt){
+   const outcomes={pending:'Em andamento',accepted:'Aceita pelo relay',failed:'Falha no envio',unknown:'Sem confirmação do relay'};
+   smtp.append(pair('Última mensagem de teste',timestamp(receipt.created_at)+' · '+outcomes[receipt.outcome]));
+  }
+  if(mail.can_test){
+   const id=crypto.randomUUID();
+   const send=button('Enviar mensagem de teste ao destino configurado',async()=>{
+    const tenant=getUser()?.tenantId;
+    send.disabled=true;
+    try{
+     await api('/integrations/smtp/test-message','POST',{id});
+     if(send.isConnected&&getUser()?.tenantId===tenant)await view('Central de integrações');
+    }finally{send.disabled=false;}
+   });
+   smtp.append(send);
+  }
   return [csv,hook,sheets,calendar,hubspot,pipedrive,rdStation,kommo,smtp];
  }
  async function subscriptionPage(){

@@ -1,4 +1,5 @@
 """Verifica o relay privado por TLS. A entrada e a saída não entram nos logs."""
+from email.message import EmailMessage
 import json
 import smtplib
 import ssl
@@ -17,6 +18,20 @@ def verify(config):
         if config["mode"] == "starttls":
             client.starttls(context=context)
         client.login(config["username"], config["password"])
+        if "diagnostic" in config:
+            msg = EmailMessage()
+            msg["From"] = config["test_from"]
+            msg["To"] = config["test_to"]
+            msg["Subject"] = "V4NT Platform - teste de e-mail"
+            msg["Message-ID"] = "<" + config["diagnostic"] + "@" + config["test_from"].split("@")[1] + ">"
+            msg.set_content("Verificacao de envio SMTP solicitada na Central de integracoes. Referencia: " + config["diagnostic"])
+            try:
+                client.send_message(msg)
+            except (smtplib.SMTPResponseException, smtplib.SMTPRecipientsRefused):
+                return "rejected"
+            except (OSError, smtplib.SMTPException):
+                return "unknown"
+            return "accepted"
         status, _ = client.noop()
         return "success" if status == 250 else "upstream"
     finally:
@@ -31,7 +46,7 @@ def main():
     except (ssl.SSLError, smtplib.SMTPNotSupportedError):
         result = "protocol"
     except (OSError, smtplib.SMTPException):
-        result = "upstream"
+        result = "unavailable"
     print(result)
 
 

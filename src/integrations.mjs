@@ -3,6 +3,7 @@ import {ApiError,reject} from './http.mjs';
 import {audit,withTenant} from './db.mjs';
 import {tenantSheet,readSheet} from './google-sheets.mjs';
 
+import {latestSmtpDiagnostic,smtpDiagnostic} from './smtp-diagnostic.mjs';
 import {tenantSmtp,verifySmtp} from './smtp.mjs';
 import {tenantKommo,readKommo} from './kommo.mjs';
 import {tenantRdStation,readRdStation} from './rd-station.mjs';
@@ -54,6 +55,10 @@ async function readerSummary(db,tenant,name,configure) {
     WHERE tenant_id=$1 AND action LIKE $2 ORDER BY created_at DESC,id DESC LIMIT 10`,[tenant,prefix+'%']);
   const last=await db.query('SELECT max(created_at) AS at FROM vant.audit WHERE tenant_id=$1 AND action=$2',[tenant,prefix+'success']);
   const summary={status,last_read:last.rows[0].at,events:events.rows};
+  if(name==='smtp'){
+    summary.can_test=Boolean(config?.test_to);
+    summary.last_diagnostic=await latestSmtpDiagnostic(db,tenant);
+  }
   if(name==='sheets')summary.range=config?.range??null;
   return summary;
 }
@@ -61,8 +66,10 @@ async function readerSummary(db,tenant,name,configure) {
 export async function integrationRoutes(ctx){
   const {db,tenant,member,url,method}=ctx;
   const reader=readers.get(url.pathname);
-  if(url.pathname!=='/api/v1/integrations' && !reader)return;
+  const diagnostic=url.pathname==='/api/v1/integrations/smtp/test-message';
+  if(url.pathname!=='/api/v1/integrations' && !reader && !diagnostic)return;
   if(!mayManageTeams(member.role))reject(403,'permission','A central de integrações exige perfil de gestão.');
+  if(diagnostic)return smtpDiagnostic(ctx);
   if(reader)return runReader(ctx,reader);
   if(method!=='GET')reject(405,'method','A consulta da central aceita GET.');
   const csv=await db.query(`SELECT created_at,

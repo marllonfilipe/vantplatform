@@ -131,7 +131,24 @@ test('CRM, persistência e navegação',async t=>{
   const relayPassword=randomUUID();
   await writeFile(join(smtpRoot,a+'.json'),JSON.stringify({host:'localhost',port:465,mode:'tls',username:'test',password:relayPassword}));
   const mailSummary=await (await integrations(ca)).json();
-  assert.deepEqual(mailSummary.smtp,{status:'configured',last_read:null,events:[]});
+  assert.deepEqual(mailSummary.smtp,{status:'configured',last_read:null,events:[],can_test:false,last_diagnostic:null});
+  const diagnostic='integrations/smtp/test-message',diagId=randomUUID();
+  assert.equal((await req(diagnostic,'POST',{id:diagId},cv)).status,403);
+  assert.equal((await req(diagnostic,'POST',{id:diagId},ca)).status,409);
+  assert.equal((await req(diagnostic,'POST',{id:diagId,test_to:'forbidden@example.invalid'},ca)).status,400);
+  const localConfig={host:'127.0.0.1',port:1,mode:'tls',username:'test',password:relayPassword,
+    test_from:'sender@example.invalid',test_to:'receiver@example.invalid'};
+  await writeFile(join(smtpRoot,a+'.json'),JSON.stringify(localConfig));
+  const attempts=await Promise.all([req(diagnostic,'POST',{id:diagId},ca),req(diagnostic,'POST',{id:diagId},ca)]);
+  assert.deepEqual(attempts.map(r=>r.status).sort(),[200,201]);
+  const entry=await (await req(diagnostic,'POST',{id:diagId},ca)).json();
+  assert.equal(entry.id,diagId);assert.equal(entry.outcome,'failed');
+  assert.equal((await req(diagnostic,'POST',{id:randomUUID()},ca)).status,429);
+  const visible=(await (await integrations(ca)).json()).smtp;
+  assert.deepEqual(visible.last_diagnostic,entry);assert.equal(visible.can_test,true);
+  assert.ok(!JSON.stringify(visible).includes('example.invalid'));
+  assert.equal((await req(diagnostic,'POST',{id:diagId},cb)).status,409);
+  assert.equal((await (await integrations(cb)).json()).smtp.last_diagnostic,null);
   assert.ok(!JSON.stringify(mailSummary).includes(relayPassword));
   assert.equal((await req(smtpPath,'POST',{tenant:a},ca)).status,400);
   assert.equal((await req(smtpPath,'POST',{},cb)).status,409);
