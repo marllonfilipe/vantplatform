@@ -1,5 +1,5 @@
 import {audit} from './db.mjs';
-import {reject} from './http.mjs';
+import {pagination,reject} from './http.mjs';
 import {isUuid,mayManageTeams} from './security.mjs';
 
 const path='/api/v1/billing/subscription-requests';
@@ -9,6 +9,18 @@ export async function subscriptionRequests({db,tenant,member,body,method,url,req
   const resource=url.pathname;
   if(resource!==path&&!resource.startsWith(path+'/'))return;
   if(!mayManageTeams(member.role))reject(403,'permission','A consulta exige perfil de gestão.');
+  if(resource===path+'/history'){
+    if(method!=='GET')reject(405,'method','O histórico aceita GET.');
+    const limit=pagination(url.searchParams);
+    const before=url.searchParams.get('before');
+    if(before!==null&&!isUuid(before))reject(400,'cursor','Referência de paginação inválida.');
+    const {rows}=await db.query(`SELECT ${fields} FROM vant.subscription_requests
+      WHERE tenant_id=$1 AND ($2::uuid IS NULL OR (created_at,id)<(
+        SELECT created_at,id FROM vant.subscription_requests WHERE tenant_id=$1 AND id=$2))
+      ORDER BY created_at DESC,id DESC LIMIT $3`,[tenant,before,limit+1]);
+    const items=rows.slice(0,limit);
+    return [200,{items,nextCursor:rows.length>limit?items.at(-1).id:null}];
+  }
   if(resource===path&&method==='GET'){
     const {rows}=await db.query(`SELECT ${fields} FROM vant.subscription_requests
       WHERE tenant_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1`,[tenant]);

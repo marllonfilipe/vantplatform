@@ -373,7 +373,29 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    pair('Mensalidade de referência',latest.monthly_cents===null?'Sob consulta':money(latest.monthly_cents)),
    pair('Situação',latest.cancelled_at?'Cancelada':'Pendente'),pair('Solicitada em',date(latest.created_at))):
    empty('Nenhuma solicitação de assinatura registrada.');
-  if(getUser().role!=='owner')return [card];
+  const cards=[card];
+  if(latest){
+   const history=panel('Solicitações anteriores');
+   let cursor=latest.id;
+   const more=button('Consultar solicitações anteriores',async()=>{
+    more.disabled=true;
+    try{
+     const page=await api(path+'/history?limit=10&before='+encodeURIComponent(cursor));
+     for(const row of page.items){
+      const state=row.cancelled_at?'Cancelada em '+date(row.cancelled_at):'Pendente';
+      history.insertBefore(panel(name(row.plan_code),pair('Solicitada em',date(row.created_at)),
+       pair('Mensalidade de referência',row.monthly_cents===null?'Sob consulta':money(row.monthly_cents)),
+       pair('Situação',state)),more);
+     }
+     if(!page.items.length)history.insertBefore(empty('Nenhuma solicitação anterior.'),more);
+     cursor=page.nextCursor;
+     if(!cursor)more.remove();
+    }finally{more.disabled=false;}
+   });
+   history.append(more);
+   cards.push(history);
+  }
+  if(getUser().role!=='owner')return cards;
   const form=node('form',undefined,'stack'),note=node('p');
   note.setAttribute('role','status');
   const pending=latest&&!latest.cancelled_at;
@@ -394,7 +416,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    }catch(error){note.textContent=error.message;}
    finally{submit.disabled=false;}
   };
-  return [card,form];
+  return [card,form,...cards.slice(1)];
  }
  async function planHistory(){
   const container=node('div');

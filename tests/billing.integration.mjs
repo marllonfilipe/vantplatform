@@ -176,6 +176,17 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   await page.getByText('Pendente',{exact:true}).waitFor();
   const enterpriseRequest=(await (await call(requests)).json()).latest;
   assert.equal(enterpriseRequest.plan_code,'enterprise');assert.equal(enterpriseRequest.monthly_cents,null);
+  const historyPath=requests+'/history';
+  const first=await (await call(historyPath+'?limit=1')).json();
+  assert.deepEqual(first.items.map(row=>row.id),[enterpriseRequest.id]);
+  assert.equal(first.nextCursor,enterpriseRequest.id);
+  const second=await (await call(historyPath+'?limit=1&before='+first.nextCursor)).json();
+  assert.deepEqual(second.items,[cancelled]);assert.equal(second.nextCursor,null);
+  assert.equal((await call(historyPath+'?before=invalid')).status,400);
+  assert.equal((await call(historyPath+'?limit=0')).status,400);
+  await page.getByRole('button',{name:'Consultar solicitações anteriores'}).click();
+  await page.getByRole('heading',{name:'Growth',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Consultar solicitações anteriores'}).count(),0);
   assert.equal((await usage()).assignment.revision,11);
   const audit=await admin.query(`SELECT action,count(*)::integer AS count FROM vant.audit
    WHERE tenant_id=$1 AND action LIKE 'billing.subscription_%' GROUP BY action ORDER BY action`,[tenant]);
@@ -183,14 +194,17 @@ test('catálogo de planos consulta valores e limites no PostgreSQL com acesso de
   await login('vendedor@example.invalid');assert.equal((await call('billing/plans')).status,403);assert.equal((await call('billing/usage')).status,403);
   assert.equal((await call('billing/plan-history')).status,403);
   assert.equal((await call(requests)).status,403);
+  assert.equal((await call(historyPath)).status,403);
   await admin.query("UPDATE vant.members SET role='manager' WHERE tenant_id=$1 AND role='seller'",[tenant]);
   assert.equal((await call(requests)).status,200);
+  assert.equal((await call(historyPath)).status,200);
   assert.equal((await call(requests,'POST',{id:randomUUID(),plan_code:'start'})).status,403);
   assert.equal((await call(requests+'/'+enterpriseRequest.id,'DELETE')).status,403);
   await admin.query("INSERT INTO vant.members(tenant_id,email,name,role,password_hash) VALUES($1,'outro@example.invalid','Outro','owner',$2)",[other,await hashPassword(password)]);
   const isolatedLogin=await call('auth/login','POST',{tenantId:other,email:'outro@example.invalid',password});
   assert.equal(isolatedLogin.status,200);cookie=isolatedLogin.headers.get('set-cookie').split(';')[0];
   assert.deepEqual(await (await call(requests)).json(),{latest:null});
+  assert.deepEqual(await (await call(historyPath+'?before='+enterpriseRequest.id)).json(),{items:[],nextCursor:null});
   assert.equal((await call(requests+'/'+enterpriseRequest.id,'DELETE')).status,404);
  }finally{
   await browser?.close();if(server.listening)await new Promise(resolve=>server.close(resolve));await pool.end();await admin.end();

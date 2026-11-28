@@ -142,3 +142,9 @@ O gestor pode abrir a primeira página de empresas do Kommo pelo subdomínio aut
 ## Verificação de e-mail por SMTP
 
 O [painel de e-mail](11-email.md) permite que gestores verifiquem a autenticação no relay da empresa por uma conexão TLS. A verificação não transmite mensagem.
+
+## Histórico de solicitações comerciais
+
+Em **Financeiro → Solicitação de assinatura**, a gestão consulta a última solicitação e pode carregar as anteriores em páginas de dez registros. Cada entrada apresenta plano, preço de referência na ocasião, data de criação e data de cancelamento quando aplicável. Os registros anteriores à atualização também aparecem.
+
+A rota de leitura `GET /api/v1/billing/subscription-requests/history` oferece `limit` (1 a 100) e `before` (UUID da última linha exibida). A ordenação combina data e UUID e usa o índice existente por empresa. Uma referência inexistente ou de outra empresa retorna página vazia. O histórico registra o interesse comercial e os cancelamentos da solicitação. Para comprovar um pagamento, a plataforma precisa de conciliação com o gateway.
