@@ -56,6 +56,13 @@ test('CRM, persistência e navegação',async t=>{
  try{
   const root=await mkdtemp(join(tmpdir(),'vant-sheets-'));
   const previous=process.env.VANT_GOOGLE_SHEETS_DIR;
+  const rdRoot=await mkdtemp(join(tmpdir(),'vant-rd-'));
+  const previousRd=process.env.VANT_RD_STATION_DIR;
+  process.env.VANT_RD_STATION_DIR=rdRoot;
+  t.after(async()=>{
+    if(previousRd===undefined)delete process.env.VANT_RD_STATION_DIR;else process.env.VANT_RD_STATION_DIR=previousRd;
+    await rm(rdRoot,{recursive:true,force:true});
+  });
   const previousPipedrive=process.env.VANT_PIPEDRIVE_DIR;
   const pipedriveRoot=await mkdtemp(join(tmpdir(),'vant-pipedrive-'));
   process.env.VANT_PIPEDRIVE_DIR=pipedriveRoot;
@@ -104,6 +111,19 @@ test('CRM, persistência e navegação',async t=>{
   assert.deepEqual(JSON.parse(Buffer.from(parts[1],'base64url')),{
    iss:config.client_email,aud:'https://oauth2.googleapis.com/token',scope:'https://www.googleapis.com/auth/spreadsheets.readonly',iat:1000,exp:1300});
   await writeFile(configFile,JSON.stringify(config));
+  const rdPath='integrations/rd-station/read';
+  assert.equal((await req(rdPath,'POST',{},cv)).status,403);
+  assert.equal((await req(rdPath,'POST',{},ca)).status,409);
+  await writeFile(join(rdRoot,a+'.json'),'{}');
+  assert.equal((await (await integrations(ca)).json()).rd_station.status,'invalid');
+  const rdToken=randomUUID();
+  await writeFile(join(rdRoot,a+'.json'),JSON.stringify({access_token:rdToken}));
+  const rdSummary=await (await integrations(ca)).json();
+  assert.deepEqual(rdSummary.rd_station,{status:'configured',last_read:null,events:[]});
+  assert.ok(!JSON.stringify(rdSummary).includes(rdToken));
+  assert.equal((await req(rdPath,'GET',undefined,ca)).status,405);
+  assert.equal((await req(rdPath,'POST',{tenant:a},ca)).status,400);
+  assert.equal((await req(rdPath,'POST',{},cb)).status,409);
   const orgPath='integrations/pipedrive/read';
   const missing={status:'unconfigured',last_read:null,events:[]};
   assert.deepEqual((await (await integrations(ca)).json()).pipedrive,missing);
@@ -179,6 +199,7 @@ test('CRM, persistência e navegação',async t=>{
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Central de integrações'}).click();
   await page.getByRole('heading',{name:'Google Sheets',exact:true}).waitFor();
   assert.equal(await page.locator('#context').textContent(),'Operação');
+  await page.getByRole('button',{name:'Consultar empresas do RD Station CRM'}).waitFor();
   await page.getByRole('button',{name:'Consultar planilha'}).waitFor();
   await page.getByRole('heading',{name:'Pipedrive',exact:true}).waitFor();
   await page.getByRole('button',{name:'Consultar organizações do Pipedrive'}).waitFor();

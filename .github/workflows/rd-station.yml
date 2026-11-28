@@ -1,0 +1,22 @@
+name: Homologar leitura do RD Station CRM
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  leitura-autorizada:
+    if: github.ref == 'refs/heads/main'
+    environment: rd-station-homologacao
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Consultar organizações autorizadas
+        env:
+          VANT_RD_STATION_CHECK: ${{ secrets.VANT_RD_STATION_CHECK }}
+        run: node scripts/verify-rd-station.mjs
