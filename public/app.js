@@ -1,3 +1,4 @@
+import {unitPage} from './business-units.js';
 const el=id=>document.getElementById(id);
 const main=el('content'), status=el('status');
 function node(tag,text,cls) { const n=document.createElement(tag); if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n; }
@@ -18,7 +19,7 @@ async function api(path,method='GET',body){
 }
 function showLogin(){generation++;who=null;el('shell').hidden=true;el('login').hidden=false;if(el('dialog').open)el('dialog').close();}
 function nav(){
-  const groups={Principal:['Visão geral','Meu desempenho'],...(extension?.groups??{}),Operação:[...(extension?.groups?.Operação??[]),'Próximas tarefas','Atividades recentes'],Gestão:['Equipe']};
+  const groups={Principal:['Visão geral','Meu desempenho'],...(extension?.groups??{}),Operação:[...(extension?.groups?.Operação??[]),'Próximas tarefas','Atividades recentes'],Gestão:extension&&['owner','manager'].includes(who.role)?['Equipe','Unidades']:['Equipe']};
   const nav=el('navigation');nav.replaceChildren();el('context').textContent='';
   for(const [group,labels] of Object.entries(groups)){
     nav.append(node('small',group));
@@ -67,6 +68,8 @@ async function view(name){
    if(name==='Próximas tarefas')content=[panel('Pendências',...taskRows(d.next))];
    else if(name==='Atividades recentes')content=[panel('Histórico do período',...taskRows(d.recent,true))];
    else content=overview(d);
+  }else if(name==='Unidades'){
+   content=await unitPage({api,node,panel,empty,button,pair,modal,view});
   }else if(name==='Equipe'){
    const list=[...el('team').options].filter(o=>o.value);
    const children=list.length?list.map(o=>node('p',o.textContent,'row')):[empty('Cadastre a primeira equipe da empresa.')];
