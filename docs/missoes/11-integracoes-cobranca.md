@@ -134,3 +134,7 @@ A gestão pode consultar ID e nome de até 50 organizações da conta da empresa
 ## Consulta de empresas do RD Station CRM
 
 O painel de gestão permite consultar a primeira página de empresas da conta RD Station CRM do tenant. A ação usa o leitor autorizado da Central, registra a tentativa e mostra apenas o nome e o identificador. Veja [configuração e homologação](11-rd-station.md).
+
+## Consulta de empresas do Kommo
+
+O gestor pode abrir a primeira página de empresas do Kommo pelo subdomínio autorizado para seu tenant. O [roteiro de configuração e homologação](11-kommo.md) descreve a prévia, as permissões e a evidência exigida para a leitura real.

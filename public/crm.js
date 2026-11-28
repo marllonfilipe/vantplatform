@@ -327,7 +327,10 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   const rdStation=crmPanel(result.rd_station,{provider:'rd-station',title:'RD Station CRM',lastLabel:'Última consulta de empresas',
    emptyHistory:'Sem consulta de empresas confirmada',buttonText:'Consultar empresas do RD Station CRM',dialogTitle:'Empresas do RD Station CRM',
    emptyList:'Nenhuma empresa retornada.',rows:data=>data.organizations.map(org=>[org.name,'ID '+org.id])});
-  return [csv,hook,sheets,calendar,hubspot,pipedrive,rdStation];
+  const kommo=crmPanel(result.kommo,{provider:'kommo',title:'Kommo',lastLabel:'Última consulta de empresas',
+   emptyHistory:'Sem consulta de empresas confirmada',buttonText:'Consultar empresas do Kommo',dialogTitle:'Empresas do Kommo',
+   emptyList:'Nenhuma empresa retornada.',rows:data=>data.companies.map(company=>[company.name,'ID '+company.id])});
+  return [csv,hook,sheets,calendar,hubspot,pipedrive,rdStation,kommo];
  }
  async function subscriptionPage(){
   const path='/billing/subscription-requests';

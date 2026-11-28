@@ -273,3 +273,7 @@ A tarefa **Continuar missões da V4NT** retoma pela leitura de organizações do
 ## Auditoria retroativa e correções das missões 02, 03, 04 e 06
 
 A [matriz das 13 missões](auditoria-primeiro-ciclo.md) confronta os critérios originais com as subetapas do repositório. O [PR #23](https://github.com/marllonfilipe/vantplatform/pull/23) entrou na `main` no commit `51ad335ed20b0a408b5b2bb631df9912ab8439b2`. A [Fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/46086710583) e o [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/46086710644) passaram para `da705a3e5f5fafb346e3e8e5a269d762cf1d335e`. O PR comprovou acesso ao banco restaurado, navegação da busca à ficha, preservação de campos do CRM e gerenciamento de memória com paginação e revisão. A etapa seguinte de leitura do RD Station CRM está no [PR #24](https://github.com/marllonfilipe/vantplatform/pull/24). A transição continua bloqueada por implementação.
+
+## Missão 11 · Retomada do Kommo em 28/11/2026
+
+Os PRs #24 e #25 já estavam integrados. Recuperamos a implementação de `e3ee041969d197555d8ad79e5369191b46048a71` preservando as duas verificações adicionais do RD Station publicadas na main. Passaram 14 testes locais de fundação e adaptadores CRM. A [consulta de empresas do Kommo](missoes/11-kommo.md) fica disponível na Central para gestores. A leitura em conta externa permanece pendente e tem roteiro próprio. A próxima etapa independente da 11 é integrar o canal de e-mail. A missão permanece parcial.

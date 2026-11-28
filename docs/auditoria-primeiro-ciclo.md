@@ -263,3 +263,7 @@ Critérios originais de aceite
 ## Evidência após correção
 
 O [PR #23](https://github.com/marllonfilipe/vantplatform/pull/23) foi incorporado em `51ad335ed20b0a408b5b2bb631df9912ab8439b2`. A revisão `da705a3e5f5fafb346e3e8e5a269d762cf1d335e` passou na [Fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/46086710583) e no [Core](https://github.com/marllonfilipe/vantplatform/actions/runs/46086710644). Estão **testadas** as seguintes subetapas: 02 recuperação de sessão nova e leitura de equipe após restauração, 03 contexto e acesso da busca à ficha, 04 edição de campos independentes e preservação de prazo, 06 catálogo paginado com empate e controle de revisão. A falha intermediária de sintaxe ficou restrita à branch antes do merge. A cobertura da navegação completa e o aceite no ambiente de destino continuam em aberto.
+
+### Atualização da Missão 11 em 28/11/2026
+
+Kommo · consulta por empresa implementada com prévia de 50 registros. A base desta integração é `d9b9c7ee7617a90d09522728960ed4dbf844d04f`. Testes dos adaptadores e da fundação passaram localmente. A comprovação com credenciais da conta usa o [roteiro de homologação](missoes/11-kommo.md). E-mail, cobrança e conciliação seguem como lacunas de implementação.
