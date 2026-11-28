@@ -305,3 +305,7 @@ A migration 063 reserva a franquia por empresa e dia antes da chamada de saída 
 ### Missão 12 · sessões do próprio usuário
 
 O [perfil](missoes/12-governanca.md) permite listar acessos ativos e revogar individualmente ou em conjunto outras sessões da mesma conta e empresa. A migration 064 preserva as sessões existentes. Os testes em `tests/integration.test.mjs` exercitam isolamento, repetição e auditoria e o dashboard cobre a navegação. Cinco testes unitários aprovados localmente. A missão está parcial. A próxima atividade independente é iniciar o cadastro de unidades comerciais por empresa, preservando equipes e pipelines sem unidade e os papéis de acesso atuais.
+
+### Missão 12 · cadastro de unidades
+
+O cadastro da própria empresa entrou em implementação na migration 065 e nos módulos de unidades da API e da interface. O teste `tests/units.integration.mjs` abrange autorização, concorrência, paginação, conflito de revisão e cadastro no Chromium. Próxima atividade: vincular equipes existentes a uma unidade da mesma empresa, com opção de desvincular e sem alterar a visibilidade comercial preexistente. Na Missão 11, o histórico de solicitações e os controles de capacidade e admissão já estão na main em `327e6e6a02df24f7851a42d9319a6959305f3344` com [Fundação](https://github.com/marllonfilipe/vantplatform/actions/runs/46136876531) e [Inteligência](https://github.com/marllonfilipe/vantplatform/actions/runs/46136876542) aprovadas.
