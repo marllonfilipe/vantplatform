@@ -56,6 +56,13 @@ test('CRM, persistência e navegação',async t=>{
  try{
   const root=await mkdtemp(join(tmpdir(),'vant-sheets-'));
   const previous=process.env.VANT_GOOGLE_SHEETS_DIR;
+  const kommoRoot=await mkdtemp(join(tmpdir(),'vant-kommo-'));
+  const previousKommo=process.env.VANT_KOMMO_DIR;
+  process.env.VANT_KOMMO_DIR=kommoRoot;
+  t.after(async()=>{
+    if(previousKommo===undefined)delete process.env.VANT_KOMMO_DIR;else process.env.VANT_KOMMO_DIR=previousKommo;
+    await rm(kommoRoot,{recursive:true,force:true});
+  });
   const rdRoot=await mkdtemp(join(tmpdir(),'vant-rd-'));
   const previousRd=process.env.VANT_RD_STATION_DIR;
   process.env.VANT_RD_STATION_DIR=rdRoot;
@@ -111,6 +118,18 @@ test('CRM, persistência e navegação',async t=>{
   assert.deepEqual(JSON.parse(Buffer.from(parts[1],'base64url')),{
    iss:config.client_email,aud:'https://oauth2.googleapis.com/token',scope:'https://www.googleapis.com/auth/spreadsheets.readonly',iat:1000,exp:1300});
   await writeFile(configFile,JSON.stringify(config));
+  const kommoPath='integrations/kommo/read';
+  assert.equal((await req(kommoPath,'POST',{},cv)).status,403);
+  assert.equal((await req(kommoPath,'POST',{},ca)).status,409);
+  await writeFile(join(kommoRoot,a+'.json'),'{}');
+  assert.equal((await (await integrations(ca)).json()).kommo.status,'invalid');
+  const kommoToken=randomUUID();
+  await writeFile(join(kommoRoot,a+'.json'),JSON.stringify({subdomain:'empresa-teste',access_token:kommoToken}));
+  const kommoSummary=await (await integrations(ca)).json();
+  assert.deepEqual(kommoSummary.kommo,{status:'configured',last_read:null,events:[]});
+  assert.ok(!JSON.stringify(kommoSummary).includes(kommoToken));
+  assert.equal((await req(kommoPath,'POST',{subdomain:'outra'},ca)).status,400);
+  assert.equal((await req(kommoPath,'POST',{},cb)).status,409);
   const rdPath='integrations/rd-station/read';
   assert.equal((await req(rdPath,'POST',{},cv)).status,403);
   assert.equal((await req(rdPath,'POST',{},ca)).status,409);
@@ -200,6 +219,7 @@ test('CRM, persistência e navegação',async t=>{
   await page.getByRole('heading',{name:'Google Sheets',exact:true}).waitFor();
   assert.equal(await page.locator('#context').textContent(),'Operação');
   await page.getByRole('button',{name:'Consultar empresas do RD Station CRM'}).waitFor();
+  await page.getByRole('button',{name:'Consultar empresas do Kommo'}).waitFor();
   await page.getByRole('button',{name:'Consultar planilha'}).waitFor();
   await page.getByRole('heading',{name:'Pipedrive',exact:true}).waitFor();
   await page.getByRole('button',{name:'Consultar organizações do Pipedrive'}).waitFor();
