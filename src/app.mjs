@@ -1,3 +1,4 @@
+import {manageOwnSessions} from './session-management.mjs';
 import {evolutionWebhook} from './wa-events.mjs';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
@@ -83,6 +84,8 @@ export function createApp({pool,origin,environment='development',featureRoutes,s
         const member=rows[0];
         const tenant=session.tenant;
         if (path==='/api/v1/auth/me' && req.method==='GET') return [200,{tenantId:tenant,...member}];
+        if (path==='/api/v1/auth/sessions' || path.startsWith('/api/v1/auth/sessions/'))
+          return manageOwnSessions(db,tenant,member.id,session.tokenHash,path,req.method,requestId);
         if (path==='/api/v1/auth/logout' && req.method==='POST') {
           await db.query('DELETE FROM vant.sessions WHERE token_hash=$1',[session.tokenHash]);
           await audit(db,tenant,member.id,'session.revoked',null,requestId);

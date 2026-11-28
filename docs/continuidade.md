@@ -301,3 +301,7 @@ O histórico de solicitações já entrou na main em `8e22a2d4298d05fc4a067b7c58
 ### Financeiro · admissões de mensagens
 
 A migration 063 reserva a franquia por empresa e dia antes da chamada de saída da Inbox. Criar um rascunho, receber uma mensagem e reconsultar um envio não consomem nova vaga. O teste em PostgreSQL exercita concorrência, rollback de configuração, resposta incerta e virada de dia com receptor local. No [teste da Central](https://github.com/marllonfilipe/vantplatform/actions/runs/46136610626), o Chromium aguardou um botão de navegação bloqueado pelo diálogo aberto da conversa. O teste agora fecha o diálogo com o controle da interface antes de navegar. Próxima subetapa independente prevista na Missão 12: listar sessões ativas do próprio usuário e revogar outras sessões pelo perfil, com isolamento e auditoria. As assinaturas confirmadas e a conciliação no Asaas continuam pendentes na Missão 11.
+
+### Missão 12 · sessões do próprio usuário
+
+O [perfil](missoes/12-governanca.md) permite listar acessos ativos e revogar individualmente ou em conjunto outras sessões da mesma conta e empresa. A migration 064 preserva as sessões existentes. Os testes em `tests/integration.test.mjs` exercitam isolamento, repetição e auditoria e o dashboard cobre a navegação. Cinco testes unitários aprovados localmente. A missão está parcial. A próxima atividade independente é iniciar o cadastro de unidades comerciais por empresa, preservando equipes e pipelines sem unidade e os papéis de acesso atuais.

@@ -78,7 +78,28 @@ async function view(name){
 }
 function teamForm(){const f=node('form',undefined,'stack'),label=node('label','Nome da equipe'),input=node('input');input.required=true;input.maxLength=100;label.append(input);const note=node('p');f.append(label,node('button','Salvar','primary'),note);f.onsubmit=async e=>{e.preventDefault();try{const t=await api('/teams','POST',{name:input.value});el('team').add(new Option(t.name,t.id));el('dialog').close();await view('Equipe');}catch(err){note.textContent=err.message;}};modal('Nova equipe',f);}
 el('period').onchange=el('team').onchange=()=>view(current);
-el('profile').onclick=()=>modal(who.name,pair('E-mail',who.email),pair('Empresa',who.tenant_name),pair('Perfil',({owner:'Proprietário',manager:'Gerente',seller:'Vendedor',viewer:'Leitura'})[who.role]),button('Sair ou trocar de empresa',async()=>{await api('/auth/logout','POST');el('dialog').close();showLogin();}));
+async function showSessions(){
+ const user=who;
+ const result=await api('/auth/sessions');
+ if(user!==who||!el('dialog').open)return;
+ const sections=result.items.map(row=>{
+  const card=panel(row.current?'Sessão atual':'Outra sessão',pair('Início',date(row.created_at)),pair('Validade',date(row.expires_at)));
+  if(!row.current)card.append(button('Encerrar esta sessão',()=>confirmRevocation(row.id)));
+  return card;
+ });
+ if(result.has_more)sections.push(empty('Exibindo as 20 sessões ativas mais recentes, incluindo a atual.'));
+ if(result.items.length>1)sections.push(button('Encerrar todas as outras sessões',()=>confirmRevocation('others')));
+ modal('Sessões ativas',...sections,button('Voltar ao perfil',showProfile));
+}
+function confirmRevocation(id){
+ const all=id==='others';
+ modal(all?'Encerrar todas as outras sessões?':'Encerrar a sessão selecionada?',
+  empty('Será necessário entrar novamente nos acessos encerrados.'),button('Confirmar encerramento',async()=>{
+   await api('/auth/sessions/'+id,'DELETE');if(who&&el('dialog').open)await showSessions();
+  }),button('Voltar às sessões',showSessions));
+}
+const showProfile=()=>modal(who.name,pair('E-mail',who.email),pair('Empresa',who.tenant_name),pair('Perfil',({owner:'Proprietário',manager:'Gerente',seller:'Vendedor',viewer:'Leitura'})[who.role]),button('Sessões ativas',showSessions),button('Sair ou trocar de empresa',async()=>{await api('/auth/logout','POST');el('dialog').close();showLogin();}));
+el('profile').onclick=showProfile;
 el('notifications').onclick=async()=>{
  try{
   const [dashboard,first]=await Promise.all([api('/dashboard?days=30'),api('/notifications')]);

@@ -45,6 +45,25 @@ test('API e PostgreSQL multiempresa',async t=>{
       assert.equal((await request('/api/v1/teams','POST',{name:'negada'},ca,{origin:'https://other.invalid'})).status,403);
       assert.equal((await request('/api/v1/auth/me','GET',undefined,ca.replace(a,b))).status,401);
     });
+    await t.test('usuário lista e encerra somente seus outros acessos ativos',async()=>{
+      const endpoint='/api/v1/auth/sessions';
+      const second=await login(a),third=await login(a);
+      const listed=await (await request(endpoint,'GET',undefined,ca)).json();
+      assert.equal(listed.items.length,3);assert.equal(listed.items[0].current,true);
+      assert.equal(listed.has_more,false);
+      for(const item of listed.items)assert.deepEqual(Object.keys(item).sort(),['created_at','current','expires_at','id']);
+      const secondId=(await (await request(endpoint,'GET',undefined,second)).json()).items[0].id;
+      const revoke=(id,cookie)=>request(endpoint+'/'+id,'DELETE',undefined,cookie);
+      for(const cookie of [cv,cb])assert.equal((await revoke(secondId,cookie)).status,204);
+      assert.equal((await request('/api/v1/auth/me','GET',undefined,second)).status,200);
+      assert.equal((await revoke(secondId,ca)).status,204);
+      assert.equal((await revoke(secondId,ca)).status,204);
+      assert.equal((await request('/api/v1/auth/me','GET',undefined,second)).status,401);
+      assert.equal((await revoke('others',ca)).status,204);
+      assert.equal((await request('/api/v1/auth/me','GET',undefined,third)).status,401);
+      for(const cookie of [ca,cv,cb])assert.equal((await request('/api/v1/auth/me','GET',undefined,cookie)).status,200);
+      assert.equal((await admin.query("SELECT 1 FROM vant.audit WHERE tenant_id=$1 AND action='session.revoked_other'",[a])).rowCount,2);
+    });
     await t.test('equipe persiste e a API aplica permissões por empresa',async()=>{
       const r=await request('/api/v1/teams','POST',{name:'Comercial'},ca);
       assert.equal(r.status,201); team=(await r.json()).id;

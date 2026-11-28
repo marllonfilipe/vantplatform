@@ -43,6 +43,10 @@ test('indicadores e navegação em Chromium com PostgreSQL',async()=>{
   await page.getByRole('button',{name:'Equipe',exact:true}).click();await page.getByRole('button',{name:'Criar equipe'}).click();await page.getByLabel('Nome da equipe').fill('Sul');await page.getByRole('button',{name:'Salvar'}).click();await page.getByText('Sul',{exact:true}).last().waitFor();
   await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Alternar navegação'}).click();await page.getByRole('button',{name:'Próximas tarefas'}).click();await page.getByText('Ligar para a conta').waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
-  await page.getByRole('button',{name:'Meu perfil'}).click();await page.getByRole('button',{name:'Sair ou trocar de empresa'}).click();await page.getByRole('button',{name:'Entrar'}).waitFor();
+  await page.getByRole('button',{name:'Meu perfil'}).click();
+  await page.getByRole('button',{name:'Sessões ativas'}).click();
+  await page.getByRole('heading',{name:'Sessão atual',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Voltar ao perfil'}).click();
+  await page.getByRole('button',{name:'Sair ou trocar de empresa'}).click();await page.getByRole('button',{name:'Entrar'}).waitFor();
  }finally{await browser?.close();if(server?.listening)await new Promise(r=>server.close(r));await pool.end();await admin.end();}
 });
