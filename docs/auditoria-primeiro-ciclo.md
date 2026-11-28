@@ -248,3 +248,8 @@ Critérios originais de aceite
 | Acesso administrativo independente e permissões globais | Não iniciada como Control Center | [scripts/provision.mjs](../scripts/provision.mjs) | CLI provisiona tenants. Falta identidade administrativa própria. |
 | Gestão de clientes, visão 360°, planos e usuários | Não iniciada como Control Center | [docs/cronograma.md](../docs/cronograma.md) | Depende do domínio administrativo e da segregação de acesso. |
 | Monitoramento, financeiro, suporte, infraestrutura e auditoria global | Não iniciada como Control Center | [docs/cronograma.md](../docs/cronograma.md) | Cada módulo depende dos dados do respectivo domínio. Exigir testes de acesso entre operadores e clientes antes da liberação. |
+
+## Incrementos em validação
+
+- 02 · Iniciado o ensaio com a API, uma equipe criada antes do dump e login novo no banco restaurado. Verificações locais de sintaxe Bash e Node aprovadas. A execução PostgreSQL está atribuída ao CI do PR #23.
+- 03 · Próxima correção: derivar o cabeçalho do menu efetivo e ligar resultados da busca às fichas do CRM. Validar no Chromium em contexto de gestor.

@@ -37,3 +37,5 @@ Use um banco novo e vazio para o destino. Em novo cluster, provisione antes os p
 ## Dados previstos
 
 A fundação contém tenants, membros, equipes, associações, convites, sessões, segredos, metadados de arquivos, chunks vetoriais, trabalhos e auditoria. As tabelas de leads, contas, contatos, oportunidades, pipelines, atividades e tarefas serão integradas com dashboard e CRM. Conversas, mensagens e instâncias entram com a inbox. Agentes, contexto, memória e execuções usarão o Core. Assinaturas, planos, consumo, integrações financeiras e notificações terão contratos próprios nos módulos correspondentes.
+
+O CI provisiona uma conta descartável e cria uma equipe pela API antes do backup. O teste abre uma nova sessão no banco restaurado com o papel restrito, verifica a empresa da sessão, lê a equipe recuperada e encerra a sessão. O ensaio no ambiente de implantação também deve abranger os arquivos privados e as chaves mantidas fora do banco.
