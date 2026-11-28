@@ -160,3 +160,9 @@ A abertura da Central apenas lê o banco. O botão **Gerenciar instâncias de Wh
 Cada instância cadastrada reserva uma vaga até a remoção, inclusive durante desconexão ou espera por pareamento. Os planos Start, Growth e Scale usam respectivamente zero, uma e três vagas como referência. No vínculo, o operador global pode ajustar `whatsapp_connection_limit` a um inteiro não negativo. Uma nova revisão do mesmo plano conserva o valor contratado quando omitido. Uma troca de plano adota o novo catálogo na ausência de valor explícito. Para Enterprise, o operador pode registrar um teto negociado. Na ausência desse teto, a tela apresenta somente o consumo.
 
 O Financeiro informa a ocupação, o teto e o excesso quando uma redução deixa mais instâncias cadastradas que vagas. A instância existente continua disponível e novas reservas aguardam capacidade. Registros comerciais anteriores à migration 062 usam o catálogo para a franquia vigente. O histórico identifica revisões sem valor específico registrado.
+
+## Admissão de mensagens da Inbox
+
+O limite contratual opcional `outbound_messages_per_day` controla as mensagens de saída que a Inbox admite para envio por dia de São Paulo. O proprietário consulta consumo, franquia e alerta no Financeiro. O operador global configura a quantidade por revisão de contrato, inclusive zero para suspender novas admissões. A omissão preserva a franquia anterior.
+
+A reserva acontece na passagem de uma mensagem da fila para envio, antes da chamada ao provedor. Duas tentativas concorrentes disputam a última vaga. Uma configuração inválida desfaz a transação. Resultado incerto após a reserva consome a unidade e repetir o mesmo identificador consulta a tentativa anterior. Uma mensagem bloqueada pela franquia continua na fila. Rascunhos, recebimentos e tentativas anteriores à instrumentação não compõem esse indicador. A medição começa com a migration 063 e não confirma entrega nem gera cobrança.

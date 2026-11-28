@@ -276,3 +276,5 @@ Missão 11 · histórico das solicitações de assinatura implementado em `src/s
 Missões 05/11 · leitura do estado persistido das conexões implementada na Central e coberta no cenário da Inbox. A homologação em aparelhos segue pendente. Consulte o [roteiro da Central](missoes/11-integracoes-cobranca.md#estado-das-instâncias-de-whatsapp).
 
 Missão 11 · franquia de conexões implementada no backend, no Financeiro e no vínculo de plano. Migration 062 e cenário de concorrência em `tests/billing.integration.mjs`. A contabilização de mensagens de saída é a próxima subetapa de consumo.
+
+Missão 11 · franquia diária de mensagens de saída da Inbox implementada com reserva transacional. Contabilização iniciada na migration 063. O [relatório financeiro](missoes/11-integracoes-cobranca.md#admissão-de-mensagens-da-inbox) descreve a cobertura e as limitações. A homologação em aparelho permanece independente.

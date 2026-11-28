@@ -435,7 +435,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
      pair('Usuários',format(row.user_limit)),pair('Leads ativos',format(row.active_lead_limit)),
      pair('Pipelines',format(row.pipeline_limit)),pair('Vagas de WhatsApp',row.whatsapp_connection_limit??'Sem valor registrado'),pair('Armazenamento em bytes',format(row.storage_limit_bytes)),
      pair('Ações de agentes por dia',format(row.agent_actions_per_day)),pair('Automações ativas',format(row.active_flow_limit)),
-     pair('Execuções por dia',format(row.flow_starts_per_day)),pair('Textos para inferência por dia',format(row.inference_texts_per_day)));
+     pair('Execuções por dia',format(row.flow_starts_per_day)),pair('Textos para inferência por dia',format(row.inference_texts_per_day)),pair('Mensagens de saída por dia',format(row.outbound_messages_per_day)));
    });
    const bar=node('div',undefined,'toolbar');
    function navigate(label,next,trail){
@@ -474,6 +474,8 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    current.append(pair('Automações ativas',flowLimit==null?number(usage.active_flows):display(usage.active_flows,flowLimit)));
    const runs=usage.flow_executions;
    const count=value=>BigInt(value).toLocaleString('pt-BR');
+   const messages=BigInt(usage.outbound_messages_today),messageLimit=assigned?.outbound_messages_per_day;
+   current.append(pair('Mensagens admitidas para envio hoje',messageLimit==null?count(messages):count(messages)+' de '+number(messageLimit)));
    const inferred=usage.inference_texts, dailyTexts=assigned?.inference_texts_per_day;
    const occupied=BigInt(inferred.completed)+BigInt(inferred.reserved);
    const inference=panel('Inferências de hoje',pair('Textos processados',count(inferred.completed)),
@@ -490,7 +492,7 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
    current.append(pair('Conteúdo armazenado',limitBytes===null?bytes(usedBytes):bytes(usedBytes)+' de '+bytes(limitBytes)));
    for(const [label,used,limit] of [
     ['Usuários ativos',usage.users,assigned?.user_limit],['Leads cadastrados',usage.leads,assigned?.active_lead_limit],
-    ['Vagas de WhatsApp',usage.whatsapp_connections,connections],['Pipelines cadastrados',usage.pipelines,assigned?.pipeline_limit],['Armazenamento',usedBytes,limitBytes],
+    ['Mensagens de saída',messages,messageLimit],['Vagas de WhatsApp',usage.whatsapp_connections,connections],['Pipelines cadastrados',usage.pipelines,assigned?.pipeline_limit],['Armazenamento',usedBytes,limitBytes],
     ['Ações de agentes hoje',actions.used_today,actions.effective_limit],['Automações ativas',usage.active_flows,flowLimit],['Vagas de execução',admitted,dailyFlows],['Textos para inferência',occupied,dailyTexts]
    ]){
     if(limit!=null&&used>=limit)current.append(pair(label+' · alerta',used>limit?'Franquia excedida':'Limite atingido'));

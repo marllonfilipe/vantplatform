@@ -58,10 +58,16 @@ test('inbox: webhooks HTTP, duplicação, CRM, mídia, falhas e segregação',as
   await hook('connection.update',{state:'close'});assert.equal((await api('inbox/instances')).items[0].state,'close');
   const id=randomUUID();await api(url+'/messages','POST',{clientId:id,kind:'text',text:'Envio de validação'});await api(url+'/messages','POST',{clientId:id,kind:'text',text:'Envio de validação'});
   assert.equal((await api(url+'/messages')).outbox.length,1);
+  await admin.query(`INSERT INTO vant.plan_assignments
+    (tenant_id,revision,plan_code,user_limit,active_lead_limit,pipeline_limit,outbound_messages_per_day)
+    VALUES($1,1,'growth',3,2000,3,1)`,[a]);
+  const volume=async(cookie=ca)=>(await api('billing/usage','GET',undefined,200,cookie)).outbound_messages_today;
+  assert.equal(await volume(),'0');
   // Ambiente isolado, sem provedor configurado ou destinatário externo.
   delete process.env.EVOLUTION_URL;delete process.env.EVOLUTION_API_KEY;
   await api(url+'/messages/'+id,'POST',{},503);
   assert.equal((await api(url+'/messages')).outbox.find(x=>x.id===id)?.state,'queued');
+  assert.equal(await volume(),'0','Falha de configuração desfaz a admissão.');
   // O servidor recebe a tentativa e fecha a conexão antes de confirmar o envio.
   let attempts=0;
   const interrupted=createServer((req,res)=>{attempts++;req.resume();req.on('end',()=>res.destroy());});
@@ -69,12 +75,26 @@ test('inbox: webhooks HTTP, duplicação, CRM, mídia, falhas e segregação',as
   try{
    process.env.EVOLUTION_URL='http://127.0.0.1:'+interrupted.address().port;
    process.env.EVOLUTION_API_KEY=randomBytes(32).toString('hex');
-   await api(url+'/messages/'+id,'POST',{},502);
-   assert.equal((await api(url+'/messages/'+id,'POST',{})).state,'unknown');
+   const another=randomUUID();
+   await api(url+'/messages','POST',{clientId:another,kind:'text',text:'Segunda mensagem local'});
+   const headers={origin,cookie:ca,'content-type':'application/json'};
+   const refs=[id,another];
+   const attemptsById=await Promise.all(refs.map(ref=>fetch(origin+'/api/v1/'+url+'/messages/'+ref,{method:'POST',headers,body:'{}'})));
+   assert.deepEqual(attemptsById.map(r=>r.status).sort(),[409,502]);
+   const admitted=refs[attemptsById.findIndex(r=>r.status===502)];
+   const waiting=refs[attemptsById.findIndex(r=>r.status===409)];
+   assert.equal((await api(url+'/messages/'+admitted,'POST',{})).state,'unknown');
+   assert.equal(await volume(),'1');assert.equal(await volume(cb),'0');
+   assert.equal((await api(url+'/messages')).outbox.find(row=>row.id===waiting).state,'queued');
    assert.equal(attempts,1,'Uma entrega incerta não pode ser reenviada automaticamente');
+   await admin.query("UPDATE vant.wa_outbox SET admitted_on=admitted_on-1 WHERE tenant_id=$1 AND id=$2",[a,admitted]);
+   assert.equal(await volume(),'0');
+   await api(url+'/messages/'+waiting,'POST',{},502);assert.equal(await volume(),'1');
+   assert.equal(attempts,2);
   }finally{await new Promise(ok=>interrupted.close(ok));delete process.env.EVOLUTION_URL;delete process.env.EVOLUTION_API_KEY;}
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});const ctx=await browser.newContext();await ctx.addCookies([{name:'vant_session',value:ca.slice(13),url:origin}]);
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Caixa de entrada',exact:true}).click();await page.getByRole('button',{name:/Cliente Inbox/}).click();await page.getByText('Gostaria de uma proposta.',{exact:true}).waitFor();
+  await page.locator('#closeDialog').click();
   await page.getByRole('button',{name:'Central de integrações',exact:true}).click();
   const wa=page.locator('section').filter({has:page.getByRole('heading',{name:'WhatsApp · Evolution API',exact:true})});
   await wa.getByRole('button',{name:'Gerenciar instâncias de WhatsApp'}).click();
