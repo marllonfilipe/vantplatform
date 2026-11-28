@@ -277,3 +277,7 @@ A [matriz das 13 missões](auditoria-primeiro-ciclo.md) confronta os critérios 
 ## Missão 11 · Retomada do Kommo em 28/11/2026
 
 Os PRs #24 e #25 já estavam integrados. Recuperamos a implementação de `e3ee041969d197555d8ad79e5369191b46048a71` preservando as duas verificações adicionais do RD Station publicadas na main. Passaram 14 testes locais de fundação e adaptadores CRM. A [consulta de empresas do Kommo](missoes/11-kommo.md) fica disponível na Central para gestores. A leitura em conta externa permanece pendente e tem roteiro próprio. A próxima etapa independente da 11 é integrar o canal de e-mail. A missão permanece parcial.
+
+### E-mail da empresa · conexão SMTP
+
+A Central verifica TLS e autenticação no relay privado da empresa. Os dois testes locais de SMTP passaram com sockets de loopback e certificado temporário. A suíte integrada inclui permissões, seleção do tenant e navegação. A homologação do servidor de destino está descrita no [roteiro](missoes/11-email.md). Próxima subetapa: envio de uma mensagem de verificação a destino privado autorizado, com controle de repetição e confirmação separada da leitura da caixa postal.

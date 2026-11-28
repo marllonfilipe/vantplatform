@@ -56,6 +56,13 @@ test('CRM, persistência e navegação',async t=>{
  try{
   const root=await mkdtemp(join(tmpdir(),'vant-sheets-'));
   const previous=process.env.VANT_GOOGLE_SHEETS_DIR;
+  const smtpRoot=await mkdtemp(join(tmpdir(),'vant-smtp-config-'));
+  const oldSmtp=process.env.VANT_SMTP_DIR;
+  process.env.VANT_SMTP_DIR=smtpRoot;
+  t.after(async()=>{
+    if(oldSmtp===undefined)delete process.env.VANT_SMTP_DIR;else process.env.VANT_SMTP_DIR=oldSmtp;
+    await rm(smtpRoot,{recursive:true,force:true});
+  });
   const kommoRoot=await mkdtemp(join(tmpdir(),'vant-kommo-'));
   const previousKommo=process.env.VANT_KOMMO_DIR;
   process.env.VANT_KOMMO_DIR=kommoRoot;
@@ -118,6 +125,16 @@ test('CRM, persistência e navegação',async t=>{
   assert.deepEqual(JSON.parse(Buffer.from(parts[1],'base64url')),{
    iss:config.client_email,aud:'https://oauth2.googleapis.com/token',scope:'https://www.googleapis.com/auth/spreadsheets.readonly',iat:1000,exp:1300});
   await writeFile(configFile,JSON.stringify(config));
+  const smtpPath='integrations/smtp/verify';
+  assert.equal((await req(smtpPath,'POST',{},cv)).status,403);
+  assert.equal((await req(smtpPath,'POST',{},ca)).status,409);
+  const relayPassword=randomUUID();
+  await writeFile(join(smtpRoot,a+'.json'),JSON.stringify({host:'localhost',port:465,mode:'tls',username:'test',password:relayPassword}));
+  const mailSummary=await (await integrations(ca)).json();
+  assert.deepEqual(mailSummary.smtp,{status:'configured',last_read:null,events:[]});
+  assert.ok(!JSON.stringify(mailSummary).includes(relayPassword));
+  assert.equal((await req(smtpPath,'POST',{tenant:a},ca)).status,400);
+  assert.equal((await req(smtpPath,'POST',{},cb)).status,409);
   const kommoPath='integrations/kommo/read';
   assert.equal((await req(kommoPath,'POST',{},cv)).status,403);
   assert.equal((await req(kommoPath,'POST',{},ca)).status,409);
@@ -220,6 +237,7 @@ test('CRM, persistência e navegação',async t=>{
   assert.equal(await page.locator('#context').textContent(),'Operação');
   await page.getByRole('button',{name:'Consultar empresas do RD Station CRM'}).waitFor();
   await page.getByRole('button',{name:'Consultar empresas do Kommo'}).waitFor();
+  await page.getByRole('button',{name:'Verificar conexão SMTP'}).waitFor();
   await page.getByRole('button',{name:'Consultar planilha'}).waitFor();
   await page.getByRole('heading',{name:'Pipedrive',exact:true}).waitFor();
   await page.getByRole('button',{name:'Consultar organizações do Pipedrive'}).waitFor();

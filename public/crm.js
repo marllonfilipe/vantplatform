@@ -330,7 +330,22 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   const kommo=crmPanel(result.kommo,{provider:'kommo',title:'Kommo',lastLabel:'Última consulta de empresas',
    emptyHistory:'Sem consulta de empresas confirmada',buttonText:'Consultar empresas do Kommo',dialogTitle:'Empresas do Kommo',
    emptyList:'Nenhuma empresa retornada.',rows:data=>data.companies.map(company=>[company.name,'ID '+company.id])});
-  return [csv,hook,sheets,calendar,hubspot,pipedrive,rdStation,kommo];
+  const mail=result.smtp;
+  const smtp=panel('E-mail · SMTP',pair('Configuração',states[mail.status]),
+    pair('Última autenticação',mail.last_read?timestamp(mail.last_read):'Sem autenticação confirmada'));
+  const smtpEvents={started:'Verificação iniciada',success:'Autenticação confirmada',access:'Credenciais recusadas',
+    protocol:'Verificar TLS e autenticação',upstream:'Relay indisponível'};
+  for(const event of mail.events)smtp.append(pair(timestamp(event.created_at),smtpEvents[event.outcome]??'Falha na verificação'));
+  if(mail.status==='configured'){
+   const verify=button('Verificar conexão SMTP',async()=>{
+    verify.disabled=true;
+    const tenant=getUser()?.tenantId;
+    try {await api('/integrations/smtp/verify','POST',{});}
+    finally {if(verify.isConnected && getUser()?.tenantId===tenant)await view('Central de integrações');}
+   });
+   smtp.append(verify);
+  }
+  return [csv,hook,sheets,calendar,hubspot,pipedrive,rdStation,kommo,smtp];
  }
  async function subscriptionPage(){
   const path='/billing/subscription-requests';

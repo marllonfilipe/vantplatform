@@ -138,3 +138,7 @@ O painel de gestão permite consultar a primeira página de empresas da conta RD
 ## Consulta de empresas do Kommo
 
 O gestor pode abrir a primeira página de empresas do Kommo pelo subdomínio autorizado para seu tenant. O [roteiro de configuração e homologação](11-kommo.md) descreve a prévia, as permissões e a evidência exigida para a leitura real.
+
+## Verificação de e-mail por SMTP
+
+O [painel de e-mail](11-email.md) permite que gestores verifiquem a autenticação no relay da empresa por uma conexão TLS. A verificação não transmite mensagem.
