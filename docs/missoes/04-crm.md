@@ -16,3 +16,5 @@ Arquivos principais: migrations/004_crm.sql, src/crm.mjs, src/csv.mjs, src/route
 O teste de integração usa PostgreSQL e Chromium. Exercita rollback de CSV, filtros, papéis, isolamento, cadastro de conta e contato, anexos, conversão de conversa, criação e reordenação de etapas, movimentação de negócios e histórico. A execução é feita por scripts/ci.sh conforme docs/infraestrutura.md. A conexão da caixa de entrada com o provedor de WhatsApp pertence à missão 05.
 
 A suíte passou no [GitHub Actions](https://github.com/marllonfilipe/vantplatform/actions/runs/44606826907). O primeiro teste de transição do Kanban para a tabela identificou um problema de sincronização. A correção preservou a navegação e explicitou os cabeçalhos da tabela. A execução final passou também na restauração do banco.
+
+A edição pela interface envia apenas campos modificados. É possível alterar o nome da oportunidade sem sobrescrever a probabilidade que outro operador acabou de atualizar. O mesmo cuidado preserva os segundos e milissegundos de um prazo ao editar apenas o título da atividade. Duas alterações concorrentes do mesmo campo seguem a ordem de gravação.

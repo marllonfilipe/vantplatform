@@ -65,19 +65,38 @@ export async function knowledgeRoutes({ db, tenant, member, requestId, url, meth
     return [200, await retrieveKnowledge(db, tenant, query, limit)];
   }
   if (path === documentsPath && method === 'GET') {
-    const { rows } = await db.query(
-      'SELECT id, filename AS title, revision, category, size_bytes, updated_at FROM vant.documents WHERE tenant_id=$1 AND purpose=$2 ORDER BY updated_at DESC,id LIMIT 100',
-      [tenant, purpose]
-    );
-    return [200, { items: rows }];
+    const limit=Number(url.searchParams.get('limit') ?? 100);
+    if (!Number.isInteger(limit) || limit<1 || limit>100) reject(400,'limit','Use um limite de 1 a 100.');
+    const cursor=url.searchParams.get('cursor');
+    let instant=null, lastId=null;
+    if (cursor!==null) {
+      const parts=cursor.split('|');
+      if (parts.length!==2 || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(parts[0]) ||
+          !Number.isFinite(Date.parse(parts[0])) || !isUuid(parts[1])) reject(400,'cursor','Cursor de documentos inválido.');
+      [instant,lastId]=parts;
+    }
+    const {rows}=await db.query(
+      `SELECT id,filename AS title,revision,category,size_bytes,updated_at,
+              to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_time
+         FROM vant.documents WHERE tenant_id=$1 AND purpose=$2
+          AND ($3::timestamptz IS NULL OR updated_at<$3 OR (updated_at=$3 AND id>$4::uuid))
+        ORDER BY updated_at DESC,id LIMIT $5`, [tenant,purpose,instant,lastId,limit+1]);
+    const last=rows[limit-1];
+    return [200,{items:rows.slice(0,limit).map(({cursor_time,...item})=>item),
+      nextCursor:rows.length>limit ? last.cursor_time+'|'+last.id : null}];
   }
   const create = path === documentsPath && method === 'POST';
   const id = path.startsWith(documentsPath + '/') ? path.slice(documentsPath.length + 1) : null;
   if (!create && !(isUuid(id) && ['PUT', 'DELETE'].includes(method))) return;
   if (!mayManageTeams(member.role)) reject(403, 'role', 'Gestor ou proprietário obrigatório.');
   if (!create) {
-    const existing = await db.query('SELECT id FROM vant.documents WHERE tenant_id=$1 AND id=$2 AND purpose=$3 FOR UPDATE', [tenant, id, purpose]);
+    const existing = await db.query('SELECT id,revision FROM vant.documents WHERE tenant_id=$1 AND id=$2 AND purpose=$3 FOR UPDATE', [tenant, id, purpose]);
     if (!existing.rowCount) reject(404, 'document', 'Documento não encontrado.');
+    const expected=url.searchParams.get('revision');
+    if (expected!==null) {
+      if (!/^[1-9]\d{0,9}$/.test(expected)) reject(400,'revision','Revisão inválida.');
+      if (Number(expected)!==existing.rows[0].revision) reject(409,'revision','O documento mudou. Atualize a lista e confira a nova revisão.');
+    }
   }
   if (method === 'DELETE') {
     await db.query('DELETE FROM vant.documents WHERE tenant_id=$1 AND id=$2', [tenant, id]);

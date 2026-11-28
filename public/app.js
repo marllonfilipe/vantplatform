@@ -17,13 +17,12 @@ async function api(path,method='GET',body){
   return value;
 }
 function showLogin(){generation++;who=null;el('shell').hidden=true;el('login').hidden=false;if(el('dialog').open)el('dialog').close();}
-const groupNames={'Visão geral':'Principal','Meu desempenho':'Principal','Próximas tarefas':'Operação','Atividades recentes':'Operação','Equipe':'Gestão'};
 function nav(){
   const groups={Principal:['Visão geral','Meu desempenho'],...(extension?.groups??{}),Operação:[...(extension?.groups?.Operação??[]),'Próximas tarefas','Atividades recentes'],Gestão:['Equipe']};
-  const nav=el('navigation');nav.replaceChildren();
+  const nav=el('navigation');nav.replaceChildren();el('context').textContent='';
   for(const [group,labels] of Object.entries(groups)){
     nav.append(node('small',group));
-    for(const name of labels){const b=button(name,()=>view(name));if(name===current)b.setAttribute('aria-current','page');nav.append(b);}
+    for(const name of labels){const b=button(name,()=>view(name));if(name===current){b.setAttribute('aria-current','page');el('context').textContent=group;}nav.append(b);}
   }
 }
 async function boot(){
@@ -58,7 +57,7 @@ function overview(d){
  panel('Recomendações de inteligência',...(d.recommendations?.length?d.recommendations.map(r=>pair(r.title,r.detail)):[empty('Nenhuma recomendação registrada para este contexto.')])));return [metrics(t),grid,...(extension?[button('Abrir copiloto comercial',()=>view('Copiloto comercial'))]:[])];
 }
 async function view(name){
- const seq=++generation;current=name;document.body.classList.remove('mobile-open');nav();el('pageTitle').textContent=name;el('context').textContent=groupNames[name]??'Comercial';main.replaceChildren();status.textContent='Carregando…';
+ const seq=++generation;current=name;document.body.classList.remove('mobile-open');nav();el('pageTitle').textContent=name;main.replaceChildren();status.textContent='Carregando…';
  const filterable=['Visão geral','Meu desempenho','Próximas tarefas','Atividades recentes'].includes(name);el('filters').hidden=!filterable;
  try{
   let content=[];
@@ -114,7 +113,21 @@ el('notifications').onclick=async()=>{
   modal('Alertas da operação',panel('Suas notificações',list),pair('Atividades em atraso',dashboard.totals.overdue),...taskRows(dashboard.next.filter(x=>x.due_at&&new Date(x.due_at)<new Date())));
  }catch(err){status.textContent=err.message;}
 };
-el('search').onsubmit=async e=>{e.preventDefault();try{const result=await api('/search?q='+encodeURIComponent(new FormData(e.target).get('q')));const kinds={leads:'Lead',contacts:'Contato',accounts:'Empresa',deals:'Oportunidade',activities:'Atividade'};modal('Resultados da busca',...(result.items.length?result.items.map(x=>pair(x.name,kinds[x.kind])):[empty('Nenhum registro encontrado.')]));}catch(err){status.textContent=err.message;}};
+el('search').onsubmit=async event=>{
+  event.preventDefault();
+  try {
+    const term=new FormData(event.currentTarget).get('q');
+    const result=await api('/search?q='+encodeURIComponent(term));
+    const kinds={leads:'Lead',contacts:'Contato',accounts:'Empresa',deals:'Oportunidade',activities:'Atividade'};
+    const rows=result.items.map(item=>{
+      if(!extension)return pair(item.name,kinds[item.kind]);
+      const row=node('div',undefined,'row');
+      row.append(button(item.name,()=>extension.openSearchResult(item)),node('span',kinds[item.kind]));
+      return row;
+    });
+    modal('Resultados da busca',...(rows.length?rows:[empty('Nenhum registro encontrado.')]));
+  }catch(error){status.textContent=error.message;}
+};
 const extensions=document.querySelector('meta[name="crm-module"]');
 if(extensions){const {createCrm}=await import('/crm.js');extension=createCrm({api,node,button,pair,panel,empty,modal,money,date,view,getUser:()=>who});}
 try{await boot();}catch(error){showLogin();if(error.message!=='Entre para continuar.' && error.message!=='Sessão expirada ou inválida.')el('loginError').textContent=error.message;}

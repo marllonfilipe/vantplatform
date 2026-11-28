@@ -50,10 +50,13 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   }
   if(kind==='deals'){function stages(id){const s=lists.pipelines.find(p=>p.id===controls.pipeline_id.value)?.stages??[];controls.stage_id.replaceChildren(new Option('Selecione',''),...s.map(r=>new Option(r.name,r.id)));if(id)controls.stage_id.value=id;}
    controls.pipeline_id.onchange=()=>stages();stages(row.stage_id);if(!lists.pipelines.length)f.prepend(empty('Crie um funil antes de cadastrar oportunidades.'));}
-  submit(f,async()=>{const data={};for(const [k,c] of Object.entries(controls)){let v=c.type==='checkbox'?c.checked:c.value;
+  const displayedValue=control=>control.type==='checkbox'?control.checked:control.value;
+  const initial=Object.fromEntries(Object.entries(controls).map(([key,control])=>[key,displayedValue(control)]));
+  submit(f,async()=>{const data={};for(const [k,c] of Object.entries(controls)){let v=displayedValue(c);
+   if(row.id&&v===initial[k])continue;
    if(!row.id&&v==='')continue;if(k==='tags')v=v.split(',').map(t=>t.trim()).filter(Boolean);if(c.type==='number')v=k==='amount_cents'?Math.round(Number(v)*100):Number(v);
    if(c.type==='datetime-local'&&v)v=new Date(v).toISOString();data[k]=v;
-  }await api(path(kind,row.id),row.id?'PATCH':'POST',data);});
+  }if(!row.id||Object.keys(data).length)await api(path(kind,row.id),row.id?'PATCH':'POST',data);});
   modal(row.id?'Editar registro':'Cadastrar registro',f);
  }
  function csv(){const f=node('form',undefined,'stack');f.append(empty('Até 500 linhas. Colunas: nome, email, telefone, origem, segmento, tags e observações. Apenas nome é obrigatória.'));
@@ -452,5 +455,10 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   if(previous.length)pager.append(button('Página anterior',()=>{cursor=previous.pop();return view(active);}));if(result.nextCursor)pager.append(button('Próxima página',()=>{previous.push(cursor);cursor=result.nextCursor;return view(active);}));
   return [bar,filter,wrap,pager];
  }
- return {get groups(){return manager()?{...groups,Financeiro:['Planos comerciais','Histórico de planos','Solicitação de assinatura'],Operação:[...groups.Operação,'Automações','Central de integrações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
+ async function openSearchResult({kind,id}){
+  const record=await api(path(kind,id));
+  await view(entities[kind].label);
+  await detail(kind,record);
+ }
+ return {openSearchResult,get groups(){return manager()?{...groups,Financeiro:['Planos comerciais','Histórico de planos','Solicitação de assinatura'],Operação:[...groups.Operação,'Automações','Central de integrações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
 }
