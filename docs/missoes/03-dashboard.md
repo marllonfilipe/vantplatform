@@ -9,3 +9,5 @@ O período filtra novos leads, receita fechada, conversão e séries temporais. 
 Executar bash scripts/ci.sh no runner descrito em .github/workflows/fundacao.yml. A suíte do dashboard valida agregados com registros persistidos de duas empresas, acesso ao dashboard pelo navegador, alteração de período, resultado de busca, layout móvel e encerramento de sessão. A página inicial é /. Para reproduzir com tenant próprio, seguir docs/infraestrutura.md. Uma conta recém-criada exibe totais zerados. Recomendações dependem das análises que serão produzidas pelo Core.
 
 Validação concluída em [GitHub Actions](https://github.com/marllonfilipe/vantplatform/actions/runs/44596783017).
+
+Na busca global, selecione um lead, empresa, contato, oportunidade ou atividade para abrir sua ficha no módulo correspondente. O cabeçalho exibe o grupo do menu disponível para o papel da sessão. O cenário de regressão em tests/crm.integration.mjs navega da Central de integrações até a ficha de um lead e confere o histórico e o grupo ativo.

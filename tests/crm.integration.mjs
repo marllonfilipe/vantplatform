@@ -178,6 +178,7 @@ test('CRM, persistência e navegação',async t=>{
   browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});const ctx=await browser.newContext();await ctx.addCookies([{name:'vant_session',value:ca.slice(13),url:origin}]);
   const page=await ctx.newPage();await page.goto(origin);await page.getByRole('button',{name:'Central de integrações'}).click();
   await page.getByRole('heading',{name:'Google Sheets',exact:true}).waitFor();
+  assert.equal(await page.locator('#context').textContent(),'Operação');
   await page.getByRole('button',{name:'Consultar planilha'}).waitFor();
   await page.getByRole('heading',{name:'Pipedrive',exact:true}).waitFor();
   await page.getByRole('button',{name:'Consultar organizações do Pipedrive'}).waitFor();
@@ -191,7 +192,15 @@ test('CRM, persistência e navegação',async t=>{
   await page.getByText('Sem entrega confirmada',{exact:true}).waitFor();
   await page.getByRole('button',{name:'Abrir leads'}).click();
   await page.getByRole('button',{name:'Cadastrar registro'}).click();await page.getByLabel('Nome',{exact:true}).fill('Lead pelo navegador');await page.getByRole('button',{name:'Salvar'}).click();
-  await page.getByRole('button',{name:'Lead pelo navegador'}).waitFor();await page.getByRole('button',{name:'Funil de vendas',exact:true}).click();
+  await page.getByRole('button',{name:'Lead pelo navegador'}).waitFor();await page.getByLabel('Busca global').fill('Lead pelo navegador');
+  await page.getByRole('button',{name:'Buscar',exact:true}).click();
+  const dialog=page.getByRole('dialog');
+  await dialog.getByRole('button',{name:'Lead pelo navegador',exact:true}).click();
+  await dialog.getByRole('heading',{name:'Lead pelo navegador',exact:true}).waitFor();
+  await dialog.getByRole('heading',{name:'Histórico',exact:true}).waitFor();
+  assert.equal(await page.locator('#context').textContent(),'Comercial');
+  await dialog.getByRole('button',{name:'Fechar'}).click();
+  await page.getByRole('button',{name:'Funil de vendas',exact:true}).click();
   const updated=page.waitForResponse(r=>r.url().endsWith('/deals/'+deal.id)&&r.request().method()==='PATCH');await page.getByLabel('Mover Contrato anual').selectOption(pipe.stages[0].id);assert.equal((await updated).status(),200);await page.locator('.lane').filter({has:page.getByRole('heading',{name:'Contato',exact:true})}).getByRole('button',{name:'Contrato anual'}).waitFor();
   await page.getByRole('button',{name:'Oportunidades',exact:true}).click();try {await page.getByRole('columnheader',{name:'Probabilidade'}).waitFor({timeout:12000});} catch(error) {throw Error('Tabela do CRM: '+(await page.locator('#pageTitle').innerText())+' / '+(await page.locator('#status').innerText())+' / '+(await page.locator('#content').innerText()).slice(0,400),{cause:error});}
   await page.getByRole('button',{name:'Contrato anual',exact:true}).click();

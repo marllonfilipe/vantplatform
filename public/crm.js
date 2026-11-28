@@ -452,5 +452,10 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   if(previous.length)pager.append(button('Página anterior',()=>{cursor=previous.pop();return view(active);}));if(result.nextCursor)pager.append(button('Próxima página',()=>{previous.push(cursor);cursor=result.nextCursor;return view(active);}));
   return [bar,filter,wrap,pager];
  }
- return {get groups(){return manager()?{...groups,Financeiro:['Planos comerciais','Histórico de planos','Solicitação de assinatura'],Operação:[...groups.Operação,'Automações','Central de integrações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
+ async function openSearchResult({kind,id}){
+  const record=await api(path(kind,id));
+  await view(entities[kind].label);
+  await detail(kind,record);
+ }
+ return {openSearchResult,get groups(){return manager()?{...groups,Financeiro:['Planos comerciais','Histórico de planos','Solicitação de assinatura'],Operação:[...groups.Operação,'Automações','Central de integrações'],Inteligência:[...groups.Inteligência,'Supervisão de agentes']}:groups;},page};
 }

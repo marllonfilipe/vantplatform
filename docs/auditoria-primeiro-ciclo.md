@@ -253,3 +253,4 @@ Critérios originais de aceite
 
 - 02 · Iniciado o ensaio com a API, uma equipe criada antes do dump e login novo no banco restaurado. Verificações locais de sintaxe Bash e Node aprovadas. A execução PostgreSQL está atribuída ao CI do PR #23.
 - 03 · Próxima correção: derivar o cabeçalho do menu efetivo e ligar resultados da busca às fichas do CRM. Validar no Chromium em contexto de gestor.
+- 03 · Correção da navegação e abertura das fichas publicada para validação. Sintaxe dos módulos aprovada. O teste de regressão usa a Central, a busca, a ficha e o histórico no Chromium real.
