@@ -205,6 +205,7 @@ test('CRM, persistência e navegação',async t=>{
   await page.getByRole('button',{name:'Oportunidades',exact:true}).click();try {await page.getByRole('columnheader',{name:'Probabilidade'}).waitFor({timeout:12000});} catch(error) {throw Error('Tabela do CRM: '+(await page.locator('#pageTitle').innerText())+' / '+(await page.locator('#status').innerText())+' / '+(await page.locator('#content').innerText()).slice(0,400),{cause:error});}
   await page.getByRole('button',{name:'Contrato anual',exact:true}).click();
   await page.getByRole('button',{name:'Editar',exact:true}).click();
+  await call('deals/'+deal.id,'PATCH',{probability:76});
   await page.getByLabel('Canal comercial').selectOption('email');
   const closeDate=page.getByLabel('Previsão de fechamento',{exact:true});
   assert.equal(await closeDate.inputValue(),'2028-02-29','Preservar a data civil ao abrir a edição');
@@ -213,5 +214,16 @@ test('CRM, persistência e navegação',async t=>{
   await page.getByRole('button',{name:'Contrato anual renovado',exact:true}).waitFor();
   assert.equal((await call('deals/'+deal.id)).close_on,'2028-02-29');
   assert.equal((await call('deals/'+deal.id)).sales_channel,'email');
+  assert.equal((await call('deals/'+deal.id)).probability,76,'Preservar a atualização de outro operador');
+  const due='2026-12-03T15:45:32.123Z';
+  const appointment=await call('activities','POST',{title:'Ligar para Alfa',kind:'call',due_at:due},201);
+  await page.getByRole('button',{name:'Agenda comercial',exact:true}).click();
+  await page.getByRole('button',{name:'Ligar para Alfa',exact:true}).click();
+  await dialog.getByRole('button',{name:'Editar',exact:true}).click();
+  await dialog.getByLabel('Título ou cargo',{exact:true}).fill('Ligar para Alfa amanhã');
+  await dialog.getByRole('button',{name:'Salvar',exact:true}).click();
+  await page.getByRole('button',{name:'Ligar para Alfa amanhã',exact:true}).waitFor();
+  assert.equal((await call('activities/'+appointment.id)).due_at,due,'Preservar o instante ao editar outro campo');
+
  }finally{await browser?.close();if(server.listening)await new Promise(ok=>server.close(ok));await pool.end();await admin.end();}
 });
