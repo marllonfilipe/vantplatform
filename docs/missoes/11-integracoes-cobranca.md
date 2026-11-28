@@ -130,3 +130,7 @@ A Central oferece uma prévia de empresas ativas por conta autorizada. O [roteir
 ## Consulta do Pipedrive
 
 A gestão pode consultar ID e nome de até 50 organizações da conta da empresa. O [roteiro do Pipedrive](11-pipedrive.md) descreve configuração, permissões, histórico e homologação externa.
+
+## Consulta de empresas do RD Station CRM
+
+O painel de gestão permite consultar a primeira página de empresas da conta RD Station CRM do tenant. A ação usa o leitor autorizado da Central, registra a tentativa e mostra apenas o nome e o identificador. Veja [configuração e homologação](11-rd-station.md).

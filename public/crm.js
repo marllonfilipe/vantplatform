@@ -324,7 +324,10 @@ export function createCrm({api,node,button,pair,panel,empty,modal,money,date,vie
   const pipedrive=crmPanel(result.pipedrive,{provider:'pipedrive',title:'Pipedrive',lastLabel:'Última consulta de organizações',
    emptyHistory:'Sem consulta de organizações confirmada',buttonText:'Consultar organizações do Pipedrive',dialogTitle:'Organizações do Pipedrive',
    emptyList:'Nenhuma organização retornada.',rows:data=>data.organizations.map(org=>[org.name,'ID '+org.id])});
-  return [csv,hook,sheets,calendar,hubspot,pipedrive];
+  const rdStation=crmPanel(result.rd_station,{provider:'rd-station',title:'RD Station CRM',lastLabel:'Última consulta de empresas',
+   emptyHistory:'Sem consulta de empresas confirmada',buttonText:'Consultar empresas do RD Station CRM',dialogTitle:'Empresas do RD Station CRM',
+   emptyList:'Nenhuma empresa retornada.',rows:data=>data.organizations.map(org=>[org.name,'ID '+org.id])});
+  return [csv,hook,sheets,calendar,hubspot,pipedrive,rdStation];
  }
  async function subscriptionPage(){
   const path='/billing/subscription-requests';

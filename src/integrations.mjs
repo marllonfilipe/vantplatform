@@ -3,11 +3,13 @@ import {ApiError,reject} from './http.mjs';
 import {audit,withTenant} from './db.mjs';
 import {tenantSheet,readSheet} from './google-sheets.mjs';
 
+import {tenantRdStation,readRdStation} from './rd-station.mjs';
 import {tenantPipedrive,readPipedrive} from './pipedrive.mjs';
 import {tenantHubspot,readHubspot} from './hubspot.mjs';
 import {tenantCalendar,readCalendar} from './google-calendar.mjs';
 
 const readers = new Map([
+  ['/api/v1/integrations/rd-station/read',{name:'rdstation',configure:tenantRdStation,read:readRdStation}],
   ['/api/v1/integrations/pipedrive/read',{name:'pipedrive',configure:tenantPipedrive,read:readPipedrive}],
   ['/api/v1/integrations/hubspot/read',{name:'hubspot',configure:tenantHubspot,read:readHubspot}],
   ['/api/v1/integrations/google-sheets/read',{name:'sheets',configure:tenantSheet,read:async config=>({range:config.range,values:await readSheet(config)})}],
@@ -76,5 +78,6 @@ export async function integrationRoutes(ctx){
   const calendar=await readerSummary(db,tenant,'calendar',tenantCalendar);
   const hubspot=await readerSummary(db,tenant,'hubspot',tenantHubspot);
   const pipedrive=await readerSummary(db,tenant,'pipedrive',tenantPipedrive);
-  return [200,{google_calendar:calendar,google_sheets:sheets,hubspot,pipedrive,csv:{imports:csv.rows,last_failure:failure.rows[0]??null},webhook:{last_delivery:last.rows[0].delivered_at,attempts:attempts.rows}}];
+  const rd_station=await readerSummary(db,tenant,'rdstation',tenantRdStation);
+  return [200,{rd_station,google_calendar:calendar,google_sheets:sheets,hubspot,pipedrive,csv:{imports:csv.rows,last_failure:failure.rows[0]??null},webhook:{last_delivery:last.rows[0].delivered_at,attempts:attempts.rows}}];
 }
