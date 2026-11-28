@@ -1,6 +1,7 @@
 export function createMemoryPage({api, node, button, panel, empty, modal, view, getUser}) {
   const name = 'Memória comercial';
   const endpoint = '/core/documents';
+  const versioned=record=>endpoint+'/'+record.id+'?revision='+encodeURIComponent(record.revision);
   function field(form, label, control) {
     const text = node('label', label);
     text.append(control);
@@ -40,7 +41,7 @@ export function createMemoryPage({api, node, button, panel, empty, modal, view, 
     content.maxLength = 12000;
     submit(form,'Indexar documento',async () => {
       const data = {title:title.value, content:content.value, category:category.value};
-      await api(record ? endpoint+'/'+record.id : endpoint, record ? 'PUT' : 'POST', data);
+      await api(record ? versioned(record) : endpoint, record ? 'PUT' : 'POST', data);
       await refresh();
     });
     modal(record ? 'Substituir documento' : 'Adicionar documento', form);
@@ -49,14 +50,14 @@ export function createMemoryPage({api, node, button, panel, empty, modal, view, 
     const form = node('form',undefined,'stack');
     form.append(node('p','Excluir “'+record.title+'” e seus trechos da busca?'));
     submit(form,'Confirmar exclusão',async () => {
-      await api(endpoint+'/'+record.id,'DELETE');
+      await api(versioned(record),'DELETE');
       await refresh();
     });
     modal('Excluir documento',form);
   }
   return async function page() {
     const manages = ['owner','manager'].includes(getUser().role);
-    const {items} = await api(endpoint);
+    const first = await api(endpoint);
     const form = node('form',undefined,'stack');
     const query = field(form,'Pesquisar na memória comercial',node('input'));
     query.maxLength = 320;
@@ -67,13 +68,28 @@ export function createMemoryPage({api, node, button, panel, empty, modal, view, 
       const hits = await api('/core/search','POST',{query:query.value});
       results.replaceChildren(...(hits.items.length ? hits.items.map(hit=>panel(hit.title,node('p',hit.content))) : [empty('Nenhum trecho encontrado.')]));
     });
-    const list = items.map(record => {
-      const row = node('div',undefined,'row');
-      row.append(node('span',record.title));
-      if (manages) row.append(button('Substituir',()=>edit(record)),button('Excluir',()=>remove(record)));
-      return row;
-    });
-    const documents = panel('Documentos recentes',...(list.length ? list : [empty('Nenhum documento indexado.')]));
+    const documents=panel('Documentos recentes');
+    function appendPage(page) {
+      for (const record of page.items) {
+        const row=node('div',undefined,'row');
+        row.append(node('span',record.title));
+        if (manages) row.append(button('Substituir',()=>edit(record)),button('Excluir',()=>remove(record)));
+        documents.append(row);
+      }
+      if (page.nextCursor) {
+        const more=button('Ver documentos anteriores',async()=>{
+          more.disabled=true;
+          try {
+            const next=await api(endpoint+'?cursor='+encodeURIComponent(page.nextCursor));
+            more.remove();
+            appendPage(next);
+          } finally {more.disabled=false;}
+        });
+        documents.append(more);
+      }
+    }
+    appendPage(first);
+    if (!first.items.length) documents.append(empty('Nenhum documento indexado.'));
     if (manages) documents.prepend(button('Adicionar documento',()=>edit()));
     const sections = [documents,panel('Busca semântica',form,results)];
     if (manages) {

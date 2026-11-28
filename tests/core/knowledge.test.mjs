@@ -71,9 +71,20 @@ test('memória comercial via HTTP com inferência local, PostgreSQL e duas empre
       await admin.query('COMMIT');
     } catch(error){await admin.query('ROLLBACK');throw error;}
 
+    const seed=await admin.query("update vant.documents set updated_at='2026-11-01T00:00:00.123456Z' where tenant_id=$1 and purpose='commercial_memory' returning id", [tenants[0]]);
+    const first=await (await call(path+'?limit=1','GET',owner)).json();
+    assert.ok(first.nextCursor);
+    const page2=await (await call(path+'?limit=1&cursor='+encodeURIComponent(first.nextCursor),'GET',owner)).json();
+    assert.equal(page2.nextCursor,null);
+    assert.deepEqual([first.items[0].id,page2.items[0].id],seed.rows.map(r=>r.id).sort());
+    assert.equal((await call(path+'?cursor=inválido','GET',owner)).status,400);
+    assert.equal((await call(path+'?limit=101','GET',owner)).status,400);
     assert.equal((await call(path+'/'+id,'PUT',other,data)).status,404);
     assert.equal((await call(path+'/'+id,'DELETE',other)).status,404);
-    assert.equal((await call(path+'/'+id,'PUT',owner,{...data,content:'Novo prazo de sessenta dias.'})).status,200);
+    assert.equal((await call(path+'/'+id+'?revision=1','PUT',owner,{...data,content:'Novo prazo de sessenta dias.'})).status,200);
+    assert.equal((await call(path+'/'+id+'?revision=1','PUT',owner,data)).status,409);
+    assert.equal((await call(path+'/'+id+'?revision=1','DELETE',owner)).status,409);
+    assert.equal((await call(path+'/'+id+'?revision=2','DELETE',other)).status,404);
     assert.equal((await search(owner)).find(row=>row.document_id===id).content,'Novo prazo de sessenta dias.');
     const {rows:[member]} = await admin.query("SELECT id FROM vant.members WHERE tenant_id=$1 AND role='owner'",[tenants[0]]);
     const {rows:[lead]} = await admin.query("INSERT INTO vant.leads(tenant_id,owner_id,name,segment,phone) VALUES($1,$2,'Compras','Varejo','0000') RETURNING id",[tenants[0],member.id]);
