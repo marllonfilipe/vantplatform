@@ -13,3 +13,9 @@ Os testes da fundação verificam dois usuários na mesma empresa, outra empresa
 Em **Gestão → Unidades**, gestores e proprietários cadastram e editam filiais, departamentos e unidades comerciais da empresa. Um nome pode existir em categorias diferentes. Dentro de uma categoria a comparação ignora maiúsculas e minúsculas. Os registros possuem revisão para proteger edições concorrentes.
 
 A API autenticada lista em `GET /api/v1/business-units` com `limit` e `cursor`. O cadastro aceita `POST` com `id` UUID, `name` e `kind` (`branch`, `department` ou `commercial`). Repetir a mesma referência e conteúdo reutiliza o cadastro. Alterações usam `PATCH /api/v1/business-units/{id}` com nome, tipo e revisão. A migration 065 aplica isolamento por empresa; o backend registra criação e atualização na auditoria. Nesta etapa as unidades formam um cadastro próprio. A atribuição de equipes, pipelines, indicadores e restrições por unidade segue em desenvolvimento.
+
+## Equipes por unidade
+
+Em **Gestão → Unidades → Gerenciar equipes**, gestores podem vincular uma equipe disponível ou desvincular uma equipe da unidade. Equipes previamente cadastradas começam sem unidade. O vínculo organiza as equipes e conserva os acessos do CRM já existentes.
+
+O recurso `GET /api/v1/business-units/{unidade}/teams` lista, com paginação, as equipes vinculadas àquela unidade e as que estão disponíveis. O gestor usa `PUT` com corpo vazio ou `DELETE` em `/api/v1/business-units/{unidade}/teams/{equipe}`. Para transferir, desvincule da unidade anterior e depois vincule à nova. Um vínculo concorrente recebe conflito. Cada alteração efetiva gera uma entrada de auditoria com as referências da equipe e da unidade. A chave estrangeira composta garante que ambas pertençam à mesma empresa.

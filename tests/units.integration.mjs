@@ -48,6 +48,24 @@ test('unidades: gestão, isolamento, idempotência, revisão e cadastro no naveg
     assert.equal((await request(path+'/'+item.id,'PATCH',patch,ca)).status,200);
     assert.equal((await request(path+'/'+item.id,'PATCH',{...patch,name:'Desatualizada'},ca)).status,409);
     assert.equal((await admin.query("SELECT 1 FROM vant.audit WHERE tenant_id=$1 AND action='business_unit.updated'",[a])).rowCount,1);
+    const createTeam=async(cookie,name)=>(await (await request('teams','POST',{name},cookie)).json()).id;
+    const team=await createTeam(ca,'Equipe Norte'),outsideTeam=await createTeam(cb,'Outro tenant');
+    const department=[first.items[0],next.items[0]].find(row=>row.kind==='department');
+    const teamsPath=id=>path+'/'+id+'/teams';
+    const unitTeam=teamsPath(item.id)+'/'+team;
+    assert.deepEqual((await (await request(teamsPath(item.id),'GET',undefined,ca)).json()).items,[{id:team,name:'Equipe Norte',unit_id:null}]);
+    assert.equal((await request(unitTeam,'PUT',{},viewer)).status,403);
+    assert.equal((await request(teamsPath(item.id)+'/'+outsideTeam,'PUT',{},ca)).status,404);
+    const routes=[unitTeam,teamsPath(department.id)+'/'+team];
+    const competing=await Promise.all(routes.map(route=>request(route,'PUT',{},ca)));
+    assert.deepEqual(competing.map(r=>r.status).sort(),[204,409]);
+    const winning=routes[competing.findIndex(r=>r.status===204)],losing=routes[competing.findIndex(r=>r.status===409)];
+    assert.equal((await request(winning,'PUT',{},ca)).status,204);
+    assert.equal((await request(losing,'DELETE',undefined,ca)).status,409);
+    assert.equal((await request(winning,'DELETE',undefined,ca)).status,204);
+    assert.equal((await request(winning,'DELETE',undefined,ca)).status,204);
+    const moves=await admin.query("SELECT action FROM vant.audit WHERE tenant_id=$1 AND action LIKE 'team.unit_%' ORDER BY id",[a]);
+    assert.deepEqual(moves.rows.map(r=>r.action),['team.unit_assigned','team.unit_removed']);
     browser=await chromium.launch({executablePath:process.env.CHROME_BIN??'/usr/bin/google-chrome',args:['--no-sandbox']});
     const context=await browser.newContext();await context.addCookies([{name:'vant_session',value:ca.slice(13),url:origin}]);
     const page=await context.newPage();await page.goto(origin);
@@ -56,7 +74,12 @@ test('unidades: gestão, isolamento, idempotência, revisão e cadastro no naveg
     await page.getByLabel('Nome da unidade').fill('Comercial Sul');
     await page.getByLabel('Tipo de unidade').selectOption('commercial');
     await page.getByRole('button',{name:'Salvar unidade'}).click();
-    await page.getByRole('heading',{name:'Comercial Sul',exact:true}).waitFor();
+    const created=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Comercial Sul',exact:true})});
+    await created.getByRole('button',{name:'Gerenciar equipes'}).click();
+    await page.getByRole('dialog').getByRole('button',{name:'Vincular',exact:true}).click();
+    await page.getByText('Equipe vinculada.',{exact:true}).waitFor();
+    await page.getByRole('dialog').getByRole('button',{name:'Desvincular',exact:true}).click();
+    await page.getByText('Equipe desvinculada.',{exact:true}).waitFor();
   }finally{
     await browser?.close();if(server.listening)await new Promise(resolve=>server.close(resolve));await pool.end();await admin.end();
   }

@@ -282,3 +282,5 @@ Missão 11 · franquia diária de mensagens de saída da Inbox implementada com 
 Missão 12 · gestão das próprias sessões implementada com API, perfil e auditoria transacional. A matriz de abertura descrevia a missão como futura. Esta subetapa passou à implementação e as funcionalidades multiunidade permanecem pendentes. [Relatório técnico](missoes/12-governanca.md).
 
 Missão 12 · cadastro das três categorias de unidades por empresa, edição com revisão e auditoria implementados. A atribuição de equipes e os filtros de acesso por unidade continuam parciais ou por iniciar. [Código e critérios](missoes/12-governanca.md#cadastro-de-unidades).
+
+Missão 12 · equipes vinculadas por unidade com chave estrangeira composta, mudança auditada e disputa de vínculo testada pela suíte de integração. A estrutura não concede acesso a dados comerciais de outra equipe ou empresa. [Roteiro](missoes/12-governanca.md#equipes-por-unidade).

@@ -5,10 +5,39 @@ import {isUuid,mayManageTeams} from './security.mjs';
 const path='/api/v1/business-units';
 const fields='id,name,kind,revision';
 
-export async function businessUnits({url,db,tenant,member,method,body,requestId}){
+async function unitTeams({db,tenant,member,url,method,requestId},unitId,teamId){
+  if(!isUuid(unitId)||(teamId!==undefined&&!isUuid(teamId)))reject(400,'reference','Referência inválida.');
+  unitId=unitId.toLowerCase();
+  if(teamId!==undefined)teamId=teamId.toLowerCase();
+  const unit=await db.query('SELECT 1 FROM vant.business_units WHERE tenant_id=$1 AND id=$2',[tenant,unitId]);
+  if(!unit.rowCount)reject(404,'unit','Unidade não encontrada.');
+  if(!teamId&&method==='GET'){
+    const limit=pagination(url.searchParams),cursor=url.searchParams.get('cursor');
+    if(cursor!==null&&!isUuid(cursor))reject(400,'cursor','Referência de página inválida.');
+    const {rows}=await db.query(`SELECT id,name,unit_id FROM vant.teams WHERE tenant_id=$1
+      AND (unit_id=$2 OR unit_id IS NULL) AND ($3::uuid IS NULL OR id>$3) ORDER BY id LIMIT $4`,
+      [tenant,unitId,cursor,limit+1]);
+    const items=rows.slice(0,limit);
+    return [200,{items,nextCursor:rows.length>limit?items.at(-1).id:null}];
+  }
+  if(!teamId||!['PUT','DELETE'].includes(method))reject(405,'method','Método indisponível.');
+  const {rows}=await db.query('SELECT unit_id FROM vant.teams WHERE tenant_id=$1 AND id=$2 FOR UPDATE',[tenant,teamId]);
+  if(!rows.length)reject(404,'team','Equipe não encontrada.');
+  const current=rows[0].unit_id,target=method==='PUT'?unitId:null;
+  if(current===target)return [204];
+  if(current!==null&&current!==unitId)reject(409,'allocated','A equipe está vinculada a outra unidade.');
+  await db.query('UPDATE vant.teams SET unit_id=$3 WHERE tenant_id=$1 AND id=$2',[tenant,teamId,target]);
+  await audit(db,tenant,member.id,target?'team.unit_assigned':'team.unit_removed',teamId+'/'+unitId,requestId);
+  return [204];
+}
+
+export async function businessUnits(ctx){
+  const {url,db,tenant,member,method,body,requestId}=ctx;
   const resource=url.pathname;
   if(resource!==path&&!resource.startsWith(path+'/'))return;
   if(!mayManageTeams(member.role))reject(403,'permission','A gestão de unidades exige perfil de gestão.');
+  const parts=resource.slice(path.length+1).split('/');
+  if(parts[1]==='teams'&&parts.length<=3)return unitTeams(ctx,parts[0],parts[2]);
   if(resource===path&&method==='GET'){
     const limit=pagination(url.searchParams),cursor=url.searchParams.get('cursor');
     if(cursor!==null&&!isUuid(cursor))reject(400,'cursor','Referência de página inválida.');
